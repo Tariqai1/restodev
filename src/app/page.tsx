@@ -1006,6 +1006,105 @@ export default function Home() {
                   <span className="hidden sm:inline">Captain Verification: {features?.waiterOrderApproval ? "ON" : "OFF"}</span>
                 </button>
 
+                {/* Quick Adds Carousel Toggle (Default OFF) */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const current = Boolean(features?.quickAdds);
+                    const next = !current;
+                    try {
+                      const res = await fetch("/api/restaurant/features", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ quickAdds: next }),
+                      });
+                      if (res.ok) {
+                        setFeatures((prev) => (prev ? { ...prev, quickAdds: next } : null));
+                        notify(next ? "Quick Adds Carousel Enabled on Table Menu" : "Quick Adds Carousel Disabled");
+                      }
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  style={{
+                    backgroundColor: features?.quickAdds ? "#FFF8E1" : "#F5F5F5",
+                    color: features?.quickAdds ? "#B78103" : "#757575",
+                    borderColor: features?.quickAdds ? "#FFE082" : "#E0E0E0",
+                    borderRadius: "5px",
+                  }}
+                  title="Toggle Quick Adds Carousel on Diner Table Menu (Rotis, Beverages & Extras)"
+                >
+                  <span>⚡</span>
+                  <span className="hidden sm:inline">Quick Adds: {features?.quickAdds ? "ON" : "OFF"}</span>
+                </button>
+
+                {/* Table Footer Toggle (Default OFF) */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const current = Boolean(features?.showTableFooter);
+                    const next = !current;
+                    try {
+                      const res = await fetch("/api/restaurant/features", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ showTableFooter: next }),
+                      });
+                      if (res.ok) {
+                        setFeatures((prev) => (prev ? { ...prev, showTableFooter: next } : null));
+                        notify(next ? "Table Menu Footer Enabled" : "Table Menu Footer Disabled");
+                      }
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  style={{
+                    backgroundColor: features?.showTableFooter ? "#E3F2FD" : "#F5F5F5",
+                    color: features?.showTableFooter ? "#1565C0" : "#757575",
+                    borderColor: features?.showTableFooter ? "#90CAF9" : "#E0E0E0",
+                    borderRadius: "5px",
+                  }}
+                  title="Toggle Restaurant Info & Legal Footer on Customer Table Screen"
+                >
+                  <span>📄</span>
+                  <span className="hidden sm:inline">Footer: {features?.showTableFooter ? "ON" : "OFF"}</span>
+                </button>
+
+                {/* Half & Full Portions Toggle (Default ON) */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const current = features?.halfFullPortions !== false;
+                    const next = !current;
+                    try {
+                      const res = await fetch("/api/restaurant/features", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ halfFullPortions: next }),
+                      });
+                      if (res.ok) {
+                        setFeatures((prev) => (prev ? { ...prev, halfFullPortions: next } : null));
+                        notify(next ? "Half & Full Portions Enabled" : "Single Dish Pricing Enabled (Portions Disabled)");
+                      }
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  style={{
+                    backgroundColor: features?.halfFullPortions !== false ? "#EDE7F6" : "#F5F5F5",
+                    color: features?.halfFullPortions !== false ? "#4A148C" : "#757575",
+                    borderColor: features?.halfFullPortions !== false ? "#D1C4E9" : "#E0E0E0",
+                    borderRadius: "5px",
+                  }}
+                  title="Toggle Half & Full Portion selector on Customer Dishes"
+                >
+                  <span>⚖️</span>
+                  <span className="hidden sm:inline">Half/Full: {features?.halfFullPortions !== false ? "ON" : "OFF"}</span>
+                </button>
+
                 {/* Live Order Journey UX Layout Switcher */}
                 <button
                   type="button"

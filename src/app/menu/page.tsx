@@ -23,6 +23,7 @@ type MenuItem = {
   is_available: boolean;
   is_bestseller: boolean;
   special_tag?: string | null;
+  has_half_portion?: boolean;
   photo_url: string | null;
 };
 
@@ -79,6 +80,7 @@ export default function MenuManagementPage() {
     isVeg: true,
     isBestseller: false,
     specialTag: "",
+    hasHalfPortion: false,
     photoUrl: "",
   });
 
@@ -92,6 +94,7 @@ export default function MenuManagementPage() {
     isVeg: true,
     isBestseller: false,
     specialTag: "",
+    hasHalfPortion: false,
     photoUrl: "",
   });
 
@@ -275,6 +278,7 @@ export default function MenuManagementPage() {
       isVeg: item.is_veg,
       isBestseller: item.is_bestseller,
       specialTag: item.special_tag || (item.is_bestseller ? "Chef's Special" : ""),
+      hasHalfPortion: Boolean(item.has_half_portion),
       photoUrl: item.photo_url || "",
     });
     setInlineCategoryMode(false);
@@ -407,6 +411,7 @@ export default function MenuManagementPage() {
           isVeg: formData.isVeg,
           isBestseller: Boolean(formData.specialTag) || formData.isBestseller,
           specialTag: formData.specialTag || (formData.isBestseller ? "Chef's Special" : null),
+          hasHalfPortion: formData.hasHalfPortion,
           photoUrl: formData.photoUrl || null,
         }),
       });
@@ -424,6 +429,7 @@ export default function MenuManagementPage() {
         isVeg: true,
         isBestseller: false,
         specialTag: "",
+        hasHalfPortion: false,
         photoUrl: "",
       });
       showToast(`Dish "${data.item?.name || "Dish"}" created successfully!`);
@@ -455,6 +461,7 @@ export default function MenuManagementPage() {
           isVeg: editFormData.isVeg,
           isBestseller: Boolean(editFormData.specialTag) || editFormData.isBestseller,
           specialTag: editFormData.specialTag || (editFormData.isBestseller ? "Chef's Special" : null),
+          hasHalfPortion: editFormData.hasHalfPortion,
           photoUrl: editFormData.photoUrl || null,
         }),
       });
@@ -1012,8 +1019,13 @@ export default function MenuManagementPage() {
 
                         {/* Price */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
-                          <div className="font-mono font-black text-white text-sm">
-                            ₹{item.price}
+                          <div className="font-mono font-black text-white text-sm flex items-center gap-1.5">
+                            <span>₹{item.price}</span>
+                            {item.has_half_portion && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/20 text-amber-300 border border-amber-500/30" title={`Half: ₹${Math.round(item.price * 0.6)}`}>
+                                ½ Half (₹{Math.round(item.price * 0.6)})
+                              </span>
+                            )}
                           </div>
                           {item.cost_price && (
                             <div className="text-[10px] font-mono text-slate-500">
@@ -1128,8 +1140,11 @@ export default function MenuManagementPage() {
                     </div>
 
                     {/* Price Tag Overlay */}
-                    <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-700/80 text-white font-mono font-black text-sm">
-                      ₹{item.price}
+                    <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-700/80 text-white font-mono font-black text-xs flex items-center gap-1">
+                      <span>₹{item.price}</span>
+                      {item.has_half_portion && (
+                        <span className="text-[9px] text-amber-400 font-bold">½</span>
+                      )}
                     </div>
                   </div>
 
@@ -1340,6 +1355,32 @@ export default function MenuManagementPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Half Portion Option Toggle */}
+                <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                      <span>⚖️</span>
+                      <span>Offer Half Portion (60% Price)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {formData.hasHalfPortion
+                        ? `Half portion enabled at ₹${Math.round(Number(formData.price || 0) * 0.6 || 0)}. Diners can select Half or Full.`
+                        : "Only standard full price will be offered on QR menu."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, hasHalfPortion: !formData.hasHalfPortion })}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ml-3 ${
+                      formData.hasHalfPortion
+                        ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                    }`}
+                  >
+                    {formData.hasHalfPortion ? "✓ HALF ENABLED" : "FULL ONLY"}
+                  </button>
                 </div>
 
                 {/* Cloudinary Dish Photo Upload */}
@@ -1609,6 +1650,32 @@ export default function MenuManagementPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Half Portion Option Toggle */}
+                <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                      <span>⚖️</span>
+                      <span>Offer Half Portion (60% Price)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {editFormData.hasHalfPortion
+                        ? `Half portion enabled at ₹${Math.round(Number(editFormData.price || 0) * 0.6 || 0)}. Diners can select Half or Full.`
+                        : "Only standard full price will be offered on QR menu."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditFormData({ ...editFormData, hasHalfPortion: !editFormData.hasHalfPortion })}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ml-3 ${
+                      editFormData.hasHalfPortion
+                        ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                    }`}
+                  >
+                    {editFormData.hasHalfPortion ? "✓ HALF ENABLED" : "FULL ONLY"}
+                  </button>
                 </div>
 
                 {/* Dish Photo Uploader */}

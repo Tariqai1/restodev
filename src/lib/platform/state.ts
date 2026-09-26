@@ -92,6 +92,9 @@ export type RestaurantFeatures = {
   feedbackReview: boolean;    // ⭐ 5-star Google review booster
   loyaltyOffers?: boolean;    // 🎁 Dynamic discount banner, scratch card & referrals
   waiterOrderApproval?: boolean; // 👨‍💼 Captain/waiter verification required before kitchen dispatch
+  quickAdds?: boolean;           // ⚡ 1-Tap fast adds strip for rotis, beverages & extras (Default: false)
+  showTableFooter?: boolean;     // 📄 Table Page Footer showing restaurant info & legal (Default: false)
+  halfFullPortions?: boolean;    // ⚖️ Half & Full portion selector (Default: true)
   persistentAlarm?: boolean;     // 🚨 Swiggy/Zomato style repeating acoustic alarm until acknowledged
   alarmEscalationSec?: number;   // ⏱️ Seconds before escalating to Manager (Default: 90)
   whatsappAlerts?: boolean;      // 📱 Automated WhatsApp Captain / Group Dispatch
@@ -113,6 +116,9 @@ export const DEFAULT_RESTAURANT_FEATURES: RestaurantFeatures = {
   feedbackReview: true,
   loyaltyOffers: true,
   waiterOrderApproval: true,
+  quickAdds: false,
+  showTableFooter: false,
+  halfFullPortions: true,
   persistentAlarm: true,
   alarmEscalationSec: 90,
   whatsappAlerts: false,
@@ -172,6 +178,7 @@ export type PlatformState = {
   orderPrepEstimates?: Record<string, OrderPrepEstimate>;
   restaurantPhones?: Record<string, string>;
   dishSpecialTags?: Record<string, string>;
+  dishHalfPortions?: Record<string, boolean>;
   pendingOrderApprovals?: Record<string, PendingOrderApprovalBatch>;
 };
 
@@ -211,6 +218,7 @@ let memoryState: PlatformState = {
   orderPrepEstimates: {},
   restaurantPhones: {},
   dishSpecialTags: {},
+  dishHalfPortions: {},
   pendingOrderApprovals: {},
 };
 
@@ -676,6 +684,25 @@ export function setDishSpecialTag(dishId: string, tag: string | null): void {
   savePlatformState(state);
 }
 
+export function getDishHalfPortion(dishId: string): boolean | null {
+  if (!dishId) return null;
+  const state = getPlatformState();
+  if (state.dishHalfPortions && dishId in state.dishHalfPortions) {
+    return Boolean(state.dishHalfPortions[dishId]);
+  }
+  return null;
+}
+
+export function setDishHalfPortion(dishId: string, enabled: boolean): void {
+  if (!dishId) return;
+  const state = getPlatformState();
+  if (!state.dishHalfPortions) {
+    state.dishHalfPortions = {};
+  }
+  state.dishHalfPortions[dishId] = enabled;
+  savePlatformState(state);
+}
+
 export function registerPendingOrderBatch(
   batch: Omit<PendingOrderApprovalBatch, "id" | "status" | "createdAt">
 ): PendingOrderApprovalBatch {
@@ -743,5 +770,57 @@ export function rejectOrderBatch(batchId: string, reason?: string): PendingOrder
   return batch;
 }
 
+export function removeItemFromPendingBatch(
+  itemId: string,
+  unitPrice: number,
+  qty: number
+): boolean {
+  const state = getPlatformState();
+  if (!state.pendingOrderApprovals) return false;
+  let modified = false;
 
+  for (const batch of Object.values(state.pendingOrderApprovals)) {
+    if (batch.status === "awaiting_approval" && batch.itemIds.includes(itemId)) {
+      batch.itemIds = batch.itemIds.filter((id) => id !== itemId);
+      batch.totalAmount = Math.max(0, batch.totalAmount - (unitPrice * qty));
+      batch.totalItems = Math.max(0, batch.totalItems - qty);
+      modified = true;
 
+      // If all items were removed from this verification batch, mark it rejected/cancelled
+      if (batch.itemIds.length === 0) {
+        batch.status = "rejected";
+        batch.rejectedReason = "All items cancelled by customer before captain verification";
+      }
+    }
+  }
+
+  if (modified) {
+    savePlatformState(state);
+  }
+  return modified;
+}
+
+export function updateItemQtyInPendingBatch(
+  itemId: string,
+  oldQty: number,
+  newQty: number,
+  unitPrice: number
+): boolean {
+  const state = getPlatformState();
+  if (!state.pendingOrderApprovals) return false;
+  let modified = false;
+  const diff = newQty - oldQty;
+
+  for (const batch of Object.values(state.pendingOrderApprovals)) {
+    if (batch.status === "awaiting_approval" && batch.itemIds.includes(itemId)) {
+      batch.totalAmount = Math.max(0, batch.totalAmount + (unitPrice * diff));
+      batch.totalItems = Math.max(0, batch.totalItems + diff);
+      modified = true;
+    }
+  }
+
+  if (modified) {
+    savePlatformState(state);
+  }
+  return modified;
+}

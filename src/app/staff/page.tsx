@@ -24,8 +24,8 @@ type StaffMember = {
 
 const roleBadges: Record<string, { label: string; color: string; bg: string; border: string }> = {
   owner: { label: "Owner", color: "text-amber-300", bg: "bg-amber-950/40", border: "border-amber-800/60" },
-  admin: { label: "Administrator", color: "text-purple-300", bg: "bg-purple-950/40", border: "border-purple-800/60" },
-  manager: { label: "Manager", color: "text-indigo-300", bg: "bg-indigo-950/40", border: "border-indigo-800/60" },
+  admin: { label: "Administrator", color: "text-slate-300", bg: "bg-slate-900/60", border: "border-slate-700/60" },
+  manager: { label: "Manager", color: "text-zinc-300", bg: "bg-zinc-900/60", border: "border-zinc-700/60" },
   captain: { label: "Captain", color: "text-blue-300", bg: "bg-blue-950/40", border: "border-blue-800/60" },
   cashier: { label: "Cashier", color: "text-emerald-300", bg: "bg-emerald-950/40", border: "border-emerald-800/60" },
   waiter: { label: "Waiter / Staff", color: "text-sky-300", bg: "bg-sky-950/40", border: "border-sky-800/60" },

@@ -1508,7 +1508,7 @@ export default function SuperAdminPage() {
                     <i className="fa-solid fa-palette text-xs" />
                     <span>Themes &amp; Branding</span>
                   </div>
-                  <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-purple-950/60 text-purple-300 border border-purple-800/50">
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800/50">
                     5 Styles
                   </span>
                 </button>
@@ -1981,7 +1981,7 @@ export default function SuperAdminPage() {
           <div className="bg-[#1A1612] border border-[#2A231D] rounded-xl p-5 shadow-sm hover:border-[#3D332B] transition-all">
             <div className="flex items-center justify-between text-xs font-mono text-[#8C8275] mb-2 uppercase tracking-wider">
               <span>Plan Distribution</span>
-              <i className="fa-solid fa-layer-group text-purple-400" />
+              <i className="fa-solid fa-layer-group text-amber-400" />
             </div>
             <div className="flex items-center gap-3 text-xs font-mono mt-1">
               <div className="flex-1 bg-[#221C17] border border-[#302821] p-2 rounded-lg text-center">
@@ -2384,12 +2384,12 @@ export default function SuperAdminPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("theme")}
-                className="p-4 rounded-2xl bg-[#181410] border border-[#26201A] hover:border-purple-600/50 text-left transition-all cursor-pointer group shadow-sm"
+                className="p-4 rounded-2xl bg-[#181410] border border-[#26201A] hover:border-amber-600/50 text-left transition-all cursor-pointer group shadow-sm"
               >
-                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition-transform">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-110 transition-transform">
                   <i className="fa-solid fa-palette text-sm" />
                 </div>
-                <h4 className="font-bold text-sm text-white group-hover:text-purple-300 transition-colors">
+                <h4 className="font-bold text-sm text-white group-hover:text-amber-300 transition-colors">
                   Themes &amp; Branding
                 </h4>
                 <p className="text-xs text-[#8C8275] mt-1">
@@ -2625,9 +2625,9 @@ export default function SuperAdminPage() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                                 r.subscriptionPlan === "pro"
-                                  ? "bg-purple-950/40 text-purple-300 border border-purple-800/50"
+                                  ? "bg-emerald-950/40 text-emerald-300 border border-emerald-800/50"
                                   : r.subscriptionPlan === "basic"
                                   ? "bg-blue-950/40 text-blue-300 border border-blue-800/50"
                                   : "bg-amber-950/40 text-amber-300 border border-amber-800/50"
@@ -2773,7 +2773,7 @@ export default function SuperAdminPage() {
           <div className="bg-[#181410] border border-[#26201A] rounded-xl p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-950/60 border border-purple-800/60 text-purple-300 flex items-center justify-center text-sm">
+                <div className="w-8 h-8 rounded-lg bg-amber-950/60 border border-amber-800/60 text-amber-300 flex items-center justify-center text-sm">
                   <i className="fa-solid fa-palette" />
                 </div>
                 <div>
@@ -2826,7 +2826,7 @@ export default function SuperAdminPage() {
                     <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#D96B27]">Step 1: Color Palette</h4>
                     <h3 className="text-sm font-bold text-white mt-0.5">5 Signature Dining Palettes</h3>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800/60 font-bold uppercase">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-800 text-stone-300 border border-stone-700 font-bold uppercase">
                     White-Label CSS Tokens
                   </span>
                 </div>
@@ -3309,9 +3309,9 @@ export default function SuperAdminPage() {
                     validityDays: 30,
                   })
                 }
-                className="px-2.5 py-1 bg-[#221C17] hover:bg-[#2A231C] text-purple-300 border border-purple-800/50 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                className="px-2.5 py-1 bg-[#221C17] hover:bg-[#2A231C] text-amber-300 border border-amber-800/50 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
               >
-                👑 Festival Feast 25%
+                <i className="fa-solid fa-crown text-[10px] mr-1" /> Festival Feast 25%
               </button>
             </div>
           </div>
@@ -3616,7 +3616,7 @@ export default function SuperAdminPage() {
                 {/* WhatsApp Chat Bubble */}
                 <div className="bg-[#0B141A] p-3.5 rounded-xl border border-emerald-900/40 text-xs font-mono text-stone-200 leading-relaxed shadow-inner">
                   <div className="text-emerald-400 font-bold mb-1">
-                    🎉 *Spice Route Bistro — VIP Dining Voucher* 🎟️
+                    🎉 *Spice Route Bistro - VIP Dining Voucher* 🎟️
                   </div>
                   <div className="text-stone-500 text-[10px] mb-1">━━━━━━━━━━━━━━━━━━━━</div>
                   <div>🎁 *Reward:* {campaignOfferConfig.bounceBackReward || "₹100 OFF on your next visit"}</div>
@@ -4224,7 +4224,7 @@ export default function SuperAdminPage() {
                   : broadcastForm.type === "warning"
                   ? "bg-amber-950/80 text-amber-200 border-amber-800"
                   : broadcastForm.type === "maintenance"
-                  ? "bg-purple-950/80 text-purple-200 border-purple-800"
+                  ? "bg-slate-900/90 text-slate-200 border-slate-700"
                   : "bg-blue-950/80 text-blue-200 border-blue-800"
               }`}
             >
@@ -4236,7 +4236,7 @@ export default function SuperAdminPage() {
                       : broadcastForm.type === "warning"
                       ? "fa-circle-exclamation text-amber-400"
                       : broadcastForm.type === "maintenance"
-                      ? "fa-wrench text-purple-400"
+                      ? "fa-wrench text-slate-400"
                       : "fa-bullhorn text-blue-400"
                   }`}
                 />
@@ -4307,7 +4307,7 @@ export default function SuperAdminPage() {
                     <option value="info">Information (Blue) - Updates &amp; Announcements</option>
                     <option value="warning">Warning (Amber) - Performance / Heavy Load</option>
                     <option value="alert">Critical Alert (Red) - Downtime / Critical Notice</option>
-                    <option value="maintenance">Maintenance (Purple) - Upgrade Windows</option>
+                    <option value="maintenance">Maintenance (Slate) - System Windows</option>
                   </select>
                 </div>
               </div>
@@ -4442,7 +4442,7 @@ export default function SuperAdminPage() {
                         : act.action === "IMPERSONATE"
                         ? "bg-orange-950/40 text-orange-300 border-orange-800"
                         : act.action === "BROADCAST_UPDATE"
-                        ? "bg-purple-950/40 text-purple-300 border-purple-800"
+                        ? "bg-slate-900/60 text-slate-300 border-slate-700"
                         : act.action === "RESET_CREDENTIALS"
                         ? "bg-yellow-950/40 text-yellow-300 border-yellow-800"
                         : "bg-blue-950/40 text-blue-300 border-blue-800";
@@ -4937,6 +4937,9 @@ export default function SuperAdminPage() {
                     { key: "dishNotes", label: "Cooking Instructions", desc: "Special notes per dish (e.g. less spicy)", icon: "✏️" },
                     { key: "smartUpsell", label: "Smart Cart Upsell", desc: "Companion food & drink pairing suggestions", icon: "💡" },
                     { key: "feedbackReview", label: "Post-Meal Rating", desc: "5-star rating & Google review booster", icon: "⭐" },
+                    { key: "quickAdds", label: "Quick Adds Carousel", desc: "1-Tap fast adds strip for rotis, beverages & extras (Default OFF)", icon: "⚡" },
+                    { key: "showTableFooter", label: "Table Page Footer", desc: "Footer showing restaurant info, legal & kitchen dispatch (Default OFF)", icon: "📄" },
+                    { key: "halfFullPortions", label: "Half & Full Portions", desc: "Allow diners to select Half (60% price) or Full portion sizes", icon: "⚖️" },
                   ].map((feat) => {
                     const currentFeats = editingRestaurant.features || {
                       callWaiter: true,
@@ -4946,6 +4949,9 @@ export default function SuperAdminPage() {
                       dishNotes: true,
                       smartUpsell: true,
                       feedbackReview: true,
+                      quickAdds: false,
+                      showTableFooter: false,
+                      halfFullPortions: true,
                     };
                     const isEnabled = currentFeats[feat.key as keyof typeof currentFeats] ?? true;
 
@@ -6141,6 +6147,24 @@ export default function SuperAdminPage() {
                         label: "5-Star Google Review Booster",
                         desc: "Post-meal rating prompt boosting online reviews",
                         icon: "⭐",
+                      },
+                      {
+                        key: "quickAdds" as const,
+                        label: "Quick Adds Carousel",
+                        desc: "1-Tap fast adds strip for rotis, beverages & extras (Default OFF)",
+                        icon: "⚡",
+                      },
+                      {
+                        key: "showTableFooter" as const,
+                        label: "Table Page Footer",
+                        desc: "Footer showing restaurant info, legal & kitchen dispatch (Default OFF)",
+                        icon: "📄",
+                      },
+                      {
+                        key: "halfFullPortions" as const,
+                        label: "Half & Full Portions",
+                        desc: "Allow diners to select Half (60% price) or Full portion sizes",
+                        icon: "⚖️",
                       },
                     ].map((feat) => {
                       const curFeats = cockpitResto.features || DEFAULT_RESTAURANT_FEATURES;

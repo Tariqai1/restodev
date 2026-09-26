@@ -178,7 +178,7 @@ export default function ScratchCardModal({
   // WhatsApp Voucher Message
   const sendToWhatsApp = () => {
     const days = data.validityDays || 15;
-    const text = `🎉 *${data.restaurantName} — VIP Dining Voucher* 🎟️
+    const text = `🎉 *${data.restaurantName} - VIP Dining Voucher* 🎟️
 ━━━━━━━━━━━━━━━━━━━━
 🎁 *Reward:* ${data.rewardTitle}
 🔑 *Voucher Code:* ${data.voucherCode}

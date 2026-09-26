@@ -3,8 +3,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Order Desk | Restaurant Operations",
-  description: "A calm command center for restaurant service.",
+  title: "Order Desk - Restaurant Operations & QR Table Ordering",
+  description: "Real-time table ordering, kitchen display system (KDS), and floor service management.",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

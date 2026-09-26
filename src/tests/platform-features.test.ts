@@ -9,6 +9,9 @@ describe("Platform Features & RBAC Invariants", () => {
     expect(DEFAULT_RESTAURANT_FEATURES.mobileSheetModals).toBe(true);
     expect(DEFAULT_RESTAURANT_FEATURES.autoMobileCards).toBe(true);
     expect(DEFAULT_RESTAURANT_FEATURES.orderJourneyLayout).toBe("floating_capsule");
+    expect(DEFAULT_RESTAURANT_FEATURES.quickAdds).toBe(false);
+    expect(DEFAULT_RESTAURANT_FEATURES.showTableFooter).toBe(false);
+    expect(DEFAULT_RESTAURANT_FEATURES.halfFullPortions).toBe(true);
   });
 
   it("should enforce strict role-based order permission defaults", () => {

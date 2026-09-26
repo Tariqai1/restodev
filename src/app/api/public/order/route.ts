@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 
 type OrderItemPayload = {
   menuItemId: string;
+  portion?: "half" | "full";
   qty: number;
   notes?: string;
 };
@@ -134,12 +135,19 @@ export async function POST(request: NextRequest) {
       .filter((i) => i && priceMap.has(i.menuItemId))
       .map((i) => {
         const cleanQty = Math.max(1, Math.min(30, Math.floor(Number(i.qty)) || 1));
-        const cleanNotes = i.notes ? String(i.notes).trim().slice(0, 200) : null;
+        const basePrice = priceMap.get(i.menuItemId)!;
+        const portion = i.portion === "half" ? "half" : "full";
+        const unitPrice = portion === "half" ? Math.round(basePrice * 0.6) : basePrice;
+        const portionLabel = portion === "half" ? "Half Portion" : "";
+        const cleanNotes = i.notes
+          ? (portionLabel && !i.notes.includes("Half") ? `${portionLabel} • ${i.notes}` : i.notes).trim().slice(0, 200)
+          : (portionLabel || null);
+
         return {
           order_id: currentOrder!.id,
           menu_item_id: i.menuItemId,
           qty: cleanQty,
-          unit_price: priceMap.get(i.menuItemId)!,
+          unit_price: unitPrice,
           notes: cleanNotes,
           item_status: "pending" as const,
           customer_name: sanitizedCustomerName,

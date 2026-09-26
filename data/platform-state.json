@@ -11,6 +11,15 @@
   },
   "activities": [
     {
+      "action": "IMPERSONATE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ee2ddb95-d317-4dc3-8a62-4f24cfbc77c5",
+      "targetName": "Tauheed Resto",
+      "details": "Started Ghost Mode Impersonation of \"Tauheed Resto\" (tauheed@gmail.com)",
+      "id": "act-muigwg77-frk7",
+      "createdAt": "2026-09-26T14:10:59.203Z"
+    },
+    {
       "action": "STATUS_CHANGE",
       "actorEmail": "tariqfsd9@gmail.com",
       "details": "Batch updated 6 restaurants: Branding/Theme",
@@ -171,13 +180,23 @@
   },
   "waiterCalls": [
     {
+      "id": "call-muisvk7tn0g",
+      "tableId": "b60efc3a-8308-4a7f-b064-ce959a5f85cf",
+      "tableNumber": "T03",
+      "restaurantId": "ee2ddb95-d317-4dc3-8a62-4f24cfbc77c5",
+      "type": "chair",
+      "status": "active",
+      "createdAt": "2026-09-26T19:46:13.145Z"
+    },
+    {
       "id": "call-mufu8hkjyij",
       "tableId": "e3fed634-0b51-41f2-8ab6-3a6fc41da72f",
       "tableNumber": "T04",
       "restaurantId": "ee2ddb95-d317-4dc3-8a62-4f24cfbc77c5",
       "type": "condiments",
-      "status": "active",
-      "createdAt": "2026-09-24T18:00:57.331Z"
+      "status": "resolved",
+      "createdAt": "2026-09-24T18:00:57.331Z",
+      "acknowledgedAt": "2026-09-26T14:11:07.719Z"
     },
     {
       "id": "call-mu22xh55h8s",
@@ -303,8 +322,60 @@
       "totalAmount": 1085,
       "totalItems": 6,
       "id": "batch-1790272979975-e3oon",
+      "status": "approved",
+      "createdAt": "2026-09-24T18:02:59.975Z",
+      "approvedAt": "2026-09-26T14:11:14.887Z",
+      "approvedBy": "owner"
+    },
+    "batch-1790436641455-zje19": {
+      "orderId": "7b71e985-849e-4288-b012-24bdbb48897a",
+      "restaurantId": "ee2ddb95-d317-4dc3-8a62-4f24cfbc77c5",
+      "tableId": "b60efc3a-8308-4a7f-b064-ce959a5f85cf",
+      "tableNumber": "T03",
+      "customerName": "Dine-in Guest",
+      "itemIds": [
+        "9bf49c73-5ad0-448b-82b0-024870001397",
+        "f44ab8c1-e269-4a71-8b0f-062cf36307df",
+        "07cbbc25-324f-403b-9aaa-f7312f9c9c71",
+        "d096621d-21c9-493a-8443-7d98b0c50f40"
+      ],
+      "totalAmount": 800,
+      "totalItems": 4,
+      "id": "batch-1790436641455-zje19",
       "status": "awaiting_approval",
-      "createdAt": "2026-09-24T18:02:59.975Z"
+      "createdAt": "2026-09-26T15:30:41.455Z"
+    },
+    "batch-1790436704737-a4l7p": {
+      "orderId": "7b71e985-849e-4288-b012-24bdbb48897a",
+      "restaurantId": "ee2ddb95-d317-4dc3-8a62-4f24cfbc77c5",
+      "tableId": "b60efc3a-8308-4a7f-b064-ce959a5f85cf",
+      "tableNumber": "T03",
+      "customerName": "Dine-in Guest",
+      "itemIds": [
+        "e4b69895-1802-4ea4-a346-92fac3201c80"
+      ],
+      "totalAmount": 360,
+      "totalItems": 1,
+      "id": "batch-1790436704737-a4l7p",
+      "status": "awaiting_approval",
+      "createdAt": "2026-09-26T15:31:44.737Z"
+    },
+    "batch-1790452267968-dyaew": {
+      "orderId": "7b71e985-849e-4288-b012-24bdbb48897a",
+      "restaurantId": "ee2ddb95-d317-4dc3-8a62-4f24cfbc77c5",
+      "tableId": "b60efc3a-8308-4a7f-b064-ce959a5f85cf",
+      "tableNumber": "T03",
+      "customerName": "Dine-in Guest",
+      "itemIds": [
+        "3d9b0619-df3d-43bc-be07-aa6d032df270",
+        "0f4ec3d9-1030-401a-8159-a37a42f3549e",
+        "f9758ab5-3391-4789-9dc5-3be773492fb8"
+      ],
+      "totalAmount": 1160,
+      "totalItems": 4,
+      "id": "batch-1790452267968-dyaew",
+      "status": "awaiting_approval",
+      "createdAt": "2026-09-26T19:51:07.968Z"
     }
   }
 }
