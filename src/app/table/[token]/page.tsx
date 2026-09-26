@@ -1707,7 +1707,7 @@ export default function CustomerTableOrderingPage({
         !isReviewOpen &&
         !isCallModalOpen && (
           <div
-            className={`fixed left-4 right-4 z-40 max-w-md mx-auto pointer-events-none transition-all duration-300 ${
+            className={`fixed left-4 right-4 z-45 max-w-md mx-auto pointer-events-none transition-all duration-300 ${
               totalCartCount > 0 ? "bottom-20" : "bottom-4"
             }`}
           >
@@ -1823,8 +1823,8 @@ export default function CustomerTableOrderingPage({
             currentJourneyLayout === "floating_capsule" &&
             !isJourneySheetOpen
               ? totalCartCount > 0
-                ? "bottom-36 left-4"
-                : "bottom-20 left-4"
+                ? "bottom-40 left-4"
+                : "bottom-24 left-4"
               : totalCartCount > 0
               ? "bottom-20 left-4"
               : "bottom-5 left-4"
@@ -1858,8 +1858,8 @@ export default function CustomerTableOrderingPage({
             currentJourneyLayout === "floating_capsule" &&
             !isJourneySheetOpen
               ? totalCartCount > 0
-                ? "bottom-36 right-4"
-                : "bottom-20 right-4"
+                ? "bottom-40 right-4"
+                : "bottom-24 right-4"
               : totalCartCount > 0
               ? "bottom-20 right-4"
               : "bottom-5 right-4"
@@ -1877,6 +1877,7 @@ export default function CustomerTableOrderingPage({
           </span>
         </button>
       )}
+
 
       {/* Flying Particle Micro-Interaction Overlay */}
       {flyingParticles.map((p) => (

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { ActiveOrder, ActiveOrderItem, RestaurantFeatures, OrderStage } from "./TableTypes";
 import { triggerHaptic } from "./tableUtils";
 
@@ -52,6 +52,7 @@ export default function TableLiveJourney({
 }: TableLiveJourneyProps) {
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [processingItemId, setProcessingItemId] = useState<string | null>(null);
+  const dragControls = useDragControls();
 
   if (!activeOrder || !activeOrder.order_items || activeOrder.order_items.length === 0) {
     return null;
@@ -271,6 +272,182 @@ export default function TableLiveJourney({
   return (
     <>
 
+
+      {/* ========================================================================= */}
+      {/* OPTION 1: INLINE ORDER JOURNEY PROGRESS CARD (FOR MOBILE & TABLET)        */}
+      {/* ========================================================================= */}
+      {currentJourneyLayout === "floating_capsule" && (
+        <div
+          id="live-order-journey-map"
+          className="mx-4 mt-3 rounded-2xl border shadow-sm overflow-hidden bg-white animate-fade-in"
+          style={{ borderColor: "var(--hairline)" }}
+        >
+          {/* Header */}
+          <div
+            className="p-3 bg-stone-50/80 border-b flex items-center justify-between"
+            style={{ borderColor: "var(--hairline)" }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xl">
+                {activeStage === "served"
+                  ? "🍽️"
+                  : activeStage === "preparing"
+                  ? "🔥"
+                  : isApprovalPending
+                  ? "👨‍💼"
+                  : "📱"}
+              </span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-heading text-xs font-black uppercase tracking-wider text-stone-900">
+                    Track Your Order
+                  </span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-stone-200 text-stone-700 font-bold">
+                    #{activeOrder.id.slice(0, 6)}
+                  </span>
+                </div>
+                <div className="text-[10px] text-stone-500 font-medium">
+                  Table {tableNumber} • {activeOrder.order_items.length} dishes (₹{orderTotal})
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(12);
+                setIsJourneySheetOpen(true);
+              }}
+              className="text-[11px] font-bold px-3 py-1 rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-transform active:scale-95 text-white"
+              style={{
+                backgroundColor: isApprovalPending
+                  ? "#D97706"
+                  : activeStage === "preparing"
+                  ? "#2563EB"
+                  : activeStage === "served"
+                  ? "#059669"
+                  : "#D96B27",
+              }}
+            >
+              <span>{isApprovalPending ? "Edit / Track" : "Track Order"}</span>
+              <span className="text-xs">▴</span>
+            </button>
+          </div>
+
+          {/* Connected 4-Station Progress Bar */}
+          <div className="p-3.5 space-y-2.5">
+            <div className="relative py-1">
+              <div className="absolute left-4 right-4 top-3.5 h-1 bg-stone-200 rounded-full" />
+              <div
+                className="absolute left-4 top-3.5 h-1 bg-gradient-to-r from-emerald-500 via-amber-500 to-sky-500 rounded-full transition-all duration-700"
+                style={{
+                  width:
+                    activeStage === "served"
+                      ? "calc(100% - 2rem)"
+                      : activeStage === "preparing"
+                      ? "66%"
+                      : isApprovalPending
+                      ? "33%"
+                      : "12%",
+                }}
+              />
+
+              <div className="relative flex items-start justify-between z-10">
+                {/* 1. Table */}
+                <div className="flex flex-col items-center w-14 text-center">
+                  <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shadow-xs">
+                    ✓
+                  </div>
+                  <span className="text-[9px] font-bold mt-1 text-stone-800">Table</span>
+                  <span className="text-[8px] text-emerald-700 font-semibold">Placed</span>
+                </div>
+
+                {/* 2. Captain */}
+                <div className="flex flex-col items-center w-14 text-center">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shadow-xs ${
+                      activeStage === "preparing" || activeStage === "served"
+                        ? "bg-emerald-600 text-white"
+                        : isApprovalPending
+                        ? "bg-amber-500 text-stone-900 animate-pulse ring-2 ring-amber-300"
+                        : "bg-emerald-600 text-white"
+                    }`}
+                  >
+                    {activeStage === "preparing" || activeStage === "served" || !isApprovalPending ? "✓" : "👨‍💼"}
+                  </div>
+                  <span className="text-[9px] font-bold mt-1 text-stone-800">Captain</span>
+                  <span className="text-[8px] text-amber-700 font-semibold">
+                    {isApprovalPending ? "Verifying" : "Approved"}
+                  </span>
+                </div>
+
+                {/* 3. Kitchen */}
+                <div className="flex flex-col items-center w-14 text-center">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shadow-xs ${
+                      activeStage === "served"
+                        ? "bg-emerald-600 text-white"
+                        : activeStage === "preparing"
+                        ? "bg-blue-600 text-white animate-pulse ring-2 ring-blue-300"
+                        : "bg-stone-200 text-stone-500"
+                    }`}
+                  >
+                    {activeStage === "served" ? "✓" : activeStage === "preparing" ? "🔥" : "3"}
+                  </div>
+                  <span className="text-[9px] font-bold mt-1 text-stone-800">Kitchen</span>
+                  <span className="text-[8px] text-blue-700 font-semibold">
+                    {activeStage === "preparing"
+                      ? remainingMinutesText ? `${remainingMinutesText}` : "Cooking"
+                      : activeStage === "served"
+                      ? "Cooked"
+                      : "Pending"}
+                  </span>
+                </div>
+
+                {/* 4. Served */}
+                <div className="flex flex-col items-center w-14 text-center">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shadow-xs ${
+                      activeStage === "served"
+                        ? "bg-emerald-600 text-white ring-2 ring-emerald-300"
+                        : "bg-stone-200 text-stone-500"
+                    }`}
+                  >
+                    {activeStage === "served" ? "✨" : "4"}
+                  </div>
+                  <span className="text-[9px] font-bold mt-1 text-stone-800">Served</span>
+                  <span className="text-[8px] text-emerald-700 font-semibold">
+                    {activeStage === "served" ? "Delivered" : "Final"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Helper Text & View Order Action */}
+            <div className="p-2 rounded-xl bg-stone-50 border border-stone-200/80 text-[11px] text-stone-600 flex items-center justify-between">
+              <span className="truncate">
+                {isApprovalPending
+                  ? `👨‍💼 Captain reviewing items at Table ${tableNumber}.`
+                  : activeStage === "preparing"
+                  ? `🔥 Chef cooking your fresh dishes.${remainingMinutesText ? ` ETA: ${remainingMinutesText}.` : ""}`
+                  : activeStage === "served"
+                  ? `🍽️ All dishes delivered at Table ${tableNumber}.`
+                  : `Order registered at Table ${tableNumber}.`}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(10);
+                  setIsJourneySheetOpen(true);
+                }}
+                className="text-[10px] font-bold text-amber-700 underline shrink-0 ml-2 cursor-pointer"
+              >
+                View Items
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* OPTION 2: SIDE-BY-SIDE SPLIT CARD (TABLET & MOBILE RESPONSIVE DUAL COLUMNS)*/}
@@ -672,6 +849,8 @@ export default function TableLiveJourney({
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 32, stiffness: 360, mass: 0.85 }}
               drag="y"
+              dragControls={dragControls}
+              dragListener={false}
               dragConstraints={{ top: 0 }}
               dragElastic={0.2}
               onDragEnd={(_e, info) => {
@@ -684,7 +863,10 @@ export default function TableLiveJourney({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top Drag Handle */}
-              <div className="w-10 h-1.5 bg-stone-300 hover:bg-stone-400 rounded-full mx-auto mt-2.5 mb-1 shrink-0 transition-colors cursor-grab active:cursor-grabbing" />
+              <div
+                onPointerDown={(e) => dragControls.start(e)}
+                className="w-12 h-1.5 bg-stone-300 hover:bg-stone-400 rounded-full mx-auto mt-2.5 mb-1 shrink-0 transition-colors cursor-grab active:cursor-grabbing touch-none"
+              />
 
             {/* Sheet Header */}
             <div
