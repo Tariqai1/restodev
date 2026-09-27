@@ -1197,26 +1197,26 @@ export default function Home() {
         {/* Critical Escalation Banner (Delivery-App Emergency Alert) */}
         {(() => {
           const escalationLimitSec = features?.alarmEscalationSec || 90;
-          const hasEscalatedCall = waiterCalls.some(
+          const escalatedCalls = waiterCalls.filter(
             (c) => Math.floor((currentTime - new Date(c.createdAt).getTime()) / 1000) >= escalationLimitSec
           );
-          const hasEscalatedApproval = pendingApprovals.some(
+          const escalatedApprovals = pendingApprovals.filter(
             (b) => Math.floor((currentTime - new Date(b.createdAt).getTime()) / 1000) >= escalationLimitSec
           );
-          const isEmergency = hasEscalatedCall || hasEscalatedApproval;
+          const isEmergency = escalatedCalls.length > 0 || escalatedApprovals.length > 0;
 
           if (!isEmergency) return null;
 
           return (
-            <div className="p-3.5 bg-red-600 text-white rounded-lg shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse border-2 border-red-700">
+            <section className="p-4 bg-red-50 text-red-950 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-red-200">
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl">🚨</span>
+                <span className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center text-xl animate-pulse">🚨</span>
                 <div>
-                  <div className="font-heading font-black text-sm tracking-wide uppercase">
-                    Critical Escalation: Table Awaiting Service (&gt; {escalationLimitSec}s)
+                  <div className="font-heading font-black text-sm tracking-wide uppercase text-red-900">
+                    Needs immediate attention
                   </div>
-                  <div className="text-xs text-red-100">
-                    One or more tables have exceeded the maximum service wait time. Floor Captain / Manager attention required immediately!
+                  <div className="text-xs text-red-700 mt-0.5">
+                    {escalatedCalls.length} table request{escalatedCalls.length !== 1 ? "s" : ""} and {escalatedApprovals.length} approval{escalatedApprovals.length !== 1 ? "s" : ""} exceeded {escalationLimitSec}s.
                   </div>
                 </div>
               </div>
@@ -1229,10 +1229,10 @@ export default function Home() {
                   }}
                   className="px-3 py-1.5 bg-white text-red-700 text-xs font-bold rounded shadow-sm hover:bg-red-50 cursor-pointer"
                 >
-                  🔕 Silence Alarm (2m)
+                  🔕 Silence alarm
                 </button>
               </div>
-            </div>
+            </section>
           );
         })()}
 
@@ -1292,7 +1292,9 @@ export default function Home() {
                   Math.floor((currentTime - new Date(call.createdAt).getTime()) / 1000)
                 );
                 const elapsedText =
-                  elapsedSec < 60
+                  elapsedSec > 2 * 60 * 60
+                    ? "Overdue"
+                    : elapsedSec < 60
                     ? `${elapsedSec}s ago`
                     : `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s ago`;
                 const escalationLimitSec = features?.alarmEscalationSec || 90;
@@ -1402,12 +1404,11 @@ export default function Home() {
 
         {/* ACTIVE ORDER APPROVAL ALERTS (Captain Verification Required) */}
         {pendingApprovals.length > 0 && (
-          <div
-            className="p-4 rounded border-2 border-dashed space-y-3"
+          <section
+            className="mt-1 p-4 rounded-2xl border space-y-3 shadow-sm"
             style={{
               backgroundColor: "#FFFBEB",
-              borderColor: "#F59E0B",
-              borderRadius: "6px",
+              borderColor: "#FCD34D",
             }}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1454,7 +1455,9 @@ export default function Home() {
                   Math.floor((currentTime - new Date(batch.createdAt).getTime()) / 1000)
                 );
                 const elapsedText =
-                  elapsedSec < 60
+                  elapsedSec > 2 * 60 * 60
+                    ? "Overdue"
+                    : elapsedSec < 60
                     ? `${elapsedSec}s ago`
                     : `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s ago`;
                 const escalationLimitSec = features?.alarmEscalationSec || 90;
@@ -1532,7 +1535,7 @@ export default function Home() {
                 );
               })}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Metrics Section: Executive Revenue for Owners/Managers, Operational Service Stats for Waiters */}

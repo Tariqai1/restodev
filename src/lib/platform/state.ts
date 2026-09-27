@@ -407,7 +407,19 @@ export function setStaffPermissions(
 
 export function getActiveWaiterCalls(restaurantId?: string): WaiterCallRequest[] {
   const state = getPlatformState();
-  const list = state.waiterCalls || [];
+  const staleBefore = Date.now() - 2 * 60 * 60 * 1000;
+  let changed = false;
+  const list = (state.waiterCalls || []).map((call) => {
+    if (call.status === "active" && new Date(call.createdAt).getTime() < staleBefore) {
+      changed = true;
+      return { ...call, status: "resolved" as const, acknowledgedAt: new Date().toISOString() };
+    }
+    return call;
+  });
+  if (changed) {
+    state.waiterCalls = list;
+    savePlatformState(state);
+  }
   if (!restaurantId) return list.filter((c) => c.status === "active");
   return list.filter((c) => c.restaurantId === restaurantId && c.status === "active");
 }
