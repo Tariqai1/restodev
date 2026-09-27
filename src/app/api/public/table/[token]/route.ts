@@ -116,7 +116,7 @@ export async function GET(
       let validOpenOrder = openOrder;
       if (openOrder && openOrder.opened_at) {
         const ageHours = (Date.now() - new Date(openOrder.opened_at).getTime()) / (1000 * 60 * 60);
-        if (ageHours > 12) {
+        if (ageHours > 48 || table.status === "empty") {
           validOpenOrder = null;
         }
       }
@@ -219,7 +219,7 @@ export async function GET(
     let validOpenOrder = openOrder;
     if (openOrder && openOrder.opened_at) {
       const ageHours = (Date.now() - new Date(openOrder.opened_at).getTime()) / (1000 * 60 * 60);
-      if (ageHours > 12) {
+      if (ageHours > 48 || table.status === "empty") {
         validOpenOrder = null;
       }
     }
