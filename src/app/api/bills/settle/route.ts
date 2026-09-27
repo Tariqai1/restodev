@@ -151,8 +151,12 @@ export async function POST(request: NextRequest) {
       });
     }
     if (atomicSettlementError) {
-      console.error("Atomic settlement failed:", atomicSettlementError);
-      return NextResponse.json({ message: atomicSettlementError.message }, { status: 409 });
+      const functionMissing = /could not find the function|schema cache|does not exist/i.test(atomicSettlementError.message || "");
+      if (!functionMissing) {
+        console.error("Atomic settlement failed:", atomicSettlementError);
+        return NextResponse.json({ message: atomicSettlementError.message }, { status: 409 });
+      }
+      console.warn("Atomic settlement RPC is not installed; using compatibility settlement path.");
     }
 
     // Fetch order items with prices
