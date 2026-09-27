@@ -47,6 +47,7 @@ import TableCategorySheet from "@/components/table/TableCategorySheet";
 import TableCartDrawer from "@/components/table/TableCartDrawer";
 import DishPreviewModal from "@/components/table/DishPreviewModal";
 import TableDispatchModal from "@/components/table/TableDispatchModal";
+import TableOrderHistory from "@/components/table/TableOrderHistory";
 
 const ScratchCardModal = dynamic(
   () => import("@/components/table/ScratchCardModal"),
@@ -187,6 +188,7 @@ export default function CustomerTableOrderingPage({
   const [flyingParticles, setFlyingParticles] = useState<FlyingParticle[]>([]);
   const [isCartBouncing, setIsCartBouncing] = useState<boolean>(false);
   const [isCategorySheetOpen, setIsCategorySheetOpen] = useState<boolean>(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [quickAddNotice, setQuickAddNotice] = useState<string>("");
 
   // Live timer tick
@@ -1087,7 +1089,6 @@ export default function CustomerTableOrderingPage({
     return (
       <TableWelcomeScreen
         theme={theme}
-        setTheme={setTheme}
         branding={branding}
         restaurantName={restaurantName}
         tableNumber={tableNumber}
@@ -1115,7 +1116,6 @@ export default function CustomerTableOrderingPage({
         tableNumber={tableNumber}
         branding={branding}
         theme={theme}
-        setTheme={setTheme}
         features={features}
         waiterCooldown={waiterCooldown}
         onOpenCallModal={() => setIsCallModalOpen(true)}
@@ -1123,6 +1123,10 @@ export default function CustomerTableOrderingPage({
         onOpenCart={() => {
           triggerHaptic(14);
           setIsReviewOpen(true);
+        }}
+        onOpenHistory={() => {
+          triggerHaptic(10);
+          setIsHistoryOpen(true);
         }}
       />
 
@@ -1979,6 +1983,15 @@ export default function CustomerTableOrderingPage({
             }
           }
         }}
+      />
+
+      {/* 8. Order History Drawer */}
+      <TableOrderHistory
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        token={token}
+        tableNumber={tableNumber}
+        restaurantName={restaurantName}
       />
     </div>
   );

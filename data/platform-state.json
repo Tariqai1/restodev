@@ -399,6 +399,70 @@
       "id": "batch-1790452267968-dyaew",
       "status": "awaiting_approval",
       "createdAt": "2026-09-26T19:51:07.968Z"
+    },
+    "batch-1790526937893-ojq8z": {
+      "orderId": "f278d617-ed9a-4d37-9317-f323880332f0",
+      "restaurantId": "1fa659e3-37a9-412d-84af-26b62b98829c",
+      "tableId": "0b5a0b70-2f0e-49d7-bca7-7f11be3461b3",
+      "tableNumber": "T01",
+      "customerName": "Dine-in Guest",
+      "itemIds": [
+        "e41488c6-04ee-43e7-b097-7e5e8dc05bf3",
+        "db9b8336-c48d-4c8f-bff2-3a40931045e5",
+        "24fac703-f4bd-4040-b85e-3c0194afd3ea"
+      ],
+      "totalAmount": 630,
+      "totalItems": 3,
+      "id": "batch-1790526937893-ojq8z",
+      "status": "approved",
+      "createdAt": "2026-09-27T16:35:37.893Z",
+      "approvedAt": "2026-09-27T16:36:43.355Z",
+      "approvedBy": "owner"
+    },
+    "batch-1790527214831-5yyqx": {
+      "orderId": "e8b71930-9e12-47d6-a281-f51836403167",
+      "restaurantId": "1fa659e3-37a9-412d-84af-26b62b98829c",
+      "tableId": "0b5a0b70-2f0e-49d7-bca7-7f11be3461b3",
+      "tableNumber": "T01",
+      "customerName": "Dine-in Guest",
+      "itemIds": [],
+      "totalAmount": 0,
+      "totalItems": 0,
+      "id": "batch-1790527214831-5yyqx",
+      "status": "rejected",
+      "createdAt": "2026-09-27T16:40:14.831Z",
+      "rejectedReason": "All items cancelled by customer before captain verification"
+    },
+    "batch-1790527304167-xce3i": {
+      "orderId": "e8b71930-9e12-47d6-a281-f51836403167",
+      "restaurantId": "1fa659e3-37a9-412d-84af-26b62b98829c",
+      "tableId": "0b5a0b70-2f0e-49d7-bca7-7f11be3461b3",
+      "tableNumber": "T01",
+      "customerName": "Dine-in Guest",
+      "itemIds": [],
+      "totalAmount": 0,
+      "totalItems": 0,
+      "id": "batch-1790527304167-xce3i",
+      "status": "rejected",
+      "createdAt": "2026-09-27T16:41:44.167Z",
+      "rejectedReason": "All items cancelled by customer before captain verification"
+    },
+    "batch-1790528637983-wmqap": {
+      "orderId": "b6fe9f87-91bc-415f-97bf-05154a8dc5a4",
+      "restaurantId": "1fa659e3-37a9-412d-84af-26b62b98829c",
+      "tableId": "0b5a0b70-2f0e-49d7-bca7-7f11be3461b3",
+      "tableNumber": "T01",
+      "customerName": "Dine-in Guest",
+      "itemIds": [
+        "78c7dded-cece-4969-bf42-95e6dd0c7864"
+      ],
+      "totalAmount": 280,
+      "totalItems": 1,
+      "id": "batch-1790528637983-wmqap",
+      "status": "approved",
+      "createdAt": "2026-09-27T17:03:57.983Z",
+      "approvedAt": "2026-09-27T17:05:13.574Z",
+      "approvedBy": "owner"
     }
   }
 }

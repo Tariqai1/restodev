@@ -10,12 +10,12 @@ interface TableHeroBannerProps {
   tableNumber: string;
   branding: RestaurantBrandingConfig | null;
   theme: RestaurantThemeType;
-  setTheme: (theme: RestaurantThemeType) => void;
   features: RestaurantFeatures;
   waiterCooldown: number;
   onOpenCallModal: () => void;
   cartCount?: number;
   onOpenCart?: () => void;
+  onOpenHistory?: () => void;
 }
 
 export default function TableHeroBanner({
@@ -23,12 +23,12 @@ export default function TableHeroBanner({
   tableNumber,
   branding,
   theme,
-  setTheme,
   features,
   waiterCooldown,
   onOpenCallModal,
   cartCount = 0,
   onOpenCart,
+  onOpenHistory,
 }: TableHeroBannerProps) {
   return (
     <>
@@ -80,30 +80,24 @@ export default function TableHeroBanner({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Quick theme toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic(8);
-              const themes: RestaurantThemeType[] = [
-                "amber",
-                "saffron",
-                "crimson",
-                "emerald",
-                "charcoal",
-              ];
-              const nextIdx = (themes.indexOf(theme) + 1) % themes.length;
-              setTheme(themes[nextIdx]);
-            }}
-            title={`Current theme: ${theme}. Click to switch theme palette.`}
-            className="w-8 h-8 rounded-lg border flex items-center justify-center cursor-pointer transition-transform active:scale-95 shadow-xs"
-            style={{
-              backgroundColor: "var(--paper-dim)",
-              borderColor: "var(--hairline)",
-            }}
-          >
-            <i className="fa-solid fa-palette text-xs text-stone-700" />
-          </button>
+          {/* Order History */}
+          {onOpenHistory && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(8);
+                onOpenHistory();
+              }}
+              title="Order History"
+              className="w-8 h-8 rounded-lg border flex items-center justify-center cursor-pointer transition-transform active:scale-95 shadow-xs"
+              style={{
+                backgroundColor: "var(--paper-dim)",
+                borderColor: "var(--hairline)",
+              }}
+            >
+              <i className="fa-solid fa-clock-rotate-left text-xs" style={{ color: "var(--ink-soft)" }} />
+            </button>
+          )}
 
           {/* View Cart Icon with Live Badge Counter */}
           {onOpenCart && (

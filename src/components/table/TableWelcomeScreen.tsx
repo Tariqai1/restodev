@@ -10,7 +10,6 @@ import {
 
 interface TableWelcomeScreenProps {
   theme: RestaurantThemeType;
-  setTheme: (theme: RestaurantThemeType) => void;
   branding: RestaurantBrandingConfig | null;
   restaurantName: string;
   tableNumber: string;
@@ -20,7 +19,6 @@ interface TableWelcomeScreenProps {
 
 export default function TableWelcomeScreen({
   theme,
-  setTheme,
   branding,
   restaurantName,
   tableNumber,
@@ -35,7 +33,6 @@ export default function TableWelcomeScreen({
     >
       {/* Top Header Section */}
       <div className="flex-shrink-0 space-y-1.5 pt-1">
-        <div className="flex items-center justify-between">
           <div
             className="text-[10px] font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 shadow-xs uppercase tracking-wider"
             style={{
@@ -45,73 +42,6 @@ export default function TableWelcomeScreen({
           >
             <span>Table Service</span>
           </div>
-
-          <div
-            className="flex items-center gap-1 bg-white/80 backdrop-blur px-2 py-1 rounded-lg border shadow-xs"
-            style={{ borderColor: "var(--hairline)" }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(8);
-                setTheme("saffron");
-              }}
-              title="Punjab Saffron Theme"
-              className={`w-3.5 h-3.5 rounded-md border cursor-pointer ${
-                theme === "saffron" ? "ring-2 ring-orange-500 scale-110" : "opacity-50"
-              }`}
-              style={{ backgroundColor: "#EA580C", borderColor: "#2C1810" }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(8);
-                setTheme("amber");
-              }}
-              title="Amber Gold Theme"
-              className={`w-3.5 h-3.5 rounded-md border cursor-pointer ${
-                theme === "amber" ? "ring-2 ring-amber-500 scale-110" : "opacity-50"
-              }`}
-              style={{ backgroundColor: "#FFBE0B", borderColor: "#2A2312" }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(8);
-                setTheme("crimson");
-              }}
-              title="Velvet Crimson Theme"
-              className={`w-3.5 h-3.5 rounded-md border cursor-pointer ${
-                theme === "crimson" ? "ring-2 ring-rose-700 scale-110" : "opacity-50"
-              }`}
-              style={{ backgroundColor: "#741A2F", borderColor: "#FFC6A8" }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(8);
-                setTheme("emerald");
-              }}
-              title="Pure Emerald Theme"
-              className={`w-3.5 h-3.5 rounded-md border cursor-pointer ${
-                theme === "emerald" ? "ring-2 ring-emerald-500 scale-110" : "opacity-50"
-              }`}
-              style={{ backgroundColor: "#059669", borderColor: "#022C22" }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(8);
-                setTheme("charcoal");
-              }}
-              title="Midnight Charcoal Theme"
-              className={`w-3.5 h-3.5 rounded-md border cursor-pointer ${
-                theme === "charcoal" ? "ring-2 ring-amber-400 scale-110" : "opacity-50"
-              }`}
-              style={{ backgroundColor: "#18181B", borderColor: "#F59E0B" }}
-            />
-          </div>
-        </div>
 
         <div className="flex items-center gap-3 pt-1">
           {branding?.logoUrl ? (
