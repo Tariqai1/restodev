@@ -14,7 +14,75 @@ import {
   getActivePendingApprovals,
   DEFAULT_RESTAURANT_FEATURES,
   type RestaurantFeatures,
+  type WaiterCallRequest,
+  type PendingOrderApprovalBatch,
 } from "@/lib/platform/state";
+
+function extractDashboardWaiterCalls(restoId?: string, rawGstin?: string): WaiterCallRequest[] {
+  let dbCalls: WaiterCallRequest[] = [];
+  if (rawGstin?.startsWith("{")) {
+    try {
+      const meta = JSON.parse(rawGstin);
+      if (Array.isArray(meta.waiter_calls)) {
+        const now = Date.now();
+        dbCalls = meta.waiter_calls.filter(
+          (c: WaiterCallRequest) =>
+            c.status === "active" && now - new Date(c.createdAt).getTime() < 2 * 60 * 60 * 1000
+        );
+      }
+    } catch {}
+  }
+  const memCalls = getActiveWaiterCalls(restoId);
+  const callMap = new Map<string, WaiterCallRequest>();
+  for (const c of memCalls) callMap.set(c.id, c);
+  for (const c of dbCalls) callMap.set(c.id, c);
+  return Array.from(callMap.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+function derivePendingApprovals(
+  restoId: string,
+  orders: any[],
+  memApprovals: PendingOrderApprovalBatch[]
+): PendingOrderApprovalBatch[] {
+  const batchOrderIds = new Set(memApprovals.map((b) => b.orderId));
+  const combined = [...memApprovals];
+
+  for (const ord of orders || []) {
+    if (batchOrderIds.has(ord.id)) continue;
+    const rawItems = (ord.order_items as unknown as Array<{
+      id: string;
+      qty: number;
+      unit_price: number;
+      item_status: string;
+      customer_name?: string | null;
+    }>) || [];
+    const pendingItems = rawItems.filter((i) => i.item_status === "pending");
+    if (pendingItems.length > 0) {
+      const tableInfo = ord.restaurant_tables as unknown as { table_number: string } | null;
+      const totalAmt = pendingItems.reduce(
+        (sum, it) => sum + (Number(it.unit_price) || 0) * (Number(it.qty) || 1),
+        0
+      );
+      const totalQty = pendingItems.reduce((sum, it) => sum + (Number(it.qty) || 1), 0);
+      combined.push({
+        id: `batch_${ord.id}`,
+        orderId: ord.id,
+        restaurantId: restoId,
+        tableId: ord.table_id,
+        tableNumber: tableInfo?.table_number || "T--",
+        customerName: pendingItems[0]?.customer_name || null,
+        itemIds: pendingItems.map((i) => i.id),
+        totalAmount: Math.round(totalAmt),
+        totalItems: totalQty,
+        status: "awaiting_approval",
+        createdAt: ord.opened_at,
+      });
+    }
+  }
+  return combined;
+}
 
 export async function GET() {
   const supabase = await createClient();
@@ -60,7 +128,7 @@ export async function GET() {
       billsRes,
       bestsellersRes,
     ] = await Promise.all([
-      admin.from("restaurants").select("id, name, subscription_plan, subscription_status").eq("id", targetRestoId).single(),
+      admin.from("restaurants").select("id, name, subscription_plan, subscription_status, gstin").eq("id", targetRestoId).single(),
       admin.from("staff_users").select("id, name, role").eq("restaurant_id", targetRestoId).eq("role", "owner").maybeSingle(),
       admin.from("restaurant_tables").select("id, table_number, status, qr_token").eq("restaurant_id", targetRestoId).order("table_number"),
       admin.from("orders").select(`
@@ -151,8 +219,12 @@ export async function GET() {
       },
       bestsellers: bestsellersRes.data || [],
       kitchenTickets,
-      waiterCalls: getActiveWaiterCalls(targetRestoId),
-      pendingApprovals: getActivePendingApprovals(targetRestoId),
+      waiterCalls: extractDashboardWaiterCalls(targetRestoId, restaurantRes.data?.gstin),
+      pendingApprovals: derivePendingApprovals(
+        targetRestoId,
+        openOrders,
+        getActivePendingApprovals(targetRestoId)
+      ),
       theme: getRestaurantTheme(targetRestoId),
       features: getRestaurantFeatures(targetRestoId),
       upsellConfig: getRestaurantUpsellConfig(targetRestoId),
@@ -315,8 +387,12 @@ export async function GET() {
     },
     bestsellers: bestsellersResult.data || [],
     kitchenTickets,
-    waiterCalls: getActiveWaiterCalls(restaurantResult.data?.id),
-    pendingApprovals: getActivePendingApprovals(restaurantResult.data?.id),
+    waiterCalls: extractDashboardWaiterCalls(restaurantResult.data?.id, restaurantResult.data?.gstin),
+    pendingApprovals: derivePendingApprovals(
+      restaurantResult.data?.id || "",
+      ordersResult.data || [],
+      getActivePendingApprovals(restaurantResult.data?.id)
+    ),
     theme: getRestaurantTheme(restaurantResult.data?.id),
     features: (() => {
       let dbFeatures: Partial<RestaurantFeatures> | null = null;

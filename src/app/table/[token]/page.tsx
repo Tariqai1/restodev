@@ -26,6 +26,7 @@ import {
   OrderStage,
   ScoredUpsell,
   PortionType,
+  CancelledItemNotice,
 } from "@/components/table/TableTypes";
 
 import {
@@ -90,6 +91,14 @@ export default function CustomerTableOrderingPage({
   });
 
   const [isApprovalPending, setIsApprovalPending] = useState<boolean>(false);
+  const [cancelledItems, setCancelledItems] = useState<CancelledItemNotice[]>([]);
+  const [cancelledOrderNotice, setCancelledOrderNotice] = useState<{
+    orderId?: string;
+    reason: string;
+    cancelledAt: string;
+  } | null>(null);
+  const [dismissedCancelledId, setDismissedCancelledId] = useState<string | null>(null);
+  const [waiterWhatsappUrl, setWaiterWhatsappUrl] = useState<string>("");
 
   // Dynamic Restaurant Offers & Retention Config
   const [offerConfig, setOfferConfig] = useState<RestaurantOfferConfig>(
@@ -243,6 +252,10 @@ export default function CustomerTableOrderingPage({
             setIsApprovalPending(Boolean(data.isApprovalPending));
           if (data.joinedNotice !== undefined)
             setJoinedNotice(data.joinedNotice);
+          if (data.cancelledItems !== undefined)
+            setCancelledItems(data.cancelledItems);
+          if (data.cancelledOrderNotice !== undefined)
+            setCancelledOrderNotice(data.cancelledOrderNotice);
           return;
         }
 
@@ -255,6 +268,10 @@ export default function CustomerTableOrderingPage({
           setIsApprovalPending(Boolean(data.isApprovalPending));
         if (data.joinedNotice !== undefined)
           setJoinedNotice(data.joinedNotice);
+        if (data.cancelledItems !== undefined)
+          setCancelledItems(data.cancelledItems);
+        if (data.cancelledOrderNotice !== undefined)
+          setCancelledOrderNotice(data.cancelledOrderNotice);
         if (data.branding) {
           setBranding(data.branding);
           if (data.branding.theme) setTheme(data.branding.theme);
@@ -300,6 +317,10 @@ export default function CustomerTableOrderingPage({
           setIsApprovalPending(Boolean(data.isApprovalPending));
         if (data.joinedNotice !== undefined)
           setJoinedNotice(data.joinedNotice);
+        if (data.cancelledItems !== undefined)
+          setCancelledItems(data.cancelledItems);
+        if (data.cancelledOrderNotice !== undefined)
+          setCancelledOrderNotice(data.cancelledOrderNotice);
         if (data.branding) {
           setBranding(data.branding);
           if (data.branding.theme) setTheme(data.branding.theme);
@@ -932,6 +953,11 @@ export default function CustomerTableOrderingPage({
           : "Staff assistance request";
 
       setWaiterCallSuccess(`${label} received! Staff buzzer is sounding.`);
+      if (data.whatsappWebUrl) {
+        setWaiterWhatsappUrl(data.whatsappWebUrl);
+      } else {
+        setWaiterWhatsappUrl("");
+      }
       setIsCallModalOpen(false);
       setCustomCallNote("");
       setWaiterCooldown(45);
@@ -940,7 +966,10 @@ export default function CustomerTableOrderingPage({
         setShowUpiQrModal(true);
       }
 
-      setTimeout(() => setWaiterCallSuccess(""), 7000);
+      setTimeout(() => {
+        setWaiterCallSuccess("");
+        setWaiterWhatsappUrl("");
+      }, 9000);
     } catch (err) {
       alert(
         err instanceof Error ? err.message : "Could not notify staff. Please try again."
@@ -1124,14 +1153,85 @@ export default function CustomerTableOrderingPage({
             borderColor: "#C5D8C3",
           }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg">🛎️</span>
             <span>{waiterCallSuccess}</span>
+            {waiterWhatsappUrl && (
+              <a
+                href={waiterWhatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 shadow-xs"
+              >
+                <span>💬 WhatsApp</span>
+              </a>
+            )}
           </div>
           <button
             type="button"
             onClick={() => setWaiterCallSuccess("")}
             className="text-xs font-bold text-stone-500 p-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Cancelled Order Notice (When Full Order Was Cancelled by Staff) */}
+      {cancelledOrderNotice && !activeOrder && (
+        <div className="mx-4 mt-3 p-4 rounded-xl border border-red-200 bg-red-50/95 shadow-sm text-center space-y-2 animate-in fade-in">
+          <div className="w-10 h-10 mx-auto rounded-full bg-red-100 flex items-center justify-center text-lg text-red-600">
+            ❌
+          </div>
+          <div>
+            <div className="text-sm font-bold text-red-900">Order Cancelled by Captain</div>
+            <p className="text-xs text-red-700 mt-1">
+              {cancelledOrderNotice.reason || "Your order was cancelled by restaurant floor staff."}
+            </p>
+            <p className="text-[11px] text-stone-500 mt-1">
+              You haven&apos;t been charged. Please call your captain or place a new order below.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsCallModalOpen(true)}
+              className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-red-600 text-white shadow-xs cursor-pointer hover:bg-red-700 transition-colors"
+            >
+              🛎️ Call Waiter
+            </button>
+            <button
+              type="button"
+              onClick={() => setCancelledOrderNotice(null)}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 bg-white text-stone-700 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cancelled Item Notification Alert */}
+      {cancelledItems.length > 0 && dismissedCancelledId !== cancelledItems[0].id && (
+        <div className="mx-4 mt-3 p-3.5 rounded-xl border border-red-200 bg-red-50 flex items-start justify-between gap-3 shadow-xs animate-in fade-in">
+          <div className="flex items-start gap-2.5">
+            <span className="text-lg mt-0.5">⚠️</span>
+            <div>
+              <div className="text-xs font-bold text-red-900">
+                Dish Cancelled by Staff
+              </div>
+              <p className="text-[11px] text-red-800 mt-0.5">
+                <span className="font-semibold">&quot;{cancelledItems[0].dishName}&quot;</span> (Qty: {cancelledItems[0].qty}) was cancelled by captain/kitchen: <em>{cancelledItems[0].reason}</em>
+              </p>
+              <p className="text-[10px] text-red-600 mt-1">
+                Your order total has been adjusted automatically.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDismissedCancelledId(cancelledItems[0].id)}
+            className="text-stone-400 hover:text-stone-700 text-xs font-bold p-1 cursor-pointer"
           >
             ✕
           </button>
@@ -1162,6 +1262,7 @@ export default function CustomerTableOrderingPage({
           }}
           onCancelItem={handleCancelOrderItem}
           onUpdateItemQty={handleUpdateOrderItemQty}
+          cancelledItems={cancelledItems}
         />
       )}
 

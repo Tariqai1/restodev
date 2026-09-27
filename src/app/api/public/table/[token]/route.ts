@@ -227,17 +227,57 @@ export async function GET(
     const theme = getRestaurantTheme(table.restaurant_id);
     const branding = getRestaurantBranding(table.restaurant_id);
     let features = getRestaurantFeatures(table.restaurant_id);
+    let cancelledItems: Array<{
+      id: string;
+      orderId: string;
+      dishName: string;
+      qty: number;
+      price: number;
+      reason: string;
+      cancelledAt: string;
+    }> = [];
+    let cancelledOrderNotice: {
+      orderId: string;
+      reason: string;
+      cancelledAt: string;
+    } | null = null;
+
     if (restaurant?.gstin?.startsWith("{")) {
       try {
         const meta = JSON.parse(restaurant.gstin);
         if (meta.features) {
           features = { ...features, ...meta.features };
         }
+        const now = Date.now();
+        if (Array.isArray(meta.cancelled_items)) {
+          cancelledItems = meta.cancelled_items.filter(
+            (c: any) =>
+              (c.tableId === table.id || c.tableNumber === table.table_number) &&
+              now - new Date(c.cancelledAt).getTime() < 2 * 60 * 60 * 1000
+          );
+        }
+        if (Array.isArray(meta.cancelled_orders)) {
+          const match = meta.cancelled_orders.find(
+            (c: any) =>
+              (c.tableId === table.id || c.tableNumber === table.table_number) &&
+              now - new Date(c.cancelledAt).getTime() < 2 * 60 * 60 * 1000
+          );
+          if (match && !validOpenOrder) {
+            cancelledOrderNotice = {
+              orderId: match.orderId,
+              reason: match.reason,
+              cancelledAt: match.cancelledAt,
+            };
+          }
+        }
       } catch {}
     }
     const offerConfig = getRestaurantOfferConfig(table.restaurant_id);
     const upsellConfig = getRestaurantUpsellConfig(table.restaurant_id);
     const prepEstimate = validOpenOrder ? getOrderPrepTime(validOpenOrder.id) : null;
+    const approvalPending =
+      isTableAwaitingApproval(table.id) ||
+      (validOpenOrder?.order_items?.some((it: any) => it.item_status === "pending") ?? false);
 
     return NextResponse.json({
       ok: true,
@@ -258,7 +298,9 @@ export async function GET(
         has_half_portion: getDishHalfPortion(it.id) ?? undefined,
       })),
       activeOrder: validOpenOrder ? { ...validOpenOrder, prepEstimate } : null,
-      isApprovalPending: isTableAwaitingApproval(table.id),
+      isApprovalPending: approvalPending,
+      cancelledItems,
+      cancelledOrderNotice,
       joinedNotice,
     });
   } catch (error) {

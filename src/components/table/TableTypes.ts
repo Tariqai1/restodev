@@ -104,3 +104,13 @@ export type ScoredUpsell = {
   reasonIcon: string;
   score?: number;
 };
+
+export type CancelledItemNotice = {
+  id: string;
+  orderId?: string;
+  dishName: string;
+  qty: number;
+  price?: number;
+  reason: string;
+  cancelledAt: string;
+};

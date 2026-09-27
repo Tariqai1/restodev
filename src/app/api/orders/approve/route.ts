@@ -25,35 +25,133 @@ async function getCallerStaff() {
 
   let staffId = user.id;
   let role = "staff";
+  let restaurantId = "";
 
   if (activeStaffRaw) {
     try {
       const parsed = JSON.parse(activeStaffRaw);
       staffId = parsed.staffId || user.id;
       role = parsed.role || "staff";
+      restaurantId = parsed.restaurantId || "";
     } catch {
       // ignore
     }
-  } else {
-    const admin = createAdminClient();
-    const { data: dbStaff } = await admin
-      .from("staff_users")
-      .select("id, role")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+  }
 
-    if (dbStaff) {
-      staffId = dbStaff.id;
-      role = dbStaff.role;
-    }
+  const admin = createAdminClient();
+  const { data: dbStaff } = await admin
+    .from("staff_users")
+    .select("id, role, restaurant_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (dbStaff) {
+    staffId = dbStaff.id;
+    role = dbStaff.role;
+    if (dbStaff.restaurant_id) restaurantId = dbStaff.restaurant_id;
   }
 
   return {
     user,
     staffId,
     role,
+    restaurantId,
     isSuper,
   };
+}
+
+async function recordCancelledDishes(
+  admin: ReturnType<typeof createAdminClient>,
+  restaurantId: string,
+  cancelledItems: Array<{
+    id?: string;
+    orderId: string;
+    tableId: string;
+    tableNumber: string;
+    dishName: string;
+    qty: number;
+    price: number;
+    reason?: string;
+  }>,
+  orderCancelledNotice?: {
+    orderId: string;
+    tableId: string;
+    tableNumber: string;
+    reason: string;
+  }
+) {
+  try {
+    if (!restaurantId) return;
+    const { data: resto } = await admin
+      .from("restaurants")
+      .select("gstin")
+      .eq("id", restaurantId)
+      .maybeSingle();
+
+    let meta: Record<string, unknown> = {};
+    const rawGstin = resto?.gstin || "";
+    if (rawGstin.startsWith("{") && rawGstin.endsWith("}")) {
+      try {
+        meta = JSON.parse(rawGstin);
+      } catch {}
+    } else if (rawGstin) {
+      meta.gstin_number = rawGstin;
+    }
+
+    const existingCancelledItems = (meta.cancelled_items as Array<{
+      id: string;
+      orderId: string;
+      tableId: string;
+      tableNumber: string;
+      dishName: string;
+      qty: number;
+      price: number;
+      reason: string;
+      cancelledAt: string;
+    }>) || [];
+    const nowIso = new Date().toISOString();
+    const newItems = cancelledItems.map((c) => ({
+      id: c.id || `canc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      orderId: c.orderId,
+      tableId: c.tableId,
+      tableNumber: c.tableNumber,
+      dishName: c.dishName,
+      qty: c.qty,
+      price: c.price,
+      reason: c.reason || "Item unavailable / cancelled by floor staff",
+      cancelledAt: nowIso,
+    }));
+
+    // Keep last 40 cancelled items
+    meta.cancelled_items = [...newItems, ...existingCancelledItems].slice(0, 40);
+
+    if (orderCancelledNotice) {
+      const existingCancelledOrders = (meta.cancelled_orders as Array<{
+        id: string;
+        orderId: string;
+        tableId: string;
+        tableNumber: string;
+        reason: string;
+        cancelledAt: string;
+      }>) || [];
+      const newOrderNotice = {
+        id: `cancord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        orderId: orderCancelledNotice.orderId,
+        tableId: orderCancelledNotice.tableId,
+        tableNumber: orderCancelledNotice.tableNumber,
+        reason: orderCancelledNotice.reason || "Order cancelled by floor captain",
+        cancelledAt: nowIso,
+      };
+      meta.cancelled_orders = [newOrderNotice, ...existingCancelledOrders].slice(0, 20);
+    }
+
+    await admin
+      .from("restaurants")
+      .update({ gstin: JSON.stringify(meta) })
+      .eq("id", restaurantId);
+  } catch (err) {
+    console.error("Failed to record cancelled dishes in database metadata:", err);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -126,8 +224,14 @@ export async function POST(request: NextRequest) {
           unit_price,
           qty,
           item_status,
+          menu_items (
+            id,
+            name,
+            is_veg
+          ),
           orders (
             id,
+            restaurant_id,
             table_id,
             restaurant_tables (
               id,
@@ -144,11 +248,15 @@ export async function POST(request: NextRequest) {
 
       const tableInfo = (itemData.orders as unknown as {
         id: string;
+        restaurant_id: string;
         table_id: string;
         restaurant_tables: { id: string; table_number: string } | null;
       } | null);
       const tableId = tableInfo?.table_id;
       const orderId = itemData.order_id;
+      const dishName = (itemData.menu_items as unknown as { name: string } | null)?.name || "Dish";
+      const resolvedTableNum = tableInfo?.restaurant_tables?.table_number || "T--";
+      const targetRestoId = tableInfo?.restaurant_id || caller.restaurantId;
 
       if (isApprove) {
         // Mark item as 'preparing' (Dispatched to Kitchen)
@@ -176,7 +284,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           ok: true,
           action: "item_approved",
-          message: "Dish approved and dispatched to Kitchen KOT!",
+          message: `Dish "${dishName}" approved and dispatched to Kitchen KOT!`,
         });
       }
 
@@ -202,6 +310,8 @@ export async function POST(request: NextRequest) {
           .select("id")
           .eq("order_id", orderId);
 
+        let orderNotice: { orderId: string; tableId: string; tableNumber: string; reason: string } | undefined;
+
         if (!remainingItems || remainingItems.length === 0) {
           // No items left, cancel the order and free table
           await admin
@@ -215,12 +325,37 @@ export async function POST(request: NextRequest) {
               .update({ status: "empty" })
               .eq("id", tableId);
           }
+
+          orderNotice = {
+            orderId,
+            tableId: tableId || "",
+            tableNumber: resolvedTableNum,
+            reason: reason || "All dishes in order cancelled by floor staff",
+          };
         }
+
+        // Record cancelled dish in Supabase database metadata so customer is notified
+        await recordCancelledDishes(
+          admin,
+          targetRestoId,
+          [
+            {
+              orderId,
+              tableId: tableId || "",
+              tableNumber: resolvedTableNum,
+              dishName,
+              qty: Number(itemData.qty) || 1,
+              price: Number(itemData.unit_price) || 0,
+              reason: reason || "Dish out of stock / cancelled by floor staff",
+            },
+          ],
+          orderNotice
+        );
 
         return NextResponse.json({
           ok: true,
           action: "item_rejected",
-          message: "Dish cancelled and removed from order.",
+          message: `Dish "${dishName}" cancelled and removed from order.`,
         });
       }
     }
@@ -229,10 +364,9 @@ export async function POST(request: NextRequest) {
     // CASE 2: TABLE-WIDE APPROVAL / REJECTION (ALL PENDING FOR TABLE)
     // ─────────────────────────────────────────────────────────────
     if (tableNumber && (!batchId || batchId === "all")) {
-      // Direct database lookup for all open orders and pending items on this table
       const { data: tableData } = await admin
         .from("restaurant_tables")
-        .select("id")
+        .select("id, restaurant_id")
         .eq("table_number", tableNumber)
         .maybeSingle();
 
@@ -259,6 +393,19 @@ export async function POST(request: NextRequest) {
               .update({ status: "pending" })
               .eq("id", tableData.id);
           } else if (isReject) {
+            // First fetch names and quantities of pending items
+            const { data: pendingItemsToReject } = await admin
+              .from("order_items")
+              .select(`
+                id,
+                order_id,
+                unit_price,
+                qty,
+                menu_items (name)
+              `)
+              .in("order_id", orderIds)
+              .eq("item_status", "pending");
+
             // Delete all 'pending' items in database
             await admin
               .from("order_items")
@@ -272,6 +419,8 @@ export async function POST(request: NextRequest) {
               .select("id")
               .in("order_id", orderIds);
 
+            let orderNotice: { orderId: string; tableId: string; tableNumber: string; reason: string } | undefined;
+
             if (!anyRemaining || anyRemaining.length === 0) {
               await admin
                 .from("orders")
@@ -282,6 +431,31 @@ export async function POST(request: NextRequest) {
                 .from("restaurant_tables")
                 .update({ status: "empty" })
                 .eq("id", tableData.id);
+
+              orderNotice = {
+                orderId: orderIds[0] || "",
+                tableId: tableData.id,
+                tableNumber,
+                reason: reason || "Order cancelled by floor captain",
+              };
+            }
+
+            // Record cancellation in database
+            if (pendingItemsToReject && pendingItemsToReject.length > 0) {
+              await recordCancelledDishes(
+                admin,
+                tableData.restaurant_id || caller.restaurantId,
+                pendingItemsToReject.map((it) => ({
+                  orderId: it.order_id,
+                  tableId: tableData.id,
+                  tableNumber,
+                  dishName: (it.menu_items as unknown as { name: string } | null)?.name || "Dish",
+                  qty: Number(it.qty) || 1,
+                  price: Number(it.unit_price) || 0,
+                  reason: reason || "Order rejected by floor captain",
+                })),
+                orderNotice
+              );
             }
           }
         }
@@ -314,76 +488,214 @@ export async function POST(request: NextRequest) {
     // ─────────────────────────────────────────────────────────────
     const batch = state.pendingOrderApprovals?.[batchId!];
 
-    if (!batch) {
-      return NextResponse.json({ message: "Order verification batch not found." }, { status: 404 });
-    }
-
-    if (batch.status !== "awaiting_approval") {
-      return NextResponse.json(
-        { message: `Batch has already been ${batch.status}.` },
-        { status: 400 }
-      );
-    }
-
-    if (isApprove) {
-      const updatedBatch = approveOrderBatch(batchId!, caller.role);
-
-      if (batch.itemIds && batch.itemIds.length > 0) {
-        await admin
-          .from("order_items")
-          .update({ item_status: "preparing" })
-          .in("id", batch.itemIds);
+    // If batch is in memory
+    if (batch) {
+      if (batch.status !== "awaiting_approval") {
+        return NextResponse.json(
+          { message: `Batch has already been ${batch.status}.` },
+          { status: 400 }
+        );
       }
 
-      await admin
-        .from("restaurant_tables")
-        .update({ status: "pending" })
-        .eq("id", batch.tableId);
+      if (isApprove) {
+        const updatedBatch = approveOrderBatch(batchId!, caller.role);
 
-      return NextResponse.json({
-        ok: true,
-        action: "approved",
-        message: `Order for Table ${batch.tableNumber} approved and dispatched to Kitchen KOT.`,
-        batch: updatedBatch,
-      });
-    }
-
-    if (isReject) {
-      const updatedBatch = rejectOrderBatch(batch.id, reason || "Rejected by floor captain");
-
-      if (batch.itemIds && batch.itemIds.length > 0) {
-        await admin
-          .from("order_items")
-          .delete()
-          .in("id", batch.itemIds);
-      }
-
-      const { data: remainingItems } = await admin
-        .from("order_items")
-        .select("id")
-        .eq("order_id", batch.orderId);
-
-      if (!remainingItems || remainingItems.length === 0) {
-        await admin
-          .from("orders")
-          .update({ status: "cancelled" })
-          .eq("id", batch.orderId);
+        if (batch.itemIds && batch.itemIds.length > 0) {
+          await admin
+            .from("order_items")
+            .update({ item_status: "preparing" })
+            .in("id", batch.itemIds);
+        }
 
         await admin
           .from("restaurant_tables")
-          .update({ status: "empty" })
+          .update({ status: "pending" })
           .eq("id", batch.tableId);
+
+        return NextResponse.json({
+          ok: true,
+          action: "approved",
+          message: `Order for Table ${batch.tableNumber} approved and dispatched to Kitchen KOT.`,
+          batch: updatedBatch,
+        });
       }
 
-      return NextResponse.json({
-        ok: true,
-        action: "rejected",
-        message: `Order for Table ${batch.tableNumber} rejected and discarded.`,
-        batch: updatedBatch,
-      });
+      if (isReject) {
+        const updatedBatch = rejectOrderBatch(batch.id, reason || "Rejected by floor captain");
+
+        if (batch.itemIds && batch.itemIds.length > 0) {
+          const { data: batchItemsToReject } = await admin
+            .from("order_items")
+            .select(`
+              id,
+              order_id,
+              unit_price,
+              qty,
+              menu_items (name)
+            `)
+            .in("id", batch.itemIds);
+
+          await admin
+            .from("order_items")
+            .delete()
+            .in("id", batch.itemIds);
+
+          const { data: remainingItems } = await admin
+            .from("order_items")
+            .select("id")
+            .eq("order_id", batch.orderId);
+
+          let orderNotice: { orderId: string; tableId: string; tableNumber: string; reason: string } | undefined;
+
+          if (!remainingItems || remainingItems.length === 0) {
+            await admin
+              .from("orders")
+              .update({ status: "cancelled" })
+              .eq("id", batch.orderId);
+
+            await admin
+              .from("restaurant_tables")
+              .update({ status: "empty" })
+              .eq("id", batch.tableId);
+
+            orderNotice = {
+              orderId: batch.orderId,
+              tableId: batch.tableId,
+              tableNumber: batch.tableNumber,
+              reason: reason || "Order cancelled by floor captain",
+            };
+          }
+
+          if (batchItemsToReject && batchItemsToReject.length > 0) {
+            await recordCancelledDishes(
+              admin,
+              batch.restaurantId,
+              batchItemsToReject.map((it) => ({
+                orderId: it.order_id,
+                tableId: batch.tableId,
+                tableNumber: batch.tableNumber,
+                dishName: (it.menu_items as unknown as { name: string } | null)?.name || "Dish",
+                qty: Number(it.qty) || 1,
+                price: Number(it.unit_price) || 0,
+                reason: reason || "Rejected by floor captain",
+              })),
+              orderNotice
+            );
+          }
+        }
+
+        return NextResponse.json({
+          ok: true,
+          action: "rejected",
+          message: `Order for Table ${batch.tableNumber} rejected and discarded.`,
+          batch: updatedBatch,
+        });
+      }
+    } else if (batchId?.startsWith("batch_")) {
+      // Direct DB batch fallback
+      const orderId = batchId.replace("batch_", "");
+      const { data: orderData } = await admin
+        .from("orders")
+        .select(`
+          id,
+          restaurant_id,
+          table_id,
+          restaurant_tables (id, table_number)
+        `)
+        .eq("id", orderId)
+        .maybeSingle();
+
+      if (orderData) {
+        const tableNumber = (orderData.restaurant_tables as unknown as { table_number: string } | null)?.table_number || "T--";
+        if (isApprove) {
+          await admin
+            .from("order_items")
+            .update({ item_status: "preparing" })
+            .eq("order_id", orderId)
+            .eq("item_status", "pending");
+
+          await admin
+            .from("restaurant_tables")
+            .update({ status: "pending" })
+            .eq("id", orderData.table_id);
+
+          return NextResponse.json({
+            ok: true,
+            action: "approved",
+            message: `Order for Table ${tableNumber} approved and dispatched to Kitchen KOT.`,
+          });
+        } else if (isReject) {
+          const { data: pendingItemsToReject } = await admin
+            .from("order_items")
+            .select(`
+              id,
+              order_id,
+              unit_price,
+              qty,
+              menu_items (name)
+            `)
+            .eq("order_id", orderId)
+            .eq("item_status", "pending");
+
+          await admin
+            .from("order_items")
+            .delete()
+            .eq("order_id", orderId)
+            .eq("item_status", "pending");
+
+          const { data: remainingItems } = await admin
+            .from("order_items")
+            .select("id")
+            .eq("order_id", orderId);
+
+          let orderNotice: { orderId: string; tableId: string; tableNumber: string; reason: string } | undefined;
+
+          if (!remainingItems || remainingItems.length === 0) {
+            await admin
+              .from("orders")
+              .update({ status: "cancelled" })
+              .eq("id", orderId);
+
+            await admin
+              .from("restaurant_tables")
+              .update({ status: "empty" })
+              .eq("id", orderData.table_id);
+
+            orderNotice = {
+              orderId,
+              tableId: orderData.table_id,
+              tableNumber,
+              reason: reason || "Order cancelled by floor captain",
+            };
+          }
+
+          if (pendingItemsToReject && pendingItemsToReject.length > 0) {
+            await recordCancelledDishes(
+              admin,
+              orderData.restaurant_id,
+              pendingItemsToReject.map((it) => ({
+                orderId: it.order_id,
+                tableId: orderData.table_id,
+                tableNumber,
+                dishName: (it.menu_items as unknown as { name: string } | null)?.name || "Dish",
+                qty: Number(it.qty) || 1,
+                price: Number(it.unit_price) || 0,
+                reason: reason || "Rejected by floor captain",
+              })),
+              orderNotice
+            );
+          }
+
+          return NextResponse.json({
+            ok: true,
+            action: "rejected",
+            message: `Order for Table ${tableNumber} rejected.`,
+          });
+        }
+      }
     }
 
-    return NextResponse.json({ message: "Invalid action." }, { status: 400 });
+    return NextResponse.json({ message: "Invalid action or target." }, { status: 400 });
   } catch (err: unknown) {
     console.error("Order approval error:", err);
     const message = err instanceof Error ? err.message : "Internal Server Error";

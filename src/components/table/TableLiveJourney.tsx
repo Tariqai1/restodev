@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { ActiveOrder, ActiveOrderItem, RestaurantFeatures, OrderStage } from "./TableTypes";
+import { ActiveOrder, ActiveOrderItem, RestaurantFeatures, OrderStage, CancelledItemNotice } from "./TableTypes";
 import { triggerHaptic } from "./tableUtils";
 
 interface TableLiveJourneyProps {
@@ -28,6 +28,7 @@ interface TableLiveJourneyProps {
   onAddFoodClick: () => void;
   onCancelItem?: (orderId: string, itemId: string) => Promise<boolean>;
   onUpdateItemQty?: (orderId: string, itemId: string, newQty: number) => Promise<boolean>;
+  cancelledItems?: CancelledItemNotice[];
 }
 
 export default function TableLiveJourney({
@@ -49,6 +50,7 @@ export default function TableLiveJourney({
   onAddFoodClick,
   onCancelItem,
   onUpdateItemQty,
+  cancelledItems = [],
 }: TableLiveJourneyProps) {
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [processingItemId, setProcessingItemId] = useState<string | null>(null);
@@ -268,6 +270,32 @@ export default function TableLiveJourney({
       })}
     </AnimatePresence>
   );
+
+  const renderCancelledDishesList = () => {
+    if (!cancelledItems || cancelledItems.length === 0) return null;
+    return (
+      <div className="mt-2.5 pt-2 border-t border-dashed border-red-200 space-y-1.5 animate-in fade-in">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-red-600 flex items-center gap-1">
+          <span>❌</span> Cancelled Dishes ({cancelledItems.length})
+        </div>
+        {cancelledItems.map((ci) => (
+          <div
+            key={ci.id}
+            className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg bg-red-50/90 border border-red-100"
+          >
+            <div>
+              <div className="line-through text-stone-500 font-semibold">{ci.dishName}</div>
+              <div className="text-[10px] text-red-600">{ci.reason}</div>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] font-mono text-stone-400">Qty: {ci.qty}</span>
+              <div className="text-[10px] font-bold text-red-600">₹0 (Removed)</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -635,6 +663,7 @@ export default function TableLiveJourney({
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {renderOrderItemCards()}
+                {renderCancelledDishesList()}
               </div>
 
               <button
@@ -824,6 +853,7 @@ export default function TableLiveJourney({
               >
                 <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                   {renderOrderItemCards()}
+                  {renderCancelledDishesList()}
                 </div>
               </div>
             )}
@@ -1138,6 +1168,7 @@ export default function TableLiveJourney({
 
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                   {renderOrderItemCards()}
+                  {renderCancelledDishesList()}
                 </div>
               </div>
             </div>

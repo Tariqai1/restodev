@@ -621,6 +621,11 @@ export default function Home() {
       (b) => b.tableNumber === t.table_number || b.tableId === t.id
     );
 
+    const activeTableCall = waiterCalls.find(
+      (c) => c.tableNumber === t.table_number || c.tableId === t.id
+    );
+    const hasActiveBuzzer = Boolean(activeTableCall);
+
     return {
       id: t.id,
       number: t.table_number,
@@ -633,6 +638,8 @@ export default function Home() {
       elapsedMinutes,
       joinedBadge,
       hasPendingApproval,
+      hasActiveBuzzer,
+      activeTableCall,
     };
   });
 
@@ -1641,6 +1648,12 @@ export default function Home() {
                     {table.hasPendingApproval && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded font-black bg-amber-500 text-white animate-pulse shadow-xs">
                         ⏳ Approval
+                      </span>
+                    )}
+                    {table.hasActiveBuzzer && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-black bg-red-600 text-white animate-bounce shadow-xs flex items-center gap-1">
+                        <span>🛎️</span>
+                        <span>{table.activeTableCall?.type ? table.activeTableCall.type.toUpperCase() : "BUZZER"}</span>
                       </span>
                     )}
                   </div>
