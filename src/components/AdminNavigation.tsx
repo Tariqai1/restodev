@@ -29,6 +29,59 @@ function triggerHaptic(ms = 12) {
   }
 }
 
+function renderNavIcon(key: string, isActive: boolean) {
+  const strokeWidth = isActive ? 2.2 : 1.8;
+  switch (key) {
+    case "floor":
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="9" rx="1.5" />
+          <rect x="14" y="3" width="7" height="5" rx="1.5" />
+          <rect x="14" y="12" width="7" height="9" rx="1.5" />
+          <rect x="3" y="16" width="7" height="5" rx="1.5" />
+        </svg>
+      );
+    case "tables":
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 8h16" />
+          <rect x="5" y="4" width="14" height="4" rx="1" />
+          <path d="M6 8v11" />
+          <path d="M18 8v11" />
+          <path d="M2 13h4" />
+          <path d="M18 13h4" />
+        </svg>
+      );
+    case "kitchen":
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" />
+          <line x1="6" y1="17" x2="18" y2="17" />
+        </svg>
+      );
+    case "menu":
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+          <path d="M8 7h8" />
+          <path d="M8 11h8" />
+          <path d="M8 15h5" />
+        </svg>
+      );
+    case "staff":
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 export default function AdminNavigation({
   currentTab,
   restaurantName = "Order Desk",
@@ -219,7 +272,9 @@ export default function AdminNavigation({
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <span>{item.icon}</span>
+                    <span className={isActive ? "text-amber-400 shrink-0" : "text-stone-400 shrink-0"}>
+                      {renderNavIcon(item.key, isActive)}
+                    </span>
                     <span className="truncate">{item.label}</span>
                   </div>
                   {item.badge && (
@@ -377,8 +432,11 @@ export default function AdminNavigation({
       {mobileNavStyle === "bottom_bar" && (
         <nav
           aria-label="Mobile Bottom Navigation"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#14110D]/95 border-t border-stone-800/90 backdrop-blur-xl px-1 py-1.5 flex items-center justify-around shadow-2xl select-none"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#12100E]/94 backdrop-blur-2xl border-t border-white/[0.08] px-2 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-8px_32px_rgba(0,0,0,0.7)] select-none"
         >
+          {/* Ambient top glowing hairline */}
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent pointer-events-none" />
+
           {navItems.map((item) => {
             const isActive = currentTab === item.key;
             return (
@@ -386,35 +444,59 @@ export default function AdminNavigation({
                 key={item.key}
                 href={item.href}
                 onClick={handleNavClick}
-                className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all cursor-pointer active:scale-95 ${
+                className={`relative flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 cursor-pointer active:scale-90 ${
                   isActive
-                    ? "text-amber-400 font-bold"
-                    : "text-stone-400 hover:text-stone-200"
+                    ? theme === "crimson"
+                      ? "bg-rose-500/15 border border-rose-500/40 text-rose-300 shadow-[0_0_16px_rgba(244,63,94,0.25)] font-bold"
+                      : "bg-gradient-to-b from-amber-500/20 to-amber-500/5 border border-amber-500/35 text-amber-300 shadow-[0_0_16px_rgba(245,158,11,0.25)] font-bold"
+                    : "text-stone-400 hover:text-stone-200 hover:bg-white/[0.03] border border-transparent"
                 }`}
               >
                 <div className="relative flex items-center justify-center">
-                  <span className={`text-lg transition-transform ${isActive ? "scale-110" : ""}`}>
-                    {item.icon}
-                  </span>
-                  {/* Micro indicator badge for pending items / active tables */}
+                  <div
+                    className={`transition-all duration-200 ${
+                      isActive ? "scale-110 drop-shadow-[0_2px_8px_rgba(245,158,11,0.35)]" : "opacity-80"
+                    }`}
+                  >
+                    {renderNavIcon(item.key, isActive)}
+                  </div>
+
+                  {/* Micro indicator badge for pending kitchen items */}
                   {item.key === "kitchen" && pendingKitchenCount > 0 && (
-                    <span className="absolute -top-1 -right-2.5 w-4 h-4 rounded-full bg-red-600 text-white font-mono text-[9px] font-black flex items-center justify-center animate-pulse">
+                    <span className="absolute -top-1.5 -right-2.5 px-1.5 min-w-4 h-4 rounded-full bg-rose-600 text-white font-mono text-[9px] font-black flex items-center justify-center shadow-md shadow-rose-950 animate-pulse border border-rose-400/50">
                       {pendingKitchenCount > 9 ? "9+" : pendingKitchenCount}
                     </span>
                   )}
+
+                  {/* Live pulsating dot for active occupied tables */}
                   {item.key === "floor" && occupiedTablesCount > 0 && (
-                    <span className="absolute -top-1 -right-2 w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-[#12100E]" />
+                    </span>
                   )}
                 </div>
+
                 <span
-                  className={`text-[10px] tracking-tight mt-0.5 leading-none ${
-                    isActive ? "font-black text-amber-400" : "font-medium text-stone-400"
+                  className={`text-[10px] tracking-tight mt-1 leading-none transition-colors ${
+                    isActive
+                      ? theme === "crimson"
+                        ? "font-bold text-rose-300"
+                        : "font-bold text-amber-300"
+                      : "font-medium text-stone-400"
                   }`}
                 >
                   {item.shortLabel}
                 </span>
+
                 {isActive && (
-                  <span className="w-1 h-1 rounded-full bg-amber-400 mt-0.5 animate-in zoom-in" />
+                  <span
+                    className={`w-3.5 h-0.5 rounded-full ${
+                      theme === "crimson"
+                        ? "bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.9)]"
+                        : "bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)]"
+                    } mt-1 animate-in zoom-in-75 duration-200`}
+                  />
                 )}
               </Link>
             );
@@ -465,7 +547,9 @@ export default function AdminNavigation({
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span>{item.icon}</span>
+                      <span className={currentTab === item.key ? "text-amber-400 shrink-0" : "text-stone-400 shrink-0"}>
+                        {renderNavIcon(item.key, currentTab === item.key)}
+                      </span>
                       <span>{item.label}</span>
                     </div>
                     {item.badge && (

@@ -320,7 +320,7 @@
       "mobileNavStyle": "bottom_bar",
       "mobileSheetModals": true,
       "autoMobileCards": true,
-      "orderJourneyLayout": "slim_accordion"
+      "orderJourneyLayout": "split_card"
     }
   },
   "restaurantOffers": {},
