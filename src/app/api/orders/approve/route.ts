@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isSuperAdminUser } from "@/lib/auth/super-admin";
+import { resolveStaffContext } from "@/lib/auth/staff-context";
 import {
   getActivePendingApprovals,
   approveOrderBatch,
@@ -19,44 +18,15 @@ async function getCallerStaff() {
 
   if (!user) return null;
 
-  const isSuper = await isSuperAdminUser(user);
-  const cookieStore = await cookies();
-  const activeStaffRaw = cookieStore.get("od_active_staff")?.value;
-
-  let staffId = user.id;
-  let role = "staff";
-  let restaurantId = "";
-
-  if (activeStaffRaw) {
-    try {
-      const parsed = JSON.parse(activeStaffRaw);
-      staffId = parsed.staffId || user.id;
-      role = parsed.role || "staff";
-      restaurantId = parsed.restaurantId || "";
-    } catch {
-      // ignore
-    }
-  }
-
-  const admin = createAdminClient();
-  const { data: dbStaff } = await admin
-    .from("staff_users")
-    .select("id, role, restaurant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  if (dbStaff) {
-    staffId = dbStaff.id;
-    role = dbStaff.role;
-    if (dbStaff.restaurant_id) restaurantId = dbStaff.restaurant_id;
-  }
+  const staff = await resolveStaffContext(user);
+  if (!staff) return null;
 
   return {
-    user,
-    staffId,
-    role,
-    restaurantId,
-    isSuper,
+    user: staff.user,
+    staffId: staff.staffId,
+    role: staff.role,
+    restaurantId: staff.restaurantId,
+    isSuper: staff.isSuperAdmin,
   };
 }
 
@@ -368,13 +338,19 @@ export async function POST(request: NextRequest) {
         .from("restaurant_tables")
         .select("id, restaurant_id")
         .eq("table_number", tableNumber)
+        .eq("restaurant_id", caller.restaurantId)
         .maybeSingle();
+
+      if (!tableData) {
+        return NextResponse.json({ message: "Table not found in the active restaurant" }, { status: 404 });
+      }
 
       if (tableData) {
         const { data: openOrders } = await admin
           .from("orders")
           .select("id")
           .eq("table_id", tableData.id)
+          .eq("restaurant_id", caller.restaurantId)
           .eq("status", "open");
 
         const orderIds = (openOrders || []).map((o) => o.id);
@@ -382,16 +358,18 @@ export async function POST(request: NextRequest) {
         if (orderIds.length > 0) {
           if (isApprove) {
             // Promote ALL 'pending' items in database to 'preparing'
-            await admin
+            const { error: itemUpdateError } = await admin
               .from("order_items")
               .update({ item_status: "preparing" })
               .in("order_id", orderIds)
               .eq("item_status", "pending");
+            if (itemUpdateError) throw itemUpdateError;
 
-            await admin
+            const { error: tableUpdateError } = await admin
               .from("restaurant_tables")
               .update({ status: "pending" })
               .eq("id", tableData.id);
+            if (tableUpdateError) throw tableUpdateError;
           } else if (isReject) {
             // First fetch names and quantities of pending items
             const { data: pendingItemsToReject } = await admin

@@ -950,6 +950,8 @@ export default function Home() {
       setIsApprovalModalOpen(false);
       setSelectedApprovalBatch(null);
       setShowRejectInput(false);
+      setSelectedTable(null);
+      setPendingApprovals((prev) => prev.filter((batch) => batch.tableNumber !== tableNum));
       await fetchDashboardData();
     } catch (err) {
       notify(err instanceof Error ? err.message : "Approval failed");
