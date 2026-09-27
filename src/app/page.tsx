@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
 const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), { ssr: false });
 import AdminNavigation from "@/components/AdminNavigation";
-import type { RestaurantFeatures } from "@/lib/platform/state";
+import { type RestaurantFeatures, DEFAULT_RESTAURANT_FEATURES } from "@/lib/types/features";
 import type { SmartUpsellConfig, UpsellStrategy } from "@/lib/types/offers";
 import { DEFAULT_UPSELL_CONFIG } from "@/lib/types/offers";
 
@@ -142,6 +142,7 @@ export default function Home() {
   const [features, setFeatures] = useState<RestaurantFeatures | null>(null);
   const [upsellConfig, setUpsellConfig] = useState<SmartUpsellConfig>(DEFAULT_UPSELL_CONFIG);
   const [isUpsellModalOpen, setIsUpsellModalOpen] = useState(false);
+  const [isFloorSettingsOpen, setIsFloorSettingsOpen] = useState(false);
   const [isSavingUpsell, setIsSavingUpsell] = useState(false);
   const [upsellSaveMsg, setUpsellSaveMsg] = useState("");
 
@@ -931,6 +932,40 @@ export default function Home() {
     }
   };
 
+  // Handle Smooth Persistent Feature Updates (Prevents toggles reverting on poll)
+  const handleUpdateFeature = async (patch: Partial<RestaurantFeatures>, label?: string) => {
+    setFeatures((prev) => {
+      const next = prev ? { ...prev, ...patch } : ({ ...DEFAULT_RESTAURANT_FEATURES, ...patch } as RestaurantFeatures);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("od_resto_features", JSON.stringify(next));
+        } catch {}
+      }
+      return next;
+    });
+
+    try {
+      const res = await fetch("/api/restaurant/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (data?.features) {
+        setFeatures(data.features);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("od_resto_features", JSON.stringify(data.features));
+          } catch {}
+        }
+      }
+      if (label) notify(label);
+    } catch (err) {
+      console.error("Feature update error:", err);
+      notify("Failed to update setting. Please try again.");
+    }
+  };
+
   return (
     <div data-theme={theme} className="min-h-screen flex flex-col md:flex-row" style={{ backgroundColor: "var(--paper)" }}>
       {/* State Notification Banner (Replaces floating toast) */}
@@ -975,12 +1010,12 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             {/* Audio Buzzer & Push Notification Unlock Button */}
             <button
               type="button"
               onClick={notificationPerm !== "granted" ? handleEnableAlerts : () => setSoundEnabled(!soundEnabled)}
-              className="px-3 py-2 rounded text-xs font-semibold border cursor-pointer flex items-center gap-1.5 transition-colors"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs active:scale-95"
               style={{
                 backgroundColor: notificationPerm === "granted" && soundEnabled ? "var(--paper-dim)" : "#FFFBEB",
                 borderColor: notificationPerm === "granted" && soundEnabled ? "var(--hairline)" : "#FCD34D",
@@ -1004,223 +1039,51 @@ export default function Home() {
               </span>
             </button>
 
-            {/* Owner & Manager Controls Only */}
+            {/* Owner & Manager Controls */}
             {isOwnerOrManager && (
               <>
+                {/* Share Menu QR & Link */}
                 <button
                   type="button"
                   onClick={() => setIsShareMenuOpen(true)}
-                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  style={{
-                    backgroundColor: "#E8F5E9",
-                    color: "#1B5E20",
-                    borderColor: "#A5D6A7",
-                    borderRadius: "5px",
-                  }}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100"
                   title="Share Customer Digital Menu Link & QR"
                 >
                   <span>📤</span>
                   <span className="hidden sm:inline">Share Menu</span>
                 </button>
 
+                {/* 1-Tap Captain Verification Direct Toggle */}
                 <button
                   type="button"
-                  onClick={() => setIsUpsellModalOpen(true)}
-                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  style={{
-                    backgroundColor: upsellConfig.enabled ? "#FFF8E1" : "#F5F5F5",
-                    color: upsellConfig.enabled ? "#B78103" : "#757575",
-                    borderColor: upsellConfig.enabled ? "#FFE082" : "#E0E0E0",
-                    borderRadius: "5px",
-                  }}
-                  title="Configure Smart Upsell & Basket Pairing"
-                >
-                  <span>💡</span>
-                  <span className="hidden sm:inline">Smart Upsell</span>
-                  {upsellConfig.ownerCanManageUpsell === false && <span className="text-[10px]">🔒</span>}
-                </button>
-
-                {/* Captain Verification Toggle */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const current = Boolean(features?.waiterOrderApproval);
+                  onClick={() => {
+                    const current = features?.waiterOrderApproval !== false;
                     const next = !current;
-                    try {
-                      const res = await fetch("/api/restaurant/features", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ waiterOrderApproval: next }),
-                      });
-                      if (res.ok) {
-                        setFeatures((prev) => (prev ? { ...prev, waiterOrderApproval: next } : null));
-                        notify(next ? "Waiter Order Verification Enabled" : "Direct Kitchen KOT Enabled (Verification Disabled)");
-                      }
-                    } catch {
-                      // ignore
-                    }
+                    handleUpdateFeature(
+                      { waiterOrderApproval: next },
+                      next ? "Captain Verification Enabled" : "Direct Kitchen KOT Enabled (Verification Disabled)"
+                    );
                   }}
-                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  style={{
-                    backgroundColor: features?.waiterOrderApproval ? "#FFF8E1" : "#F5F5F5",
-                    color: features?.waiterOrderApproval ? "#B78103" : "#757575",
-                    borderColor: features?.waiterOrderApproval ? "#FFE082" : "#E0E0E0",
-                    borderRadius: "5px",
-                  }}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 ${
+                    features?.waiterOrderApproval !== false
+                      ? "bg-amber-100/90 text-amber-950 border-amber-300 ring-1 ring-amber-400/40"
+                      : "bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200/70"
+                  }`}
                   title="Toggle Waiter / Captain Order Verification before Kitchen Dispatch"
                 >
                   <span>👨‍💼</span>
-                  <span className="hidden sm:inline">Captain Verification: {features?.waiterOrderApproval ? "ON" : "OFF"}</span>
+                  <span>Captain: {features?.waiterOrderApproval !== false ? "ON" : "OFF"}</span>
                 </button>
 
-                {/* Quick Adds Carousel Toggle (Default OFF) */}
+                {/* Floor & Customer Experience Settings Trigger */}
                 <button
                   type="button"
-                  onClick={async () => {
-                    const current = Boolean(features?.quickAdds);
-                    const next = !current;
-                    try {
-                      const res = await fetch("/api/restaurant/features", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ quickAdds: next }),
-                      });
-                      if (res.ok) {
-                        setFeatures((prev) => (prev ? { ...prev, quickAdds: next } : null));
-                        notify(next ? "Quick Adds Carousel Enabled on Table Menu" : "Quick Adds Carousel Disabled");
-                      }
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  style={{
-                    backgroundColor: features?.quickAdds ? "#FFF8E1" : "#F5F5F5",
-                    color: features?.quickAdds ? "#B78103" : "#757575",
-                    borderColor: features?.quickAdds ? "#FFE082" : "#E0E0E0",
-                    borderRadius: "5px",
-                  }}
-                  title="Toggle Quick Adds Carousel on Diner Table Menu (Rotis, Beverages & Extras)"
+                  onClick={() => setIsFloorSettingsOpen(true)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 bg-white hover:bg-stone-50 text-stone-800 border-stone-300"
+                  title="Configure Quick Adds, Half/Full Portions, Table Footer & Journey Layout"
                 >
-                  <span>⚡</span>
-                  <span className="hidden sm:inline">Quick Adds: {features?.quickAdds ? "ON" : "OFF"}</span>
-                </button>
-
-                {/* Table Footer Toggle (Default OFF) */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const current = Boolean(features?.showTableFooter);
-                    const next = !current;
-                    try {
-                      const res = await fetch("/api/restaurant/features", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ showTableFooter: next }),
-                      });
-                      if (res.ok) {
-                        setFeatures((prev) => (prev ? { ...prev, showTableFooter: next } : null));
-                        notify(next ? "Table Menu Footer Enabled" : "Table Menu Footer Disabled");
-                      }
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  style={{
-                    backgroundColor: features?.showTableFooter ? "#E3F2FD" : "#F5F5F5",
-                    color: features?.showTableFooter ? "#1565C0" : "#757575",
-                    borderColor: features?.showTableFooter ? "#90CAF9" : "#E0E0E0",
-                    borderRadius: "5px",
-                  }}
-                  title="Toggle Restaurant Info & Legal Footer on Customer Table Screen"
-                >
-                  <span>📄</span>
-                  <span className="hidden sm:inline">Footer: {features?.showTableFooter ? "ON" : "OFF"}</span>
-                </button>
-
-                {/* Half & Full Portions Toggle (Default ON) */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const current = features?.halfFullPortions !== false;
-                    const next = !current;
-                    try {
-                      const res = await fetch("/api/restaurant/features", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ halfFullPortions: next }),
-                      });
-                      if (res.ok) {
-                        setFeatures((prev) => (prev ? { ...prev, halfFullPortions: next } : null));
-                        notify(next ? "Half & Full Portions Enabled" : "Single Dish Pricing Enabled (Portions Disabled)");
-                      }
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  style={{
-                    backgroundColor: features?.halfFullPortions !== false ? "#EDE7F6" : "#F5F5F5",
-                    color: features?.halfFullPortions !== false ? "#4A148C" : "#757575",
-                    borderColor: features?.halfFullPortions !== false ? "#D1C4E9" : "#E0E0E0",
-                    borderRadius: "5px",
-                  }}
-                  title="Toggle Half & Full Portion selector on Customer Dishes"
-                >
-                  <span>⚖️</span>
-                  <span className="hidden sm:inline">Half/Full: {features?.halfFullPortions !== false ? "ON" : "OFF"}</span>
-                </button>
-
-                {/* Live Order Journey UX Layout Switcher */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const current = features?.orderJourneyLayout || "floating_capsule";
-                    const next =
-                      current === "floating_capsule"
-                        ? "split_card"
-                        : current === "split_card"
-                        ? "slim_accordion"
-                        : "floating_capsule";
-                    try {
-                      const res = await fetch("/api/restaurant/features", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ orderJourneyLayout: next }),
-                      });
-                      if (res.ok) {
-                        setFeatures((prev) => (prev ? { ...prev, orderJourneyLayout: next } : null));
-                        notify(
-                          next === "floating_capsule"
-                            ? "Customer Journey: Floating Capsule + Bottom Sheet Active"
-                            : next === "split_card"
-                            ? "Customer Journey: Side-by-Side Split Card Active"
-                            : "Customer Journey: Ultra-Slim Accordion Active"
-                        );
-                      }
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  className="px-3 py-2 rounded text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  style={{
-                    backgroundColor: "#FAF5FF",
-                    color: "#6B21A8",
-                    borderColor: "#E9D5FF",
-                    borderRadius: "5px",
-                  }}
-                  title="Cycle Customer Table Live Order Journey Layout (Floating Capsule / Side Split / Slim Accordion)"
-                >
-                  <span>🗺️</span>
-                  <span className="hidden lg:inline">Journey:</span>
-                  <span className="font-bold">
-                    {(features?.orderJourneyLayout || "floating_capsule") === "floating_capsule"
-                      ? "Floating Sheet"
-                      : (features?.orderJourneyLayout || "floating_capsule") === "split_card"
-                      ? "Side Split"
-                      : "Slim Accordion"}
-                  </span>
+                  <span>⚙️</span>
+                  <span>Options</span>
                 </button>
               </>
             )}
@@ -3081,6 +2944,284 @@ export default function Home() {
                   {isSavingUpsell ? "Saving Changes..." : "Save Settings"}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FLOOR & CUSTOMER EXPERIENCE PREFERENCES MODAL */}
+      {isFloorSettingsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm animate-fade-in"
+          style={{ backgroundColor: "rgba(34, 29, 22, 0.6)" }}
+          onClick={() => setIsFloorSettingsOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border shadow-2xl p-5 sm:p-6 overflow-y-auto max-h-[90vh] space-y-4 animate-scale-up"
+            style={{
+              backgroundColor: "var(--paper)",
+              borderColor: "var(--hairline)",
+              color: "var(--ink)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--hairline)" }}>
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-sm"
+                  style={{ backgroundColor: "var(--paper-dim)", border: "1px solid var(--hairline)" }}
+                >
+                  ⚙️
+                </div>
+                <div>
+                  <h3 className="font-heading text-lg font-bold">Floor &amp; Diner Preferences</h3>
+                  <p className="text-xs text-stone-500">Configure floor workflow, diner cart features, and live menus</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFloorSettingsOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold hover:bg-black/5 cursor-pointer text-stone-400"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Section 1: Floor Service & KOT Dispatch */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-stone-500">
+                Floor Service &amp; Kitchen Dispatch
+              </span>
+
+              {/* Captain Verification Switch */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>👨‍💼</span>
+                    <span>Captain Order Verification</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Dine-in orders must be verified by staff before items are fired to kitchen KOT.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = features?.waiterOrderApproval !== false;
+                    const next = !current;
+                    handleUpdateFeature(
+                      { waiterOrderApproval: next },
+                      next ? "Captain Verification Enabled" : "Direct Kitchen KOT Enabled (Verification Disabled)"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.waiterOrderApproval !== false ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.waiterOrderApproval !== false ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Quick Adds Carousel Strip */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>⚡</span>
+                    <span>Quick Adds Carousel Strip</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Shows 1-tap fast adds bar (Rotis, Drinks, Extras) directly above diner table menu.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = Boolean(features?.quickAdds);
+                    const next = !current;
+                    handleUpdateFeature(
+                      { quickAdds: next },
+                      next ? "Quick Adds Carousel Enabled on Table Menu" : "Quick Adds Carousel Disabled"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.quickAdds ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.quickAdds ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Section 2: Diner Menu & Experience */}
+            <div className="space-y-2 pt-1">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-stone-500">
+                Customer Mobile Menu Options
+              </span>
+
+              {/* Half & Full Portions */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>⚖️</span>
+                    <span>Half &amp; Full Portions</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Allows diners to choose half or full portion sizes on eligible menu dishes.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = features?.halfFullPortions !== false;
+                    const next = !current;
+                    handleUpdateFeature(
+                      { halfFullPortions: next },
+                      next ? "Half & Full Portions Enabled" : "Single Dish Pricing Enabled"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.halfFullPortions !== false ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.halfFullPortions !== false ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Table Footer */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>📄</span>
+                    <span>Restaurant Info &amp; Legal Footer</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Shows restaurant address, contact, and legal links at the bottom of customer table menu.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = Boolean(features?.showTableFooter);
+                    const next = !current;
+                    handleUpdateFeature(
+                      { showTableFooter: next },
+                      next ? "Table Menu Footer Enabled" : "Table Menu Footer Disabled"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.showTableFooter ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.showTableFooter ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Smart Upsell Trigger */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>💡</span>
+                    <span>Smart Upsell Recommendations</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    AI pairing suggestions in diner mobile cart (e.g. Garlic Naan with Paneer).
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsFloorSettingsOpen(false);
+                    setIsUpsellModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 cursor-pointer shrink-0 transition-all active:scale-95"
+                >
+                  Configure →
+                </button>
+              </div>
+            </div>
+
+            {/* Section 3: Live Order Journey Style */}
+            <div className="space-y-2 pt-1">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-stone-500">
+                Customer Live Order Journey Layout
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "floating_capsule", label: "Floating Sheet", icon: "📱", desc: "Swipe-up bottom sheet" },
+                  { id: "split_card", label: "Side Split", icon: "🃏", desc: "Side-by-side card" },
+                  { id: "slim_accordion", label: "Slim Accordion", icon: "📜", desc: "Ultra-slim strip" },
+                ].map((layout) => {
+                  const isSelected = (features?.orderJourneyLayout || "floating_capsule") === layout.id;
+                  return (
+                    <button
+                      key={layout.id}
+                      type="button"
+                      onClick={() =>
+                        handleUpdateFeature(
+                          { orderJourneyLayout: layout.id as "floating_capsule" | "split_card" | "slim_accordion" },
+                          `Customer Journey: ${layout.label} Active`
+                        )
+                      }
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all active:scale-95 flex flex-col justify-between ${
+                        isSelected
+                          ? "bg-amber-50 border-amber-400 ring-2 ring-amber-400/30 text-amber-950 shadow-xs"
+                          : "bg-white border-stone-200 hover:bg-stone-50 text-stone-700"
+                      }`}
+                    >
+                      <div>
+                        <div className="text-base mb-1">{layout.icon}</div>
+                        <div className="text-xs font-bold leading-tight">{layout.label}</div>
+                      </div>
+                      <div className="text-[10px] text-stone-500 mt-1 leading-tight">{layout.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-3 border-t text-xs" style={{ borderColor: "var(--hairline)" }}>
+              <span className="text-[11px] text-stone-500">Preferences save instantly to your restaurant.</span>
+              <button
+                type="button"
+                onClick={() => setIsFloorSettingsOpen(false)}
+                className="px-5 py-2 rounded-lg text-xs font-bold cursor-pointer text-white shadow-xs transition-transform active:scale-95"
+                style={{ backgroundColor: "var(--rust)" }}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

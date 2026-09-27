@@ -141,7 +141,7 @@ export async function GET(
     const [restaurantRes, categoriesRes, itemsRes, openOrderRes] = await Promise.all([
       admin
         .from("restaurants")
-        .select("id, name")
+        .select("id, name, gstin")
         .eq("id", table.restaurant_id)
         .maybeSingle(),
       admin
@@ -226,7 +226,15 @@ export async function GET(
 
     const theme = getRestaurantTheme(table.restaurant_id);
     const branding = getRestaurantBranding(table.restaurant_id);
-    const features = getRestaurantFeatures(table.restaurant_id);
+    let features = getRestaurantFeatures(table.restaurant_id);
+    if (restaurant?.gstin?.startsWith("{")) {
+      try {
+        const meta = JSON.parse(restaurant.gstin);
+        if (meta.features) {
+          features = { ...features, ...meta.features };
+        }
+      } catch {}
+    }
     const offerConfig = getRestaurantOfferConfig(table.restaurant_id);
     const upsellConfig = getRestaurantUpsellConfig(table.restaurant_id);
     const prepEstimate = validOpenOrder ? getOrderPrepTime(validOpenOrder.id) : null;

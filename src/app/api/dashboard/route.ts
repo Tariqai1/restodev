@@ -3,7 +3,18 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSuperAdminUser } from "@/lib/auth/super-admin";
-import { getBroadcast, getStaffPermissions, getActiveWaiterCalls, getRestaurantTheme, getRestaurantFeatures, getOrderPrepTime, getRestaurantUpsellConfig, getActivePendingApprovals } from "@/lib/platform/state";
+import {
+  getBroadcast,
+  getStaffPermissions,
+  getActiveWaiterCalls,
+  getRestaurantTheme,
+  getRestaurantFeatures,
+  getOrderPrepTime,
+  getRestaurantUpsellConfig,
+  getActivePendingApprovals,
+  DEFAULT_RESTAURANT_FEATURES,
+  type RestaurantFeatures,
+} from "@/lib/platform/state";
 
 export async function GET() {
   const supabase = await createClient();
@@ -162,7 +173,7 @@ export async function GET() {
   ] = await Promise.all([
     supabase
       .from("restaurants")
-      .select("id, name, subscription_plan, subscription_status")
+      .select("id, name, subscription_plan, subscription_status, gstin")
       .maybeSingle(),
     admin
       .from("staff_users")
@@ -307,7 +318,19 @@ export async function GET() {
     waiterCalls: getActiveWaiterCalls(restaurantResult.data?.id),
     pendingApprovals: getActivePendingApprovals(restaurantResult.data?.id),
     theme: getRestaurantTheme(restaurantResult.data?.id),
-    features: getRestaurantFeatures(restaurantResult.data?.id),
+    features: (() => {
+      let dbFeatures: Partial<RestaurantFeatures> | null = null;
+      const rawGstin = restaurantResult.data?.gstin || "";
+      if (rawGstin.startsWith("{")) {
+        try {
+          const meta = JSON.parse(rawGstin);
+          if (meta.features) dbFeatures = meta.features;
+        } catch {}
+      }
+      return dbFeatures
+        ? { ...DEFAULT_RESTAURANT_FEATURES, ...getRestaurantFeatures(restaurantResult.data?.id), ...dbFeatures }
+        : getRestaurantFeatures(restaurantResult.data?.id);
+    })(),
     upsellConfig: getRestaurantUpsellConfig(restaurantResult.data?.id),
   });
 }
