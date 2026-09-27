@@ -91,10 +91,16 @@ export async function POST(request: NextRequest) {
 
     // Lookup prices for items
     const itemIds = items.map((i: { itemId: string }) => i.itemId);
-    const { data: menuList } = await admin
+    const { data: menuList, error: menuErr } = await admin
       .from("menu_items")
-      .select("id, name, price")
+      .select("id, name, price, is_available")
+      .eq("restaurant_id", activeRestoId)
+      .eq("is_available", true)
       .in("id", itemIds);
+
+    if (menuErr || !menuList || menuList.length !== new Set(itemIds).size) {
+      return NextResponse.json({ message: "One or more menu items are unavailable" }, { status: 400 });
+    }
 
     const priceMap = new Map((menuList || []).map((m) => [m.id, Number(m.price)]));
 

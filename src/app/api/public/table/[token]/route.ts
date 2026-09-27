@@ -21,11 +21,16 @@ export async function GET(
     // 1. Fetch table by QR token
     const { data: table, error: tableError } = await admin
       .from("restaurant_tables")
-      .select("id, restaurant_id, table_number, status, qr_token")
+      .select("id, restaurant_id, table_number, status, qr_token, qr_token_expires_at, qr_token_revoked_at")
       .eq("qr_token", token)
       .maybeSingle();
 
-    if (tableError || !table) {
+    if (
+      tableError ||
+      !table ||
+      table.qr_token_revoked_at ||
+      (table.qr_token_expires_at && new Date(table.qr_token_expires_at).getTime() <= Date.now())
+    ) {
       return NextResponse.json({ message: "Invalid or expired table QR code" }, { status: 404 });
     }
 

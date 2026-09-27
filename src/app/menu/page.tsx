@@ -522,7 +522,11 @@ export default function MenuManagementPage() {
       const matchName = item.name.toLowerCase().includes(q);
       const matchDesc = item.description?.toLowerCase().includes(q) ?? false;
       const matchTag = item.special_tag?.toLowerCase().includes(q) ?? false;
-      if (!matchName && !matchDesc && !matchTag) return false;
+      const matchCategory = categories
+        .find((category) => category.id === item.category_id)
+        ?.name.toLowerCase()
+        .includes(q) ?? false;
+      if (!matchName && !matchDesc && !matchTag && !matchCategory) return false;
     }
     // Diet filter
     if (dietFilter === "veg" && !item.is_veg) return false;
@@ -541,6 +545,18 @@ export default function MenuManagementPage() {
   const vegCount = items.filter((i) => i.is_veg).length;
   const nonVegCount = items.filter((i) => !i.is_veg).length;
   const specialsCount = items.filter((i) => i.is_bestseller || Boolean(i.special_tag)).length;
+
+  const hasActiveFilters = Boolean(
+    searchQuery || selectedCategory !== "all" || dietFilter !== "all" || stockFilter !== "all" || onlySpecials
+  );
+
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedCategory("all");
+    setDietFilter("all");
+    setStockFilter("all");
+    setOnlySpecials(false);
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-black">
@@ -641,7 +657,7 @@ export default function MenuManagementPage() {
 
         {/* Live Metric Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-          <div className="bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl">
+          <button type="button" onClick={clearFilters} className="text-left bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl hover:border-slate-600 transition-colors cursor-pointer">
             <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Total Catalog
             </div>
@@ -649,9 +665,9 @@ export default function MenuManagementPage() {
               <span className="text-2xl font-black text-white font-mono">{totalCount}</span>
               <span className="text-[11px] text-slate-400">items</span>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl">
+          <button type="button" onClick={() => { clearFilters(); setOnlySpecials(true); }} className="text-left bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl hover:border-amber-500/50 transition-colors cursor-pointer">
             <div className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
               <span>⭐</span>
               House Specials
@@ -660,9 +676,9 @@ export default function MenuManagementPage() {
               <span className="text-2xl font-black text-amber-400 font-mono">{specialsCount}</span>
               <span className="text-[11px] text-slate-400">signature items</span>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl">
+          <button type="button" onClick={() => { clearFilters(); setStockFilter("instock"); }} className="text-left bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl hover:border-emerald-500/50 transition-colors cursor-pointer">
             <div className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               In Stock &amp; Live
@@ -671,9 +687,9 @@ export default function MenuManagementPage() {
               <span className="text-2xl font-black text-emerald-400 font-mono">{inStockCount}</span>
               <span className="text-[11px] text-slate-400">ready</span>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl">
+          <button type="button" onClick={() => { clearFilters(); setStockFilter("soldout"); }} className="text-left bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl hover:border-rose-500/50 transition-colors cursor-pointer">
             <div className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-rose-400" />
               Sold Out (86)
@@ -682,9 +698,9 @@ export default function MenuManagementPage() {
               <span className="text-2xl font-black text-rose-400 font-mono">{soldOutCount}</span>
               <span className="text-[11px] text-slate-400">hidden on QR</span>
             </div>
-          </div>
+          </button>
 
-          <div className="bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl">
+          <button type="button" onClick={() => { clearFilters(); setDietFilter("veg"); }} className="text-left bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl hover:border-emerald-500/50 transition-colors cursor-pointer">
             <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Diet Balance
             </div>
@@ -696,7 +712,7 @@ export default function MenuManagementPage() {
                 🔴 {nonVegCount}
               </span>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Search & Filter Bar */}
@@ -710,9 +726,10 @@ export default function MenuManagementPage() {
               </span>
               <input
                 type="text"
-                placeholder="Search by dish name, category, or 'special'..."
+                placeholder="Search dish, category, description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search dishes and categories"
                 className="w-full pl-9 pr-8 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 transition-all font-medium"
               />
               {searchQuery && (
@@ -847,6 +864,15 @@ export default function MenuManagementPage() {
 
             {/* Category Quick Actions */}
             <div className="flex items-center gap-1.5 shrink-0 pl-2">
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="px-2.5 py-1.5 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Clear filters
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsAddingCategory(true)}

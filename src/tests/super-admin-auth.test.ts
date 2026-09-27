@@ -1,7 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, afterEach, describe, it, expect } from "vitest";
 import { getSuperAdminEmails } from "@/lib/auth/super-admin";
 
 describe("Super Admin Security & Email Validation", () => {
+  beforeEach(() => {
+    process.env.SUPER_ADMIN_EMAILS = "tariqfsd9@gmail.com, tarique@gmail.com";
+  });
+
+  afterEach(() => {
+    delete process.env.SUPER_ADMIN_EMAILS;
+  });
+
   it("should contain official platform owners and exclude typo domains", () => {
     const emails = getSuperAdminEmails();
     expect(emails).toContain("tariqfsd9@gmail.com");

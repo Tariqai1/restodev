@@ -14,6 +14,12 @@ export type NotificationDispatchPayload = {
 
 export async function POST(request: NextRequest) {
   try {
+    const expectedSecret = process.env.NOTIFICATION_DISPATCH_SECRET;
+    const receivedSecret = request.headers.get("x-orderdesk-internal");
+    if (!expectedSecret || receivedSecret !== expectedSecret) {
+      return NextResponse.json({ message: "Internal dispatch endpoint" }, { status: 401 });
+    }
+
     const body = (await request.json()) as NotificationDispatchPayload;
     const { type, restaurantId, restaurantName, tableNumber, customerName, totalItems, totalAmount, callType } = body;
 

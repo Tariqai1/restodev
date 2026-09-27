@@ -1,6 +1,25 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSuperAdminEmails } from "@/lib/auth/super-admin";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+async function isAuthorizedSuperAdmin(user: { id: string; email?: string | null } | null) {
+  if (!user) return false;
+  const email = user.email?.trim().toLowerCase();
+  if (email && getSuperAdminEmails().includes(email)) return true;
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("super_admins")
+      .select("id")
+      .or(`email.eq.${email || ""},auth_user_id.eq.${user.id}`)
+      .maybeSingle();
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+}
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -41,7 +60,7 @@ export async function proxy(request: NextRequest) {
   const isSuperAdminRoute = request.nextUrl.pathname.startsWith("/super-admin");
   const isSuperAdminDashboard = isSuperAdminRoute && !isSuperAdminLoginPage;
 
-  const superAdminEmails = getSuperAdminEmails();
+  const isSuperAdmin = await isAuthorizedSuperAdmin(user);
 
   if (!user) {
     if (isPublicApi || isLoginPage || isSuperAdminLoginPage || isSetupPage || isEnterPage || isCustomerTableRoute) {
@@ -65,16 +84,14 @@ export async function proxy(request: NextRequest) {
 
   // If already authenticated as Super Admin and visiting super admin login, redirect to deck
   if (user && isSuperAdminLoginPage) {
-    const email = user.email?.trim().toLowerCase();
-    if (email && superAdminEmails.includes(email)) {
+    if (isSuperAdmin) {
       return NextResponse.redirect(new URL("/super-admin", request.url));
     }
   }
 
   // Prevent non-super-admins from accessing the Super Admin command deck directly
   if (user && isSuperAdminDashboard) {
-    const email = user.email?.trim().toLowerCase();
-    if (!email || !superAdminEmails.includes(email)) {
+    if (!isSuperAdmin) {
       return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
   }
@@ -101,9 +118,7 @@ export async function proxy(request: NextRequest) {
 
   // 2. Staff Management Role Guard: Only Owner and Manager can access /staff
   if (request.nextUrl.pathname.startsWith("/staff")) {
-    const email = user.email?.trim().toLowerCase();
-    const isSuper = email && superAdminEmails.includes(email);
-    if (!isSuper && activeRole && activeRole !== "owner" && activeRole !== "manager" && activeRole !== "admin") {
+    if (!isSuperAdmin && activeRole && activeRole !== "owner" && activeRole !== "manager" && activeRole !== "admin") {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }

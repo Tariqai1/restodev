@@ -41,6 +41,13 @@ export async function POST(request: Request) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  const { error: lockError } = await admin
+    .from("platform_setup_lock")
+    .insert({ id: true });
+  if (lockError) {
+    return NextResponse.json({ message: "Initial setup has already been completed or is in progress" }, { status: 409 });
+  }
+
   const { count, error: staffCountError } = await admin
     .from("staff_users")
     .select("id", { count: "exact", head: true });

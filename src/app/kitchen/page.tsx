@@ -70,6 +70,7 @@ export default function KitchenDisplayPage() {
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const previousOrderCountRef = useRef(0);
+  const kitchenRequestInFlightRef = useRef(false);
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
 
   const unlockAudioContext = useCallback(() => {
@@ -169,6 +170,8 @@ export default function KitchenDisplayPage() {
   }, [soundEnabled]);
 
   const fetchKitchenTickets = useCallback(async (isInitial = false) => {
+    if (kitchenRequestInFlightRef.current) return;
+    kitchenRequestInFlightRef.current = true;
     try {
       const res = await fetch("/api/kitchen");
       const data = await res.json();
@@ -193,6 +196,7 @@ export default function KitchenDisplayPage() {
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Error loading tickets");
     } finally {
+      kitchenRequestInFlightRef.current = false;
       setIsLoading(false);
     }
   }, [playChime]);

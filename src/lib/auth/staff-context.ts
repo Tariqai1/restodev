@@ -83,22 +83,6 @@ export async function resolveStaffContext(user?: User | null): Promise<ResolvedS
       if (!data.auth_user_id && user?.id) {
         await admin.from("staff_users").update({ auth_user_id: user.id }).eq("id", data.id);
       }
-    } else {
-      // Cookie had restaurant_id, verify restaurant exists in database
-      const { data: resto } = await admin
-        .from("restaurants")
-        .select("id, name")
-        .eq("id", activeStaffFromCookie.restaurant_id)
-        .maybeSingle();
-
-      if (resto) {
-        staffRecord = {
-          id: activeStaffFromCookie.id,
-          name: activeStaffFromCookie.name || "Staff",
-          role: activeStaffFromCookie.role || "owner",
-          restaurant_id: resto.id,
-        };
-      }
     }
   }
 

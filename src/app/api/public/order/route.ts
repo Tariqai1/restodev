@@ -198,7 +198,10 @@ export async function POST(request: NextRequest) {
         const origin = request.nextUrl.origin || "http://localhost:3000";
         fetch(`${origin}/api/notifications/dispatch`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-orderdesk-internal": process.env.NOTIFICATION_DISPATCH_SECRET || "",
+          },
           body: JSON.stringify({
             type: "ORDER_APPROVAL",
             restaurantId: table.restaurant_id,

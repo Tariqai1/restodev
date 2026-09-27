@@ -27,6 +27,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No image file provided" }, { status: 400 });
     }
 
+    const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+    const maxBytes = 5 * 1024 * 1024;
+    if (!allowedTypes.has(file.type)) {
+      return NextResponse.json({ message: "Only JPG, PNG, and WebP images are allowed" }, { status: 415 });
+    }
+    if (file.size <= 0 || file.size > maxBytes) {
+      return NextResponse.json({ message: "Image must be smaller than 5 MB" }, { status: 413 });
+    }
+
     // Convert Web File to Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);

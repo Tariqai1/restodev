@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isSuperAdminUser } from "@/lib/auth/super-admin";
-import { getStaffPermissions } from "@/lib/platform/state";
+import { resolveStaffContext } from "@/lib/auth/staff-context";
 
 async function getCallerPermissions() {
   const supabase = await createClient();
@@ -13,43 +11,18 @@ async function getCallerPermissions() {
 
   if (!user) return null;
 
-  const isSuper = await isSuperAdminUser(user);
-  const cookieStore = await cookies();
-  const activeStaffRaw = cookieStore.get("od_active_staff")?.value;
+  const staff = await resolveStaffContext(user);
+  if (!staff) return null;
 
-  let staffId = user.id;
-  let role = "staff";
-
-  if (activeStaffRaw) {
-    try {
-      const parsed = JSON.parse(activeStaffRaw);
-      staffId = parsed.staffId || user.id;
-      role = parsed.role || "staff";
-    } catch {
-      // ignore
-    }
-  } else {
-    const admin = createAdminClient();
-    const { data: dbStaff } = await admin
-      .from("staff_users")
-      .select("id, role")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    if (dbStaff) {
-      staffId = dbStaff.id;
-      role = dbStaff.role;
-    }
-  }
-
-  const isOwnerOrManager = isSuper || ["owner", "manager", "admin"].includes(role);
-  const perms = getStaffPermissions(staffId, role);
+  const isOwnerOrManager = staff.isSuperAdmin || ["owner", "manager", "admin"].includes(staff.role);
+  const perms = staff.permissions;
 
   return {
     user,
-    staffId,
-    role,
-    isSuper,
+    staffId: staff.staffId,
+    role: staff.role,
+    isSuper: staff.isSuperAdmin,
+    restaurantId: staff.restaurantId,
     isOwnerOrManager,
     canEdit: isOwnerOrManager || perms.canEditOrders,
     canDelete: isOwnerOrManager || perms.canDeleteOrders,
@@ -84,32 +57,34 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: "orderId is required" }, { status: 400 });
       }
 
-      // Find order and table
       const { data: order } = await admin
         .from("orders")
         .select("id, table_id")
         .eq("id", orderId)
+        .eq("restaurant_id", caller.restaurantId)
         .maybeSingle();
 
       if (!order) {
         return NextResponse.json({ message: "Order not found" }, { status: 404 });
       }
 
-      // Mark order cancelled
-      await admin.from("orders").update({ status: "cancelled" }).eq("id", orderId);
+      const { error: cancelError } = await admin
+        .from("orders")
+        .update({ status: "cancelled" })
+        .eq("id", orderId)
+        .eq("restaurant_id", caller.restaurantId);
+      if (cancelError) throw cancelError;
 
-      // Reset table status to empty
       if (order.table_id) {
-        await admin
+        const { error: tableError } = await admin
           .from("restaurant_tables")
           .update({ status: "empty" })
-          .eq("id", order.table_id);
+          .eq("id", order.table_id)
+          .eq("restaurant_id", caller.restaurantId);
+        if (tableError) throw tableError;
       }
 
-      return NextResponse.json({
-        ok: true,
-        message: "Order has been successfully voided and table freed.",
-      });
+      return NextResponse.json({ ok: true, message: "Order has been successfully voided and table freed." });
     }
 
     // 2. EDIT ORDER (Add items, modify quantity, or delete specific item)
@@ -129,6 +104,14 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ message: "itemId and qty required" }, { status: 400 });
         }
 
+        const { data: scopedItem } = await admin
+          .from("order_items")
+          .select("id, orders!inner(restaurant_id)")
+          .eq("id", itemId)
+          .eq("orders.restaurant_id", caller.restaurantId)
+          .maybeSingle();
+        if (!scopedItem) return NextResponse.json({ message: "Order item not found" }, { status: 404 });
+
         if (Number(qty) <= 0) {
           await admin.from("order_items").delete().eq("id", itemId);
         } else {
@@ -145,6 +128,13 @@ export async function POST(request: NextRequest) {
         if (!itemId) {
           return NextResponse.json({ message: "itemId required" }, { status: 400 });
         }
+        const { data: scopedItem } = await admin
+          .from("order_items")
+          .select("id, orders!inner(restaurant_id)")
+          .eq("id", itemId)
+          .eq("orders.restaurant_id", caller.restaurantId)
+          .maybeSingle();
+        if (!scopedItem) return NextResponse.json({ message: "Order item not found" }, { status: 404 });
         await admin.from("order_items").delete().eq("id", itemId);
         return NextResponse.json({ ok: true, message: "Item removed from order." });
       }
@@ -172,8 +162,9 @@ export async function POST(request: NextRequest) {
         .select("id, table_number, status, restaurant_id")
         .in("table_number", [sourceTableNumber, targetTableNumber]);
 
-      const sourceTable = tables?.find((t) => t.table_number === sourceTableNumber);
-      const targetTable = tables?.find((t) => t.table_number === targetTableNumber);
+      const scopedTables = caller.isSuper ? tables : tables?.filter((table) => table.restaurant_id === caller.restaurantId);
+      const sourceTable = scopedTables?.find((t) => t.table_number === sourceTableNumber);
+      const targetTable = scopedTables?.find((t) => t.table_number === targetTableNumber);
 
       if (!sourceTable || !targetTable) {
         return NextResponse.json(
@@ -302,11 +293,12 @@ export async function POST(request: NextRequest) {
 
       const { data: tables } = await admin
         .from("restaurant_tables")
-        .select("id, table_number")
+        .select("id, table_number, restaurant_id")
         .in("table_number", [currentTableNumber, newTableNumber]);
 
-      const curTable = tables?.find((t) => t.table_number === currentTableNumber);
-      const nxtTable = tables?.find((t) => t.table_number === newTableNumber);
+      const scopedTables = caller.isSuper ? tables : tables?.filter((table) => table.restaurant_id === caller.restaurantId);
+      const curTable = scopedTables?.find((t) => t.table_number === currentTableNumber);
+      const nxtTable = scopedTables?.find((t) => t.table_number === newTableNumber);
 
       if (!curTable || !nxtTable) {
         return NextResponse.json({ message: "Table records not found" }, { status: 404 });
@@ -319,6 +311,7 @@ export async function POST(request: NextRequest) {
           .from("orders")
           .select("id")
           .eq("table_id", curTable.id)
+          .eq("restaurant_id", caller.restaurantId)
           .eq("status", "open")
           .order("opened_at", { ascending: false })
           .limit(1)
@@ -334,7 +327,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Shift order to new table
-      await admin.from("orders").update({ table_id: nxtTable.id }).eq("id", ordId);
+      const { error: transferError } = await admin
+        .from("orders")
+        .update({ table_id: nxtTable.id })
+        .eq("id", ordId)
+        .eq("restaurant_id", caller.restaurantId);
+      if (transferError) throw transferError;
 
       // Free previous table, mark new table occupied
       await admin.from("restaurant_tables").update({ status: "empty" }).eq("id", curTable.id);

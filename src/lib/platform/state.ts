@@ -196,14 +196,16 @@ function ensureDataDir() {
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 export async function syncPlatformStateToDb(state: PlatformState): Promise<void> {
   try {
     const admin = createAdminClient();
     await admin
       .from("platform_state_store")
       .upsert({
-        id: "global_platform_state",
-        state: state as any,
+        key: "global_platform_state",
+        value: state as unknown as JsonValue,
         updated_at: new Date().toISOString(),
       });
   } catch {
@@ -216,12 +218,12 @@ export async function syncPlatformStateFromDb(): Promise<PlatformState> {
     const admin = createAdminClient();
     const { data, error } = await admin
       .from("platform_state_store")
-      .select("state")
-      .eq("id", "global_platform_state")
+      .select("value")
+      .eq("key", "global_platform_state")
       .maybeSingle();
 
-    if (!error && data?.state) {
-      const dbState = data.state as PlatformState;
+    if (!error && data?.value) {
+      const dbState = data.value as PlatformState;
       memoryState = {
         ...memoryState,
         ...dbState,

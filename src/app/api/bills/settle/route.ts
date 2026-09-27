@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveStaffContext } from "@/lib/auth/staff-context";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,21 +20,9 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
 
     // Resolve current user's restaurant_id
-    const { data: staffMember } = await admin
-      .from("staff_users")
-      .select("id, restaurant_id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    const cookieStore = await cookies();
-    const impersonateCookie = cookieStore.get("od_impersonate_resto")?.value;
-    let restaurantId = staffMember?.restaurant_id || null;
-    if (impersonateCookie) {
-      try {
-        const parsed = JSON.parse(impersonateCookie);
-        if (parsed.id) restaurantId = parsed.id;
-      } catch {}
-    }
+    const staffContext = await resolveStaffContext(user);
+    if (!staffContext) return NextResponse.json({ message: "Staff access required" }, { status: 403 });
+    const restaurantId = staffContext.restaurantId;
 
     let targetOrderId = orderId || null;
     let targetTableId = tableId || null;
@@ -46,6 +34,7 @@ export async function POST(request: NextRequest) {
         .from("orders")
         .select("id, table_id, table_session_id, status")
         .eq("id", targetOrderId)
+        .eq("restaurant_id", restaurantId)
         .maybeSingle();
 
       if (directOrd) {
@@ -105,6 +94,7 @@ export async function POST(request: NextRequest) {
         .from("orders")
         .select("id, table_id, table_session_id, restaurant_id")
         .eq("table_id", targetTableId)
+        .eq("restaurant_id", restaurantId)
         .eq("status", "open")
         .order("opened_at", { ascending: false })
         .limit(1)
@@ -118,7 +108,8 @@ export async function POST(request: NextRequest) {
         await admin
           .from("restaurant_tables")
           .update({ status: "empty" })
-          .eq("id", targetTableId);
+          .eq("id", targetTableId)
+          .eq("restaurant_id", restaurantId);
 
         return NextResponse.json({
           ok: true,
@@ -133,7 +124,8 @@ export async function POST(request: NextRequest) {
         await admin
           .from("restaurant_tables")
           .update({ status: "empty" })
-          .eq("id", targetTableId);
+          .eq("id", targetTableId)
+          .eq("restaurant_id", restaurantId);
 
         return NextResponse.json({
           ok: true,
@@ -142,6 +134,25 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ message: "Unable to locate table or active order for settlement." }, { status: 400 });
+    }
+
+    const validPaymentMode = ["cash", "upi", "card"].includes(paymentMode) ? paymentMode : "cash";
+    const { data: atomicSettlement, error: atomicSettlementError } = await admin.rpc("settle_order_atomic", {
+      p_order_id: targetOrderId,
+      p_payment_mode: validPaymentMode,
+      p_recorded_by: staffContext.staffId,
+      p_extra_table_numbers: Array.isArray(extraTableNumbers) ? extraTableNumbers.map((value: unknown) => String(value)) : [],
+    });
+    if (!atomicSettlementError && atomicSettlement) {
+      return NextResponse.json({
+        ok: true,
+        message: "Order successfully settled. Table is now available.",
+        bill: atomicSettlement,
+      });
+    }
+    if (atomicSettlementError) {
+      console.error("Atomic settlement failed:", atomicSettlementError);
+      return NextResponse.json({ message: atomicSettlementError.message }, { status: 409 });
     }
 
     // Fetch order items with prices
@@ -154,6 +165,14 @@ export async function POST(request: NextRequest) {
         menu_items (price)
       `)
       .eq("order_id", targetOrderId);
+
+    const { data: scopedOrder } = await admin
+      .from("orders")
+      .select("id")
+      .eq("id", targetOrderId)
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle();
+    if (!scopedOrder) return NextResponse.json({ message: "Order not found" }, { status: 404 });
 
     if (itemsErr) {
       return NextResponse.json({ message: "Failed to retrieve order items" }, { status: 500 });
@@ -189,8 +208,8 @@ export async function POST(request: NextRequest) {
           tax_amount: taxAmount,
           total,
           payment_mode: ["cash", "upi", "card"].includes(paymentMode) ? paymentMode : "cash",
-          payment_status: "paid",
-          paid_at: new Date().toISOString(),
+          payment_status: "unpaid",
+          paid_at: null,
         })
         .select()
         .single();
@@ -213,14 +232,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (!existingBill) {
+      if (!billRecord) return NextResponse.json({ message: "Bill creation failed" }, { status: 500 });
+      const { error: paymentError } = await admin.from("payment_transactions").insert({
+        bill_id: billRecord.id,
+        amount: total,
+        mode: ["cash", "upi", "card"].includes(paymentMode) ? paymentMode : "cash",
+        type: "payment",
+        recorded_by: staffContext.staffId,
+      });
+      if (paymentError) return NextResponse.json({ message: "Payment ledger write failed" }, { status: 500 });
+    }
+
     // 2. Mark Order as Closed
-    await admin
+    const { error: closeError } = await admin
       .from("orders")
       .update({
         status: "closed",
         closed_at: new Date().toISOString(),
       })
-      .eq("id", targetOrderId);
+      .eq("id", targetOrderId)
+      .eq("restaurant_id", restaurantId);
+    if (closeError) throw closeError;
 
     // 3. Mark Table as Empty & auto-free any joined tables
     let allJoinedTables: string[] = [];
@@ -238,10 +271,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (targetTableId) {
-      await admin
+      const { error: tableError } = await admin
         .from("restaurant_tables")
         .update({ status: "empty" })
-        .eq("id", targetTableId);
+        .eq("id", targetTableId)
+        .eq("restaurant_id", restaurantId);
+      if (tableError) throw tableError;
     }
 
     const tablesToFree = Array.from(new Set([
@@ -250,10 +285,12 @@ export async function POST(request: NextRequest) {
     ])).filter(Boolean);
 
     if (tablesToFree.length > 0) {
-      await admin
+      const { error: joinedError } = await admin
         .from("restaurant_tables")
         .update({ status: "empty" })
-        .in("table_number", tablesToFree);
+        .in("table_number", tablesToFree)
+        .eq("restaurant_id", restaurantId);
+      if (joinedError) throw joinedError;
     }
 
     return NextResponse.json({
