@@ -186,70 +186,110 @@ export default function CallWaiterModal({
 
         {features.customRequests && (
           <div className="mb-3 space-y-2">
-            <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-              Specific Requests (1-Tap)
+            <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
+              <span>Specific Requests (1-Tap)</span>
+              <span className="text-[9px] text-stone-400 font-normal">Instant floor alert</span>
             </div>
-            <div className="flex flex-wrap gap-1.5 text-xs">
+            <div className="grid grid-cols-2 gap-2 text-xs">
               <button
                 type="button"
-                disabled={waiterCooldown > 0}
-                onClick={() => onCallWaiter("cutlery")}
-                className="px-2.5 py-1.5 rounded-lg border bg-white hover:bg-stone-50 cursor-pointer font-medium flex items-center gap-1.5"
+                disabled={isCallingWaiter || waiterCooldown > 0}
+                onClick={() => {
+                  triggerHaptic(12);
+                  onCallWaiter("cutlery");
+                }}
+                className="p-2.5 rounded-xl border bg-white hover:bg-stone-50 active:scale-95 transition-all cursor-pointer font-medium flex items-center gap-2 text-left shadow-2xs disabled:opacity-50"
                 style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
               >
-                <i className="fa-solid fa-utensils text-[10px] text-stone-600" />
-                <span>Extra Cutlery &amp; Napkins</span>
+                <span className="text-base">🍴</span>
+                <div>
+                  <div className="font-bold text-xs">Extra Cutlery</div>
+                  <div className="text-[10px] text-stone-500">Spoons &amp; napkins</div>
+                </div>
               </button>
               <button
                 type="button"
-                disabled={waiterCooldown > 0}
-                onClick={() => onCallWaiter("condiments")}
-                className="px-2.5 py-1.5 rounded-lg border bg-white hover:bg-stone-50 cursor-pointer font-medium flex items-center gap-1.5"
+                disabled={isCallingWaiter || waiterCooldown > 0}
+                onClick={() => {
+                  triggerHaptic(12);
+                  onCallWaiter("condiments");
+                }}
+                className="p-2.5 rounded-xl border bg-white hover:bg-stone-50 active:scale-95 transition-all cursor-pointer font-medium flex items-center gap-2 text-left shadow-2xs disabled:opacity-50"
                 style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
               >
-                <i className="fa-solid fa-pepper-hot text-[10px] text-emerald-600" />
-                <span>Green Chutney / Dips</span>
+                <span className="text-base">🌶️</span>
+                <div>
+                  <div className="font-bold text-xs">Green Chutney</div>
+                  <div className="text-[10px] text-stone-500">Dips &amp; sauces</div>
+                </div>
               </button>
               <button
                 type="button"
-                disabled={waiterCooldown > 0}
-                onClick={() => onCallWaiter("chair")}
-                className="px-2.5 py-1.5 rounded-lg border bg-white hover:bg-stone-50 cursor-pointer font-medium flex items-center gap-1.5"
+                disabled={isCallingWaiter || waiterCooldown > 0}
+                onClick={() => {
+                  triggerHaptic(12);
+                  onCallWaiter("chair");
+                }}
+                className="p-2.5 rounded-xl border bg-white hover:bg-stone-50 active:scale-95 transition-all cursor-pointer font-medium flex items-center gap-2 text-left shadow-2xs disabled:opacity-50"
                 style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
               >
-                <i className="fa-solid fa-chair text-[10px] text-amber-700" />
-                <span>Baby High Chair</span>
+                <span className="text-base">🪑</span>
+                <div>
+                  <div className="font-bold text-xs">High Chair</div>
+                  <div className="text-[10px] text-stone-500">Baby high chair</div>
+                </div>
               </button>
               <button
                 type="button"
-                disabled={waiterCooldown > 0}
-                onClick={() => onCallWaiter("ac")}
-                className="px-2.5 py-1.5 rounded-lg border bg-white hover:bg-stone-50 cursor-pointer font-medium flex items-center gap-1.5"
+                disabled={isCallingWaiter || waiterCooldown > 0}
+                onClick={() => {
+                  triggerHaptic(12);
+                  onCallWaiter("ac");
+                }}
+                className="p-2.5 rounded-xl border bg-white hover:bg-stone-50 active:scale-95 transition-all cursor-pointer font-medium flex items-center gap-2 text-left shadow-2xs disabled:opacity-50"
                 style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
               >
-                <i className="fa-solid fa-snowflake text-[10px] text-blue-500" />
-                <span>Adjust AC / Fan</span>
+                <span className="text-base">❄️</span>
+                <div>
+                  <div className="font-bold text-xs">Adjust AC / Fan</div>
+                  <div className="text-[10px] text-stone-500">Speed / cooling</div>
+                </div>
               </button>
             </div>
 
             <div className="pt-2">
+              <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">
+                Custom Special Request
+              </div>
               <div className="flex gap-1.5">
                 <input
                   type="text"
-                  placeholder="Special request (e.g. warm water)..."
+                  placeholder="e.g. warm water, extra ice, lime..."
                   value={customCallNote}
+                  disabled={isCallingWaiter || waiterCooldown > 0}
                   onChange={(e) => setCustomCallNote(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-xs rounded-lg border bg-white focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && customCallNote.trim() && !isCallingWaiter && waiterCooldown === 0) {
+                      e.preventDefault();
+                      triggerHaptic(15);
+                      onCallWaiter("custom", customCallNote.trim());
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 text-xs rounded-xl border bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                   style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
                 />
                 <button
                   type="button"
-                  disabled={!customCallNote.trim() || waiterCooldown > 0}
-                  onClick={() => onCallWaiter("custom", customCallNote.trim())}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs cursor-pointer disabled:opacity-40"
+                  disabled={!customCallNote.trim() || isCallingWaiter || waiterCooldown > 0}
+                  onClick={() => {
+                    triggerHaptic(15);
+                    onCallWaiter("custom", customCallNote.trim());
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-40 transition-all active:scale-95 flex items-center gap-1"
                   style={{ backgroundColor: "var(--rust)", color: "var(--rust-text)" }}
                 >
-                  Send
+                  <span>Send</span>
+                  <span>➤</span>
                 </button>
               </div>
             </div>

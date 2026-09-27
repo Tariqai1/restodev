@@ -71,10 +71,84 @@ type WaiterCall = {
   tableId: string;
   tableNumber: string;
   restaurantId: string;
-  type: "waiter" | "water" | "bill" | "clean";
+  type: "waiter" | "water" | "bill" | "clean" | "cutlery" | "condiments" | "chair" | "ac" | "custom";
+  customNote?: string;
+  paymentMode?: "upi" | "cash" | "card";
   status: "active" | "acknowledged" | "resolved";
   createdAt: string;
 };
+
+function getBuzzerDetails(call: WaiterCall) {
+  let label = "Call Captain";
+  let icon = "🛎️";
+  let colorClass = "bg-amber-100 text-amber-900 border-amber-300";
+  let description = "Guest requested table assistance";
+
+  switch (call.type) {
+    case "water":
+      label = "Need Water";
+      icon = "💧";
+      colorClass = "bg-blue-100 text-blue-900 border-blue-300";
+      description = "Bring water glasses / jug to table";
+      break;
+    case "cutlery":
+      label = "Extra Cutlery";
+      icon = "🍴";
+      colorClass = "bg-stone-100 text-stone-900 border-stone-300";
+      description = "Extra plates, spoons & napkins";
+      break;
+    case "condiments":
+      label = "Green Chutney & Dips";
+      icon = "🌶️";
+      colorClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
+      description = "Green chutney, sauces & dips";
+      break;
+    case "chair":
+      label = "Baby High Chair";
+      icon = "🪑";
+      colorClass = "bg-orange-100 text-orange-900 border-orange-300";
+      description = "Provide baby high chair";
+      break;
+    case "ac":
+      label = "Adjust AC / Fan";
+      icon = "❄️";
+      colorClass = "bg-cyan-100 text-cyan-900 border-cyan-300";
+      description = "Adjust cooling / fan speed";
+      break;
+    case "clean":
+      label = "Clear Table";
+      icon = "🧹";
+      colorClass = "bg-purple-100 text-purple-900 border-purple-300";
+      description = "Clear empty plates and wipe table";
+      break;
+    case "bill":
+      label = call.paymentMode === "upi"
+        ? "Bill: Instant UPI QR"
+        : call.paymentMode === "card"
+        ? "Bill: Card Machine"
+        : "Bill: Cash / Card";
+      icon = call.paymentMode === "upi" ? "💳" : "🧾";
+      colorClass = "bg-green-100 text-green-900 border-green-300";
+      description = call.paymentMode === "upi"
+        ? "Customer paying via Table UPI QR"
+        : "Bring printed bill for payment";
+      break;
+    case "custom":
+      label = call.customNote ? `Special: "${call.customNote}"` : "Special Guest Request";
+      icon = "💬";
+      colorClass = "bg-rose-100 text-rose-900 border-rose-300";
+      description = call.customNote || "Guest sent a custom request note";
+      break;
+    default:
+      label = "Call Captain";
+      icon = "🛎️";
+      colorClass = "bg-amber-100 text-amber-900 border-amber-300";
+      description = "Floor captain table assistance";
+      break;
+  }
+
+  return { label, icon, colorClass, description };
+}
 
 type OpenOrderItem = {
   id: string;
@@ -340,15 +414,27 @@ export default function Home() {
 
   const handleWhatsAppDispatch = (
     type: "order" | "call",
-    data: { tableNumber: string; customerName?: string; totalAmount?: number; totalItems?: number; callType?: string }
+    data: {
+      tableNumber: string;
+      customerName?: string;
+      totalAmount?: number;
+      totalItems?: number;
+      callType?: string;
+      customNote?: string;
+      paymentMode?: string;
+    }
   ) => {
     const cleanPhone = (features?.whatsappCaptainPhone || "").replace(/[^0-9]/g, "");
     let text = "";
     if (type === "order") {
       text = `⚡ *URGENT ORDER VERIFICATION*\n📍 *Table:* ${data.tableNumber}\n👤 *Guest:* ${data.customerName || "Dine-in Guest"}\n📦 *Items:* ${data.totalItems || 1} · ₹${data.totalAmount || 0}\n\n👉 *Floor Captain:* Please review dishes on Floor Desk before firing to Kitchen KOT!`;
     } else {
-      const formattedCall = (data.callType || "waiter").toUpperCase();
-      text = `🛎️ *TABLE BUZZER ALERT: ${formattedCall}*\n📍 *Table:* ${data.tableNumber}\n\n👉 *Staff Attention Required Immediately!*`;
+      const details = getBuzzerDetails({
+        type: (data.callType || "waiter") as any,
+        customNote: data.customNote,
+        paymentMode: data.paymentMode as any,
+      } as any);
+      text = `${details.icon} *TABLE REQUEST: ${details.label.toUpperCase()}*\n📍 *Table:* ${data.tableNumber}\n📋 *Action:* ${details.description}\n${data.customNote ? `💬 *Guest Special Note:* "${data.customNote}"\n` : ""}\n👉 *Attend Table ${data.tableNumber} immediately!*`;
     }
     const url = cleanPhone
       ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`
@@ -1151,26 +1237,23 @@ export default function Home() {
         })()}
 
         {/* ACTIVE TABLE BUZZER ALERTS (Call Waiter / Water / Bill) */}
+        {/* ACTIVE TABLE BUZZER ALERTS (Call Waiter / Water / Bill / Specific Requests) */}
         {waiterCalls.length > 0 && (
-          <div
-            className="p-4 rounded border-2 border-dashed space-y-3"
-            style={{
-              backgroundColor: "#FFF8F0",
-              borderColor: "var(--rust)",
-              borderRadius: "6px",
-            }}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="animate-bounce text-base">🛎️</span>
-                <span className="font-heading text-sm font-bold tracking-wide" style={{ color: "var(--rust)" }}>
-                  {waiterCalls.length} ACTIVE TABLE BUZZER{waiterCalls.length > 1 ? "S" : ""}
-                </span>
-                {features?.persistentAlarm !== false && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-orange-100 text-orange-800 font-bold hidden sm:inline">
-                    🚨 Alarm Loop: 15s Pulse
-                  </span>
-                )}
+          <div className="p-4 rounded-xl border border-red-200 bg-gradient-to-br from-red-50/90 via-orange-50/40 to-amber-50/50 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-red-100">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl animate-bounce">🛎️</span>
+                <div>
+                  <div className="font-heading text-base font-bold text-red-950 flex items-center gap-2">
+                    <span>{waiterCalls.length} Active Table Request{waiterCalls.length > 1 ? "s" : ""}</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-600 text-white font-black animate-pulse">
+                      LIVE
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-red-700">
+                    Floor buzzers &amp; specific diner requests requiring waiter action
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1186,9 +1269,8 @@ export default function Home() {
                         notify("Alarm silenced for 2 minutes");
                       }
                     }}
-                    className="px-2.5 py-1 text-[11px] font-bold rounded border cursor-pointer transition-colors"
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg border bg-white cursor-pointer transition-all active:scale-95 shadow-2xs"
                     style={{
-                      backgroundColor: Date.now() < alarmSnoozedUntil ? "#F5F5F5" : "#FFFFFF",
                       borderColor: "var(--hairline)",
                       color: Date.now() < alarmSnoozedUntil ? "#757575" : "var(--rust)",
                     }}
@@ -1202,24 +1284,9 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {waiterCalls.map((call) => {
-                const callLabel =
-                  call.type === "water"
-                    ? "Needs Water"
-                    : call.type === "bill"
-                    ? "Bill Requested"
-                    : call.type === "clean"
-                    ? "Clear Table"
-                    : "Call Captain";
-                const callIcon =
-                  call.type === "water"
-                    ? "💧"
-                    : call.type === "bill"
-                    ? "🧾"
-                    : call.type === "clean"
-                    ? "✨"
-                    : "🛎️";
+                const details = getBuzzerDetails(call);
                 const elapsedSec = Math.max(
                   0,
                   Math.floor((currentTime - new Date(call.createdAt).getTime()) / 1000)
@@ -1235,71 +1302,95 @@ export default function Home() {
                 return (
                   <div
                     key={call.id}
-                    className={`p-3 rounded border flex items-center justify-between gap-3 shadow-sm bg-white transition-all ${
+                    className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2.5 shadow-xs bg-white transition-all ${
                       isEscalated
                         ? "border-red-500 bg-red-50/50 shadow-md ring-1 ring-red-400"
                         : isElevated
                         ? "border-amber-400 bg-amber-50/30"
-                        : ""
+                        : "border-stone-200 hover:border-stone-300"
                     }`}
                     style={{
-                      borderColor: isEscalated ? "#EF4444" : isElevated ? "#F59E0B" : "var(--hairline)",
                       borderLeft: `4px solid ${isEscalated ? "#DC2626" : isElevated ? "#D97706" : "var(--rust)"}`,
                     }}
                   >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-base">{callIcon}</span>
-                        <span className="font-heading text-base font-bold" style={{ color: "var(--ink)" }}>
+                    <div className="space-y-1.5">
+                      {/* Top Row: Table Number & Timer */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-heading text-lg font-black text-stone-900 tracking-tight">
                           Table {call.tableNumber}
                         </span>
+                        <span className="text-[11px] font-mono font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md">
+                          {elapsedText}
+                        </span>
                       </div>
-                      <div className="text-xs font-semibold mt-0.5" style={{ color: isEscalated ? "#DC2626" : "var(--rust)" }}>
-                        {callLabel}
+
+                      {/* Request Badge */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${details.colorClass}`}>
+                          <span>{details.icon}</span>
+                          <span>{details.label}</span>
+                        </span>
                       </div>
-                      <div className="mt-1">
-                        {isEscalated ? (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 animate-pulse">
-                            ⚠️ Escalated ({elapsedText})
-                          </span>
-                        ) : isElevated ? (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
-                            ⏳ Warning ({elapsedText})
-                          </span>
-                        ) : (
-                          <span className="text-[10px]" style={{ color: "var(--ink-soft)" }}>
-                            {elapsedText}
-                          </span>
-                        )}
-                      </div>
+
+                      {/* Request Description / Instruction */}
+                      <p className="text-xs text-stone-600 font-medium">
+                        {details.description}
+                      </p>
+
+                      {/* Guest Custom Note (if provided) */}
+                      {call.customNote && (
+                        <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-1.5 font-medium">
+                          <span className="text-amber-700">💬</span>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
+                              Guest Note:
+                            </span>
+                            <span className="font-semibold text-stone-900">&quot;{call.customNote}&quot;</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Payment Preference (if bill request) */}
+                      {call.paymentMode && (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span>Payment:</span>
+                          <span>{call.paymentMode === "upi" ? "Instant Table UPI QR" : "Cash / Card at Table"}</span>
+                        </div>
+                      )}
+
+                      {/* Escalation Warning */}
+                      {isEscalated && (
+                        <div className="text-[10px] font-bold text-red-600 flex items-center gap-1 pt-0.5">
+                          <span className="animate-ping">🚨</span>
+                          <span>Escalated to Manager ({elapsedText})</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* 1-Tap WhatsApp Forward Button */}
+                    {/* Bottom Actions Row */}
+                    <div className="pt-2 border-t border-stone-100 flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() =>
                           handleWhatsAppDispatch("call", {
                             tableNumber: call.tableNumber,
                             callType: call.type,
+                            customNote: call.customNote,
+                            paymentMode: call.paymentMode,
                           })
                         }
-                        className="px-2 py-1.5 rounded text-[11px] font-bold border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 cursor-pointer active:scale-95 transition-all shadow-2xs"
-                        title="Alert Captain / Floor Group on WhatsApp"
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:scale-95 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                        title="Forward Request on WhatsApp"
                       >
-                        💬 WhatsApp
+                        <span>💬 WhatsApp</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleResolveWaiterCall(call.id)}
-                        className="px-3 py-1.5 rounded text-xs font-bold text-white cursor-pointer transition-transform active:scale-95 shadow-2xs"
-                        style={{
-                          backgroundColor: "var(--sage)",
-                          borderRadius: "4px",
-                        }}
+                        className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-xs flex items-center gap-1 cursor-pointer"
                       >
-                        Attended ✓
+                        <span>Attended ✓</span>
                       </button>
                     </div>
                   </div>
@@ -1650,12 +1741,15 @@ export default function Home() {
                         ⏳ Approval
                       </span>
                     )}
-                    {table.hasActiveBuzzer && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-black bg-red-600 text-white animate-bounce shadow-xs flex items-center gap-1">
-                        <span>🛎️</span>
-                        <span>{table.activeTableCall?.type ? table.activeTableCall.type.toUpperCase() : "BUZZER"}</span>
-                      </span>
-                    )}
+                    {table.hasActiveBuzzer && (() => {
+                      const buzzerDetails = table.activeTableCall ? getBuzzerDetails(table.activeTableCall) : null;
+                      return (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-black bg-red-600 text-white animate-bounce shadow-xs flex items-center gap-1">
+                          <span>{buzzerDetails?.icon || "🛎️"}</span>
+                          <span className="uppercase">{buzzerDetails?.label || "BUZZER"}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <span className="text-[11px] font-semibold" style={{ color: table.badgeColor }}>
                     {table.statusLabel}
