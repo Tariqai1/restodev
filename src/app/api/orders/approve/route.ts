@@ -85,21 +85,62 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { batchId, action, reason } = body as {
+    const { batchId, tableNumber, action, reason } = body as {
       batchId?: string;
+      tableNumber?: string;
       action?: "approve" | "reject";
       reason?: string;
     };
 
-    if (!batchId || !action || !["approve", "reject"].includes(action)) {
+    if ((!batchId && !tableNumber) || !action || !["approve", "reject"].includes(action)) {
       return NextResponse.json(
-        { message: "Invalid request. Missing batchId or valid action ('approve' | 'reject')." },
+        { message: "Invalid request. Missing batchId/tableNumber or valid action ('approve' | 'reject')." },
         { status: 400 }
       );
     }
 
     const state = getPlatformState();
-    const batch = state.pendingOrderApprovals?.[batchId];
+    const admin = createAdminClient();
+
+    // Table-wide approval: approve all pending batches for a table in one go
+    if (tableNumber && (!batchId || batchId === "all")) {
+      const matchingBatches = Object.values(state.pendingOrderApprovals || {}).filter(
+        (b) => b.tableNumber === tableNumber && b.status === "awaiting_approval"
+      );
+
+      if (matchingBatches.length === 0) {
+        return NextResponse.json({ message: "No pending verification batches found for Table " + tableNumber }, { status: 404 });
+      }
+
+      const allItemIds = matchingBatches.flatMap((b) => b.itemIds || []);
+      const tableId = matchingBatches[0].tableId;
+
+      if (action === "approve") {
+        for (const b of matchingBatches) {
+          approveOrderBatch(b.id, caller.role);
+        }
+
+        if (allItemIds.length > 0) {
+          await admin
+            .from("order_items")
+            .update({ item_status: "preparing" })
+            .in("id", allItemIds);
+        }
+
+        await admin
+          .from("restaurant_tables")
+          .update({ status: "pending" })
+          .eq("id", tableId);
+
+        return NextResponse.json({
+          ok: true,
+          action: "approved",
+          message: `All orders for Table ${tableNumber} approved and dispatched to Kitchen KOT.`,
+        });
+      }
+    }
+
+    const batch = state.pendingOrderApprovals?.[batchId!];
 
     if (!batch) {
       return NextResponse.json({ message: "Order verification batch not found." }, { status: 404 });
@@ -112,10 +153,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const admin = createAdminClient();
-
     if (action === "approve") {
-      const updatedBatch = approveOrderBatch(batchId, caller.role);
+      const updatedBatch = approveOrderBatch(batchId!, caller.role);
+
+      // CRITICAL: Update order_items in Supabase to 'preparing' (Kitchen Cooking)
+      if (batch.itemIds && batch.itemIds.length > 0) {
+        await admin
+          .from("order_items")
+          .update({ item_status: "preparing" })
+          .in("id", batch.itemIds);
+      }
 
       // Verify or update table status to pending (active orders)
       await admin
@@ -132,7 +179,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "reject") {
-      const updatedBatch = rejectOrderBatch(batchId, reason || "Rejected by floor captain");
+      const updatedBatch = rejectOrderBatch(batch.id, reason || "Rejected by floor captain");
 
       // Delete the unapproved items from Supabase order_items to keep group bill clean
       if (batch.itemIds && batch.itemIds.length > 0) {

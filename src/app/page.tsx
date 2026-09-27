@@ -839,6 +839,30 @@ export default function Home() {
     }
   };
 
+  // Handle Table-Wide Waiter / Captain Order Approval (1-Tap for all pending items)
+  const handleApproveTableBatches = async (tableNum: string) => {
+    if (isProcessingApproval) return;
+    setIsProcessingApproval(true);
+    try {
+      const res = await fetch("/api/orders/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableNumber: tableNum, action: "approve" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to approve orders");
+      notify(data.message || `Table ${tableNum} orders approved and dispatched to Kitchen KOT!`);
+      setIsApprovalModalOpen(false);
+      setSelectedApprovalBatch(null);
+      setShowRejectInput(false);
+      await fetchDashboardData();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Approval failed");
+    } finally {
+      setIsProcessingApproval(false);
+    }
+  };
+
   // Handle Waiter / Captain Order Rejection
   const handleRejectBatch = async (batchId: string, reason?: string) => {
     if (isProcessingApproval) return;
@@ -2163,33 +2187,65 @@ export default function Home() {
               <div className="pt-2 pb-safe border-t border-dashed space-y-1.5 shrink-0 bg-[var(--paper)] sticky bottom-0" style={{ borderColor: "var(--hairline)" }}>
                 {chitItems.length > 0 && (
                   <>
-                    {/* Waiter Approval Callout if Table has pending verification */}
-                    {pendingApprovals.filter(b => b.tableNumber === selectedTable).map(batch => (
-                      <div key={batch.id} className="p-2.5 rounded-xl border border-amber-300 bg-amber-50 space-y-1.5 shadow-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                            <span>👨‍💼</span>
-                            <span>Awaiting Captain Approval</span>
-                          </span>
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 border border-amber-300">
-                            ₹{batch.totalAmount}
-                          </span>
+                    {/* Unified Waiter / Captain Verification Card for Table */}
+                    {(() => {
+                      const tablePendingBatches = pendingApprovals.filter(b => b.tableNumber === selectedTable);
+                      if (tablePendingBatches.length === 0) return null;
+
+                      const totalPendingItems = tablePendingBatches.reduce((sum, b) => sum + b.totalItems, 0);
+                      const totalPendingAmount = tablePendingBatches.reduce((sum, b) => sum + b.totalAmount, 0);
+
+                      return (
+                        <div className="p-2.5 rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 space-y-2 shadow-xs animate-fade-in">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                              <span>👨‍💼</span>
+                              <span>
+                                {tablePendingBatches.length > 1
+                                  ? `${totalPendingItems} Items Awaiting Verification`
+                                  : "Awaiting Captain Approval"}
+                              </span>
+                            </span>
+                            <span className="text-xs font-mono font-black px-2 py-0.5 rounded-md bg-amber-200 text-amber-950 border border-amber-300 shadow-2xs">
+                              ₹{totalPendingAmount}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-amber-800 leading-tight">
+                            Verify items with guest at Table {selectedTable} before firing to kitchen.
+                          </p>
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            <button
+                              type="button"
+                              disabled={isProcessingApproval}
+                              onClick={async () => {
+                                await handleApproveTableBatches(selectedTable);
+                              }}
+                              className="flex-1 py-2 px-3 text-xs font-black rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white cursor-pointer shadow-xs active:scale-95 transition-all text-center flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            >
+                              <span>🔥</span>
+                              <span>
+                                {isProcessingApproval
+                                  ? "Firing to Kitchen..."
+                                  : `Verify & Fire to Kitchen (${totalPendingItems}) →`}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isProcessingApproval}
+                              onClick={() => {
+                                setSelectedApprovalBatch(tablePendingBatches[0]);
+                                setIsApprovalModalOpen(true);
+                              }}
+                              className="py-2 px-2.5 text-[11px] font-bold rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-900 cursor-pointer active:scale-95 transition-all shrink-0"
+                              title="Inspect details or reject"
+                            >
+                              Details
+                            </button>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-amber-800 leading-tight">
-                          {batch.totalItems} guest item(s) in queue. Verify at table before firing to kitchen.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedApprovalBatch(batch);
-                            setIsApprovalModalOpen(true);
-                          }}
-                          className="w-full py-1.5 px-3 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-white cursor-pointer shadow-xs active:scale-95 transition-all text-center"
-                        >
-                          Verify &amp; Approve Order Slip →
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })()}
 
                     {/* Table Management segmented row (3-in-a-row) */}
                     <div className="grid grid-cols-3 gap-1.5">
@@ -2928,7 +2984,7 @@ export default function Home() {
       {/* Order Verification Modal (Captain Approval before Kitchen KOT) */}
       {isApprovalModalOpen && selectedApprovalBatch && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm"
           style={{ backgroundColor: "rgba(34, 29, 22, 0.65)" }}
           onClick={() => {
             if (!isProcessingApproval) {
