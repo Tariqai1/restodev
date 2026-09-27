@@ -7,6 +7,7 @@ import {
   getActivePendingApprovals,
   approveOrderBatch,
   rejectOrderBatch,
+  removeItemFromPendingBatch,
   getPlatformState,
 } from "@/lib/platform/state";
 
@@ -85,16 +86,27 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { batchId, tableNumber, action, reason } = body as {
+    const { batchId, tableNumber, itemId, action, reason } = body as {
       batchId?: string;
       tableNumber?: string;
-      action?: "approve" | "reject";
+      itemId?: string;
+      action?: "approve" | "reject" | "approve_item" | "reject_item";
       reason?: string;
     };
 
-    if ((!batchId && !tableNumber) || !action || !["approve", "reject"].includes(action)) {
+    const isApprove = action === "approve" || action === "approve_item";
+    const isReject = action === "reject" || action === "reject_item";
+
+    if (!isApprove && !isReject) {
       return NextResponse.json(
-        { message: "Invalid request. Missing batchId/tableNumber or valid action ('approve' | 'reject')." },
+        { message: "Invalid action. Expected 'approve' or 'reject'." },
+        { status: 400 }
+      );
+    }
+
+    if (!batchId && !tableNumber && !itemId) {
+      return NextResponse.json(
+        { message: "Missing target. Please specify 'itemId', 'tableNumber', or 'batchId'." },
         { status: 400 }
       );
     }
@@ -102,44 +114,204 @@ export async function POST(request: NextRequest) {
     const state = getPlatformState();
     const admin = createAdminClient();
 
-    // Table-wide approval: approve all pending batches for a table in one go
-    if (tableNumber && (!batchId || batchId === "all")) {
-      const matchingBatches = Object.values(state.pendingOrderApprovals || {}).filter(
-        (b) => b.tableNumber === tableNumber && b.status === "awaiting_approval"
-      );
+    // ─────────────────────────────────────────────────────────────
+    // CASE 1: SINGLE ITEM APPROVAL / REJECTION
+    // ─────────────────────────────────────────────────────────────
+    if (itemId) {
+      const { data: itemData, error: itemErr } = await admin
+        .from("order_items")
+        .select(`
+          id,
+          order_id,
+          unit_price,
+          qty,
+          item_status,
+          orders (
+            id,
+            table_id,
+            restaurant_tables (
+              id,
+              table_number
+            )
+          )
+        `)
+        .eq("id", itemId)
+        .maybeSingle();
 
-      if (matchingBatches.length === 0) {
-        return NextResponse.json({ message: "No pending verification batches found for Table " + tableNumber }, { status: 404 });
+      if (itemErr || !itemData) {
+        return NextResponse.json({ message: "Order dish not found." }, { status: 404 });
       }
 
-      const allItemIds = matchingBatches.flatMap((b) => b.itemIds || []);
-      const tableId = matchingBatches[0].tableId;
+      const tableInfo = (itemData.orders as unknown as {
+        id: string;
+        table_id: string;
+        restaurant_tables: { id: string; table_number: string } | null;
+      } | null);
+      const tableId = tableInfo?.table_id;
+      const orderId = itemData.order_id;
 
-      if (action === "approve") {
-        for (const b of matchingBatches) {
-          approveOrderBatch(b.id, caller.role);
-        }
+      if (isApprove) {
+        // Mark item as 'preparing' (Dispatched to Kitchen)
+        const { error: updateErr } = await admin
+          .from("order_items")
+          .update({ item_status: "preparing" })
+          .eq("id", itemId);
 
-        if (allItemIds.length > 0) {
+        if (updateErr) throw updateErr;
+
+        // Clean up from pending memory batch
+        removeItemFromPendingBatch(
+          itemId,
+          Number(itemData.unit_price) || 0,
+          Number(itemData.qty) || 1
+        );
+
+        if (tableId) {
           await admin
-            .from("order_items")
-            .update({ item_status: "preparing" })
-            .in("id", allItemIds);
+            .from("restaurant_tables")
+            .update({ status: "pending" })
+            .eq("id", tableId);
         }
-
-        await admin
-          .from("restaurant_tables")
-          .update({ status: "pending" })
-          .eq("id", tableId);
 
         return NextResponse.json({
           ok: true,
-          action: "approved",
-          message: `All orders for Table ${tableNumber} approved and dispatched to Kitchen KOT.`,
+          action: "item_approved",
+          message: "Dish approved and dispatched to Kitchen KOT!",
+        });
+      }
+
+      if (isReject) {
+        // Delete rejected dish from order_items
+        const { error: deleteErr } = await admin
+          .from("order_items")
+          .delete()
+          .eq("id", itemId);
+
+        if (deleteErr) throw deleteErr;
+
+        // Clean up from pending memory batch
+        removeItemFromPendingBatch(
+          itemId,
+          Number(itemData.unit_price) || 0,
+          Number(itemData.qty) || 1
+        );
+
+        // Check if any items remain in this order
+        const { data: remainingItems } = await admin
+          .from("order_items")
+          .select("id")
+          .eq("order_id", orderId);
+
+        if (!remainingItems || remainingItems.length === 0) {
+          // No items left, cancel the order and free table
+          await admin
+            .from("orders")
+            .update({ status: "cancelled" })
+            .eq("id", orderId);
+
+          if (tableId) {
+            await admin
+              .from("restaurant_tables")
+              .update({ status: "empty" })
+              .eq("id", tableId);
+          }
+        }
+
+        return NextResponse.json({
+          ok: true,
+          action: "item_rejected",
+          message: "Dish cancelled and removed from order.",
         });
       }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // CASE 2: TABLE-WIDE APPROVAL / REJECTION (ALL PENDING FOR TABLE)
+    // ─────────────────────────────────────────────────────────────
+    if (tableNumber && (!batchId || batchId === "all")) {
+      // Direct database lookup for all open orders and pending items on this table
+      const { data: tableData } = await admin
+        .from("restaurant_tables")
+        .select("id")
+        .eq("table_number", tableNumber)
+        .maybeSingle();
+
+      if (tableData) {
+        const { data: openOrders } = await admin
+          .from("orders")
+          .select("id")
+          .eq("table_id", tableData.id)
+          .eq("status", "open");
+
+        const orderIds = (openOrders || []).map((o) => o.id);
+
+        if (orderIds.length > 0) {
+          if (isApprove) {
+            // Promote ALL 'pending' items in database to 'preparing'
+            await admin
+              .from("order_items")
+              .update({ item_status: "preparing" })
+              .in("order_id", orderIds)
+              .eq("item_status", "pending");
+
+            await admin
+              .from("restaurant_tables")
+              .update({ status: "pending" })
+              .eq("id", tableData.id);
+          } else if (isReject) {
+            // Delete all 'pending' items in database
+            await admin
+              .from("order_items")
+              .delete()
+              .in("order_id", orderIds)
+              .eq("item_status", "pending");
+
+            // Check if any served/preparing items remain
+            const { data: anyRemaining } = await admin
+              .from("order_items")
+              .select("id")
+              .in("order_id", orderIds);
+
+            if (!anyRemaining || anyRemaining.length === 0) {
+              await admin
+                .from("orders")
+                .update({ status: "cancelled" })
+                .in("id", orderIds);
+
+              await admin
+                .from("restaurant_tables")
+                .update({ status: "empty" })
+                .eq("id", tableData.id);
+            }
+          }
+        }
+      }
+
+      // Also mark in-memory batches accordingly
+      const matchingBatches = Object.values(state.pendingOrderApprovals || {}).filter(
+        (b) => b.tableNumber === tableNumber && b.status === "awaiting_approval"
+      );
+
+      for (const b of matchingBatches) {
+        if (isApprove) {
+          approveOrderBatch(b.id, caller.role);
+        } else {
+          rejectOrderBatch(b.id, reason || "Rejected by floor captain");
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        action: isApprove ? "approved" : "rejected",
+        message: isApprove
+          ? `All pending dishes for Table ${tableNumber} approved and dispatched to Kitchen KOT.`
+          : `All pending dishes for Table ${tableNumber} rejected.`,
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CASE 3: BATCH APPROVAL / REJECTION
+    // ─────────────────────────────────────────────────────────────
     const batch = state.pendingOrderApprovals?.[batchId!];
 
     if (!batch) {
@@ -153,10 +325,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (action === "approve") {
+    if (isApprove) {
       const updatedBatch = approveOrderBatch(batchId!, caller.role);
 
-      // CRITICAL: Update order_items in Supabase to 'preparing' (Kitchen Cooking)
       if (batch.itemIds && batch.itemIds.length > 0) {
         await admin
           .from("order_items")
@@ -164,7 +335,6 @@ export async function POST(request: NextRequest) {
           .in("id", batch.itemIds);
       }
 
-      // Verify or update table status to pending (active orders)
       await admin
         .from("restaurant_tables")
         .update({ status: "pending" })
@@ -178,10 +348,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (action === "reject") {
+    if (isReject) {
       const updatedBatch = rejectOrderBatch(batch.id, reason || "Rejected by floor captain");
 
-      // Delete the unapproved items from Supabase order_items to keep group bill clean
       if (batch.itemIds && batch.itemIds.length > 0) {
         await admin
           .from("order_items")
@@ -189,20 +358,17 @@ export async function POST(request: NextRequest) {
           .in("id", batch.itemIds);
       }
 
-      // Check if order still has any items
       const { data: remainingItems } = await admin
         .from("order_items")
         .select("id")
         .eq("order_id", batch.orderId);
 
       if (!remainingItems || remainingItems.length === 0) {
-        // Cancel the empty order
         await admin
           .from("orders")
           .update({ status: "cancelled" })
           .eq("id", batch.orderId);
 
-        // Reset table status to empty if no other active orders
         await admin
           .from("restaurant_tables")
           .update({ status: "empty" })

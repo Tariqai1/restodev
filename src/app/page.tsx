@@ -150,6 +150,7 @@ export default function Home() {
   const [selectedApprovalBatch, setSelectedApprovalBatch] = useState<PendingOrderApprovalBatch | null>(null);
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [isProcessingApproval, setIsProcessingApproval] = useState(false);
+  const [processingItemActionId, setProcessingItemActionId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const previousApprovalsCountRef = useRef(0);
@@ -885,6 +886,48 @@ export default function Home() {
       notify(err instanceof Error ? err.message : "Rejection failed");
     } finally {
       setIsProcessingApproval(false);
+    }
+  };
+
+  // Handle Single Item Waiter / Captain Approval
+  const handleApproveSingleItem = async (itemId: string) => {
+    if (processingItemActionId) return;
+    setProcessingItemActionId(itemId);
+    try {
+      const res = await fetch("/api/orders/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, action: "approve_item" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to approve dish");
+      notify(data.message || "Dish fired to Kitchen KOT!");
+      await fetchDashboardData();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Dish approval failed");
+    } finally {
+      setProcessingItemActionId(null);
+    }
+  };
+
+  // Handle Single Item Waiter / Captain Rejection / Removal
+  const handleRejectSingleItem = async (itemId: string) => {
+    if (processingItemActionId) return;
+    setProcessingItemActionId(itemId);
+    try {
+      const res = await fetch("/api/orders/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, action: "reject_item" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to cancel dish");
+      notify(data.message || "Dish removed from order.");
+      await fetchDashboardData();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to remove dish");
+    } finally {
+      setProcessingItemActionId(null);
     }
   };
 
@@ -2070,34 +2113,88 @@ export default function Home() {
                     <div className="divide-y divide-dashed divide-stone-200/80 max-h-[42vh] sm:max-h-[46vh] overflow-y-auto pr-1">
                       {chitItems.map((item) => {
                         const rate = Number(item.unit_price) || Number(item.menu_items?.price) || 0;
+                        const isPendingVerification = item.item_status === "pending";
+                        const isCooking = item.item_status === "preparing";
+                        const isServed = item.item_status === "served";
+                        const isActionBusy = processingItemActionId === item.id;
+
                         return (
                           <div
                             key={item.id}
-                            className="py-1.5 flex items-center justify-between text-xs hover:bg-black/[0.02] transition-colors"
+                            className={`py-2 flex items-center justify-between text-xs transition-colors rounded-lg px-1.5 ${
+                              isPendingVerification
+                                ? "bg-amber-50/60 border border-amber-200/60 my-1"
+                                : "hover:bg-black/[0.02]"
+                            }`}
                           >
-                            {/* Dish name & rate */}
-                            <div className="w-1/2 pr-2 min-w-0">
-                              <span className="font-bold text-xs truncate block text-stone-900 leading-tight">
-                                {item.menu_items?.name || "Dish"}
-                              </span>
-                              <span className="text-[10px] text-stone-500 font-mono">
-                                ₹{rate} each
-                              </span>
+                            {/* Dish name, rate & verification status badge */}
+                            <div className="flex-1 pr-2 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-xs truncate block text-stone-900 leading-tight">
+                                  {item.menu_items?.name || "Dish"}
+                                </span>
+                                {isPendingVerification && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shrink-0">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    <span>Verify</span>
+                                  </span>
+                                )}
+                                {isCooking && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-800 border border-blue-200 shrink-0">
+                                    🍳 Cooking
+                                  </span>
+                                )}
+                                {isServed && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                                    ✓ Served
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-stone-500 font-mono mt-0.5 flex items-center gap-2">
+                                <span>₹{rate} each</span>
+                                {item.notes && (
+                                  <span className="text-amber-800 bg-amber-100/70 px-1 rounded truncate max-w-[150px]">
+                                    {item.notes}
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
-                            {/* Qty */}
-                            <div className="w-10 text-center font-mono font-bold text-xs text-stone-800">
-                              {item.qty}×
+                            {/* Qty & Line total */}
+                            <div className="text-right pr-2 shrink-0">
+                              <div className="font-mono font-bold text-xs text-stone-800">
+                                {item.qty}×
+                              </div>
+                              <div className="font-receipt font-bold text-xs text-stone-900">
+                                ₹{item.qty * rate}
+                              </div>
                             </div>
 
-                            {/* Line total */}
-                            <div className="w-14 text-right font-receipt font-bold text-xs text-stone-900">
-                              ₹{item.qty * rate}
-                            </div>
-
-                            {/* Mini Stepper / Locked */}
-                            <div className="w-16 flex justify-end shrink-0">
-                              {canEditOrders ? (
+                            {/* Action Buttons: Single-Dish Fire/Cancel if Pending, or Stepper if Approved */}
+                            <div className="flex justify-end shrink-0 items-center">
+                              {isPendingVerification ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={isActionBusy}
+                                    onClick={() => handleApproveSingleItem(item.id)}
+                                    className="px-2 py-1 rounded-md text-[10px] font-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white cursor-pointer active:scale-95 transition-all shadow-2xs flex items-center gap-0.5 disabled:opacity-50"
+                                    title="Verify & dispatch only this dish to kitchen"
+                                  >
+                                    <span>🔥</span>
+                                    <span>{isActionBusy ? "..." : "Fire"}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isActionBusy}
+                                    onClick={() => handleRejectSingleItem(item.id)}
+                                    className="w-6 h-6 rounded-md text-[10px] font-bold text-red-600 hover:bg-red-50 border border-red-200 cursor-pointer active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                                    title="Cancel and remove this dish"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : canEditOrders ? (
                                 <div className="flex items-center bg-white rounded border border-stone-300 shadow-2xs overflow-hidden">
                                   <button
                                     type="button"
@@ -2190,10 +2287,16 @@ export default function Home() {
                     {/* Unified Waiter / Captain Verification Card for Table */}
                     {(() => {
                       const tablePendingBatches = pendingApprovals.filter(b => b.tableNumber === selectedTable);
-                      if (tablePendingBatches.length === 0) return null;
+                      const pendingChitItems = chitItems.filter((it) => it.item_status === "pending");
+                      if (tablePendingBatches.length === 0 && pendingChitItems.length === 0) return null;
 
-                      const totalPendingItems = tablePendingBatches.reduce((sum, b) => sum + b.totalItems, 0);
-                      const totalPendingAmount = tablePendingBatches.reduce((sum, b) => sum + b.totalAmount, 0);
+                      const totalPendingItems = pendingChitItems.length > 0
+                        ? pendingChitItems.reduce((acc, it) => acc + it.qty, 0)
+                        : tablePendingBatches.reduce((sum, b) => sum + b.totalItems, 0);
+
+                      const totalPendingAmount = pendingChitItems.length > 0
+                        ? pendingChitItems.reduce((acc, it) => acc + (it.qty * (Number(it.unit_price) || Number(it.menu_items?.price) || 0)), 0)
+                        : tablePendingBatches.reduce((sum, b) => sum + b.totalAmount, 0);
 
                       return (
                         <div className="p-2.5 rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 space-y-2 shadow-xs animate-fade-in">
@@ -2201,9 +2304,9 @@ export default function Home() {
                             <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
                               <span>👨‍💼</span>
                               <span>
-                                {tablePendingBatches.length > 1
+                                {totalPendingItems > 1
                                   ? `${totalPendingItems} Items Awaiting Verification`
-                                  : "Awaiting Captain Approval"}
+                                  : "1 Item Awaiting Verification"}
                               </span>
                             </span>
                             <span className="text-xs font-mono font-black px-2 py-0.5 rounded-md bg-amber-200 text-amber-950 border border-amber-300 shadow-2xs">
@@ -2226,22 +2329,24 @@ export default function Home() {
                               <span>
                                 {isProcessingApproval
                                   ? "Firing to Kitchen..."
-                                  : `Verify & Fire to Kitchen (${totalPendingItems}) →`}
+                                  : `Verify & Fire All to Kitchen (${totalPendingItems}) →`}
                               </span>
                             </button>
 
-                            <button
-                              type="button"
-                              disabled={isProcessingApproval}
-                              onClick={() => {
-                                setSelectedApprovalBatch(tablePendingBatches[0]);
-                                setIsApprovalModalOpen(true);
-                              }}
-                              className="py-2 px-2.5 text-[11px] font-bold rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-900 cursor-pointer active:scale-95 transition-all shrink-0"
-                              title="Inspect details or reject"
-                            >
-                              Details
-                            </button>
+                            {tablePendingBatches.length > 0 && (
+                              <button
+                                type="button"
+                                disabled={isProcessingApproval}
+                                onClick={() => {
+                                  setSelectedApprovalBatch(tablePendingBatches[0]);
+                                  setIsApprovalModalOpen(true);
+                                }}
+                                className="py-2 px-2.5 text-[11px] font-bold rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-900 cursor-pointer active:scale-95 transition-all shrink-0"
+                                title="Inspect details or reject batch"
+                              >
+                                Details
+                              </button>
+                            )}
                           </div>
                         </div>
                       );

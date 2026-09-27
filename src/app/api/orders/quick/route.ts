@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     const priceMap = new Map((menuList || []).map((m) => [m.id, Number(m.price)]));
 
-    // Insert order items
+    // Insert order items as verified by staff ('preparing' -> immediate kitchen dispatch)
     const rowsToInsert = items.map((it: { itemId: string; qty: number; notes?: string }) => ({
       order_id: openOrder.id,
       menu_item_id: it.itemId,
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       qty: Math.max(1, Math.min(30, Number(it.qty) || 1)),
       unit_price: priceMap.get(it.itemId) || 0,
       notes: it.notes ? String(it.notes).slice(0, 200) : null,
-      item_status: "pending",
+      item_status: "preparing",
     }));
 
     const { error: insertErr } = await admin.from("order_items").insert(rowsToInsert);

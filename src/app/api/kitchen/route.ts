@@ -173,15 +173,20 @@ export async function GET() {
     }
 
     const features = getRestaurantFeatures(staffContext.restaurantId);
-    const unapprovedItemIds = features.waiterOrderApproval
-      ? getPendingApprovalItemIds(staffContext.restaurantId)
-      : new Set<string>();
+    const requiresVerification = features.waiterOrderApproval !== false;
+    const unapprovedItemIds = getPendingApprovalItemIds(staffContext.restaurantId);
 
-    // Active orders filtered for verified items only
+    // Active orders filtered for verified items only:
+    // When waiterOrderApproval is enabled, only items approved/fired to kitchen ('preparing' or 'served') are sent to Kitchen!
+    // Unverified items ('pending') remain strictly on the floor captain / waiter desk.
     const filteredOrders = (orders || [])
       .map((ord) => {
-        let items = (ord.order_items as unknown as Array<{ id: string }>) || [];
-        if (unapprovedItemIds.size > 0) {
+        let items = (ord.order_items as unknown as Array<{ id: string; item_status: string }>) || [];
+        if (requiresVerification) {
+          items = items.filter(
+            (it) => (it.item_status === "preparing" || it.item_status === "served") && !unapprovedItemIds.has(it.id)
+          );
+        } else if (unapprovedItemIds.size > 0) {
           items = items.filter((it) => !unapprovedItemIds.has(it.id));
         }
         return {
@@ -304,14 +309,7 @@ export async function PATCH(request: NextRequest) {
 
     if (orderId && markAllStatus) {
       if (markAllStatus === "served") {
-        // Step 1: Advance any 'pending' items to 'preparing'
-        await admin
-          .from("order_items")
-          .update({ item_status: "preparing" })
-          .eq("order_id", orderId)
-          .eq("item_status", "pending");
-
-        // Step 2: Advance all 'preparing' items to 'served'
+        // Only advance kitchen cooking ('preparing') items to 'served'
         const { error } = await admin
           .from("order_items")
           .update({ item_status: "served" })
@@ -320,14 +318,17 @@ export async function PATCH(request: NextRequest) {
 
         if (error) throw error;
       } else if (markAllStatus === "preparing") {
-        // Only advance 'pending' items to 'preparing'
-        const { error } = await admin
-          .from("order_items")
-          .update({ item_status: "preparing" })
-          .eq("order_id", orderId)
-          .eq("item_status", "pending");
+        // Only advance 'pending' items if verification is not required
+        const features = getRestaurantFeatures(staffContext.restaurantId);
+        if (features.waiterOrderApproval === false) {
+          const { error } = await admin
+            .from("order_items")
+            .update({ item_status: "preparing" })
+            .eq("order_id", orderId)
+            .eq("item_status", "pending");
 
-        if (error) throw error;
+          if (error) throw error;
+        }
       }
 
       // Keep restaurant_tables.status in sync
