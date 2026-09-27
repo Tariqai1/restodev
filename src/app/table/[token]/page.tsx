@@ -1699,116 +1699,6 @@ export default function CustomerTableOrderingPage({
         </div>
       )}
 
-      {/* Floating Order Journey Capsule (Zomato / Swiggy Mode) */}
-      {activeOrder &&
-        activeOrder.order_items.length > 0 &&
-        currentJourneyLayout === "floating_capsule" &&
-        !isJourneySheetOpen &&
-        !isReviewOpen &&
-        !isCallModalOpen && (
-          <div
-            className={`fixed left-4 right-4 z-45 max-w-md mx-auto pointer-events-none transition-all duration-300 ${
-              totalCartCount > 0 ? "bottom-20" : "bottom-4"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(12);
-                setIsJourneySheetOpen(true);
-              }}
-              className="w-full p-2.5 sm:p-3 rounded-2xl shadow-2xl flex items-center justify-between cursor-pointer pointer-events-auto border backdrop-blur-md transition-all active:scale-[0.98]"
-              style={{
-                backgroundColor: "rgba(24, 20, 16, 0.95)",
-                borderColor: isApprovalPending
-                  ? "rgba(245, 158, 11, 0.5)"
-                  : activeStage === "preparing"
-                  ? "rgba(59, 130, 246, 0.5)"
-                  : activeStage === "served"
-                  ? "rgba(16, 185, 129, 0.5)"
-                  : "rgba(217, 107, 39, 0.5)",
-                color: "#FFFFFF",
-                boxShadow: "0 10px 30px -4px rgba(0, 0, 0, 0.5)",
-              }}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 shadow-xs"
-                  style={{
-                    backgroundColor: isApprovalPending
-                      ? "rgba(245, 158, 11, 0.2)"
-                      : activeStage === "preparing"
-                      ? "rgba(59, 130, 246, 0.2)"
-                      : activeStage === "served"
-                      ? "rgba(16, 185, 129, 0.2)"
-                      : "rgba(217, 107, 39, 0.2)",
-                    border: "1px solid",
-                    borderColor: isApprovalPending
-                      ? "rgba(245, 158, 11, 0.4)"
-                      : activeStage === "preparing"
-                      ? "rgba(59, 130, 246, 0.4)"
-                      : activeStage === "served"
-                      ? "rgba(16, 185, 129, 0.4)"
-                      : "rgba(217, 107, 39, 0.4)",
-                  }}
-                >
-                  {activeStage === "served"
-                    ? "🍽️"
-                    : activeStage === "preparing"
-                    ? "🔥"
-                    : isApprovalPending
-                    ? "👨‍💼"
-                    : "📱"}
-                </div>
-                <div className="min-w-0 text-left">
-                  <div className="text-xs font-black tracking-wide flex items-center gap-1.5 text-stone-100">
-                    <span className="truncate">
-                      {isApprovalPending
-                        ? "Captain Verifying Order"
-                        : activeStage === "preparing"
-                        ? "Chef Cooking in Kitchen"
-                        : activeStage === "served"
-                        ? "Dishes Served at Table"
-                        : "Order Registered"}
-                    </span>
-                    {activeStage === "preparing" && remainingMinutesText && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-900/60 text-blue-200 border border-blue-500/40 font-bold shrink-0">
-                        ⏳ {remainingMinutesText}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-stone-400 truncate">
-                    Table {tableNumber} • {activeOrder.order_items.length} items
-                    (₹
-                    {activeOrder.order_items.reduce(
-                      (s, it) => s + Number(it.unit_price) * Number(it.qty),
-                      0
-                    )}
-                    )
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className="flex items-center gap-1 shrink-0 text-[11px] font-black px-3 py-1.5 rounded-xl shadow-xs"
-                style={{
-                  backgroundColor: isApprovalPending
-                    ? "#D97706"
-                    : activeStage === "preparing"
-                    ? "#2563EB"
-                    : activeStage === "served"
-                    ? "#059669"
-                    : "#D96B27",
-                  color: "#FFFFFF",
-                }}
-              >
-                <span>{isApprovalPending ? "Edit / Track" : "Track"}</span>
-                <span className="text-xs">▴</span>
-              </div>
-            </button>
-          </div>
-        )}
-
       {/* Floating Category Jump Button (Swiggy / Zomato style) */}
       {!isReviewOpen && !isCallModalOpen && (
         <button
@@ -1818,16 +1708,7 @@ export default function CustomerTableOrderingPage({
             setIsCategorySheetOpen(true);
           }}
           className={`fixed z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-xl shadow-xl active:scale-95 transition-all cursor-pointer border backdrop-blur ${
-            activeOrder &&
-            activeOrder.order_items.length > 0 &&
-            currentJourneyLayout === "floating_capsule" &&
-            !isJourneySheetOpen
-              ? totalCartCount > 0
-                ? "bottom-40 left-4"
-                : "bottom-24 left-4"
-              : totalCartCount > 0
-              ? "bottom-20 left-4"
-              : "bottom-5 left-4"
+            totalCartCount > 0 ? "bottom-20 left-4" : "bottom-5 left-4"
           }`}
           style={{
             backgroundColor: "rgba(31, 41, 55, 0.95)",
@@ -1853,16 +1734,7 @@ export default function CustomerTableOrderingPage({
             setIsCallModalOpen(true);
           }}
           className={`fixed z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-xl shadow-xl active:scale-95 transition-all cursor-pointer border ${
-            activeOrder &&
-            activeOrder.order_items.length > 0 &&
-            currentJourneyLayout === "floating_capsule" &&
-            !isJourneySheetOpen
-              ? totalCartCount > 0
-                ? "bottom-40 right-4"
-                : "bottom-24 right-4"
-              : totalCartCount > 0
-              ? "bottom-20 right-4"
-              : "bottom-5 right-4"
+            totalCartCount > 0 ? "bottom-20 right-4" : "bottom-5 right-4"
           }`}
           style={{
             backgroundColor: "#1F2937",
