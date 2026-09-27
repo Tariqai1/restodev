@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
-import { getRestaurantUpsellConfig, setRestaurantUpsellConfig } from "@/lib/platform/state";
+import { getRestaurantUpsellConfig, setRestaurantUpsellConfig, DEFAULT_UPSELL_CONFIG } from "@/lib/platform/state";
 import type { SmartUpsellConfig } from "@/lib/types/offers";
 
 export async function GET() {
@@ -18,6 +19,22 @@ export async function GET() {
     const staffContext = await resolveStaffContext(user);
     if (!staffContext) {
       return NextResponse.json({ ok: false, message: "Staff record not found" }, { status: 403 });
+    }
+
+    const admin = createAdminClient();
+    const { data: resto } = await admin
+      .from("restaurants")
+      .select("gstin")
+      .eq("id", staffContext.restaurantId)
+      .maybeSingle();
+
+    if (resto?.gstin?.startsWith("{")) {
+      try {
+        const meta = JSON.parse(resto.gstin);
+        if (meta.upsellConfig) {
+          return NextResponse.json({ ok: true, upsellConfig: { ...DEFAULT_UPSELL_CONFIG, ...meta.upsellConfig } });
+        }
+      } catch {}
     }
 
     const upsellConfig = getRestaurantUpsellConfig(staffContext.restaurantId);
@@ -72,6 +89,36 @@ export async function POST(req: NextRequest) {
     
     // Prevent the owner from overriding the super admin delegation flag
     delete body.ownerCanManageUpsell;
+
+    const admin = createAdminClient();
+    const { data: currentResto } = await admin
+      .from("restaurants")
+      .select("gstin")
+      .eq("id", staffContext.restaurantId)
+      .maybeSingle();
+
+    let meta: Record<string, unknown> = {};
+    const rawGstin = currentResto?.gstin || "";
+    if (rawGstin.startsWith("{") && rawGstin.endsWith("}")) {
+      try {
+        meta = JSON.parse(rawGstin);
+      } catch {}
+    } else if (rawGstin) {
+      meta.gstin_number = rawGstin;
+    }
+
+    const existingUpsell = (meta.upsellConfig as Partial<SmartUpsellConfig>) || {};
+    const updatedUpsell: SmartUpsellConfig = {
+      ...DEFAULT_UPSELL_CONFIG,
+      ...existingUpsell,
+      ...body,
+    };
+    meta.upsellConfig = updatedUpsell;
+
+    await admin
+      .from("restaurants")
+      .update({ gstin: JSON.stringify(meta) })
+      .eq("id", staffContext.restaurantId);
 
     const updated = setRestaurantUpsellConfig(staffContext.restaurantId, body);
     return NextResponse.json({

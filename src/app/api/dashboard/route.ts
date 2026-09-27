@@ -225,9 +225,39 @@ export async function GET() {
         openOrders,
         getActivePendingApprovals(targetRestoId)
       ),
-      theme: getRestaurantTheme(targetRestoId),
-      features: getRestaurantFeatures(targetRestoId),
-      upsellConfig: getRestaurantUpsellConfig(targetRestoId),
+      theme: (() => {
+        const raw = restaurantRes.data?.gstin || "";
+        if (raw.startsWith("{")) {
+          try {
+            const m = JSON.parse(raw);
+            if (m.theme) return m.theme;
+          } catch {}
+        }
+        return getRestaurantTheme(targetRestoId);
+      })(),
+      features: (() => {
+        let dbFeatures: Partial<RestaurantFeatures> | null = null;
+        const raw = restaurantRes.data?.gstin || "";
+        if (raw.startsWith("{")) {
+          try {
+            const m = JSON.parse(raw);
+            if (m.features) dbFeatures = m.features;
+          } catch {}
+        }
+        return dbFeatures
+          ? { ...DEFAULT_RESTAURANT_FEATURES, ...getRestaurantFeatures(targetRestoId), ...dbFeatures }
+          : getRestaurantFeatures(targetRestoId);
+      })(),
+      upsellConfig: (() => {
+        const raw = restaurantRes.data?.gstin || "";
+        if (raw.startsWith("{")) {
+          try {
+            const m = JSON.parse(raw);
+            if (m.upsellConfig) return m.upsellConfig;
+          } catch {}
+        }
+        return getRestaurantUpsellConfig(targetRestoId);
+      })(),
     });
   }
 
@@ -393,7 +423,16 @@ export async function GET() {
       ordersResult.data || [],
       getActivePendingApprovals(restaurantResult.data?.id)
     ),
-    theme: getRestaurantTheme(restaurantResult.data?.id),
+    theme: (() => {
+      const raw = restaurantResult.data?.gstin || "";
+      if (raw.startsWith("{")) {
+        try {
+          const m = JSON.parse(raw);
+          if (m.theme) return m.theme;
+        } catch {}
+      }
+      return getRestaurantTheme(restaurantResult.data?.id);
+    })(),
     features: (() => {
       let dbFeatures: Partial<RestaurantFeatures> | null = null;
       const rawGstin = restaurantResult.data?.gstin || "";
@@ -407,6 +446,15 @@ export async function GET() {
         ? { ...DEFAULT_RESTAURANT_FEATURES, ...getRestaurantFeatures(restaurantResult.data?.id), ...dbFeatures }
         : getRestaurantFeatures(restaurantResult.data?.id);
     })(),
-    upsellConfig: getRestaurantUpsellConfig(restaurantResult.data?.id),
+    upsellConfig: (() => {
+      const raw = restaurantResult.data?.gstin || "";
+      if (raw.startsWith("{")) {
+        try {
+          const m = JSON.parse(raw);
+          if (m.upsellConfig) return m.upsellConfig;
+        } catch {}
+      }
+      return getRestaurantUpsellConfig(restaurantResult.data?.id);
+    })(),
   });
 }

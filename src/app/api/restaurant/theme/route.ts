@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
 import { getRestaurantTheme, setRestaurantTheme, RestaurantThemeType } from "@/lib/platform/state";
 
@@ -17,6 +18,20 @@ export async function GET() {
     const staffContext = await resolveStaffContext(user);
     if (!staffContext) {
       return NextResponse.json({ message: "Staff record not found" }, { status: 403 });
+    }
+
+    const admin = createAdminClient();
+    const { data: resto } = await admin
+      .from("restaurants")
+      .select("gstin")
+      .eq("id", staffContext.restaurantId)
+      .maybeSingle();
+
+    if (resto?.gstin?.startsWith("{")) {
+      try {
+        const meta = JSON.parse(resto.gstin);
+        if (meta.theme) return NextResponse.json({ ok: true, theme: meta.theme });
+      } catch {}
     }
 
     const theme = getRestaurantTheme(staffContext.restaurantId);
@@ -48,9 +63,33 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { theme } = body as { theme?: RestaurantThemeType };
 
-    if (theme !== "amber" && theme !== "crimson") {
-      return NextResponse.json({ message: "Invalid theme. Must be 'amber' or 'crimson'" }, { status: 400 });
+    const validThemes: RestaurantThemeType[] = ["amber", "crimson", "saffron", "emerald", "charcoal"];
+    if (!theme || !validThemes.includes(theme)) {
+      return NextResponse.json({ message: "Invalid theme palette specified" }, { status: 400 });
     }
+
+    const admin = createAdminClient();
+    const { data: currentResto } = await admin
+      .from("restaurants")
+      .select("gstin")
+      .eq("id", staffContext.restaurantId)
+      .maybeSingle();
+
+    let meta: Record<string, unknown> = {};
+    const rawGstin = currentResto?.gstin || "";
+    if (rawGstin.startsWith("{") && rawGstin.endsWith("}")) {
+      try {
+        meta = JSON.parse(rawGstin);
+      } catch {}
+    } else if (rawGstin) {
+      meta.gstin_number = rawGstin;
+    }
+
+    meta.theme = theme;
+    await admin
+      .from("restaurants")
+      .update({ gstin: JSON.stringify(meta) })
+      .eq("id", staffContext.restaurantId);
 
     const updated = setRestaurantTheme(staffContext.restaurantId, theme);
     return NextResponse.json({ ok: true, theme: updated });

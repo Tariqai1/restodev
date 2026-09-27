@@ -371,7 +371,7 @@ export default function SuperAdminPage() {
       r.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.ownerEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (r.contactPhone && r.contactPhone.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (r.gstin && r.gstin.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (r.gstin && !r.gstin.startsWith("{") && r.gstin.toLowerCase().includes(searchQuery.toLowerCase())) ||
       r.id.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesPlan = planFilter === "all" || r.subscriptionPlan === planFilter;
@@ -398,7 +398,7 @@ export default function SuperAdminPage() {
           r.ownerName.toLowerCase().includes(spotlightQuery.toLowerCase()) ||
           r.ownerEmail.toLowerCase().includes(spotlightQuery.toLowerCase()) ||
           (r.contactPhone && r.contactPhone.includes(spotlightQuery)) ||
-          (r.gstin && r.gstin.toLowerCase().includes(spotlightQuery.toLowerCase())) ||
+          (r.gstin && !r.gstin.startsWith("{") && r.gstin.toLowerCase().includes(spotlightQuery.toLowerCase())) ||
           r.id.toLowerCase().includes(spotlightQuery.toLowerCase())
       )
     : restaurants.slice(0, 8);
@@ -555,6 +555,23 @@ export default function SuperAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to save cockpit");
       showToast(`Cockpit saved for "${cockpitResto.name}"!`);
+      // Optimistic update of local list immediately
+      setRestaurants((prev) =>
+        prev.map((item) =>
+          item.id === cockpitResto.id
+            ? {
+                ...item,
+                features: cockpitResto.features,
+                theme: cockpitResto.theme,
+                branding: cockpitResto.branding,
+                offerConfig: cockpitResto.offerConfig,
+                upsellConfig: cockpitResto.upsellConfig,
+                subscriptionPlan: cockpitResto.subscriptionPlan,
+                subscriptionStatus: cockpitResto.subscriptionStatus,
+              }
+            : item
+        )
+      );
       fetchData();
       setCockpitResto(null);
     } catch (err) {
@@ -981,7 +998,7 @@ export default function SuperAdminPage() {
             id: editingRestaurant.id,
             subscription_plan: editingRestaurant.subscriptionPlan,
             subscription_status: editingRestaurant.subscriptionStatus,
-            gstin: editingRestaurant.gstin,
+            gstin: editingRestaurant.gstin && !editingRestaurant.gstin.startsWith("{") ? editingRestaurant.gstin : "",
             theme: editingRestaurant.theme || "amber",
           features: editingRestaurant.features,
           }),
@@ -2593,7 +2610,7 @@ export default function SuperAdminPage() {
                             <span>{r.stats.tableCount} Tables</span>
                             <span>•</span>
                             <span>ID: {r.id.slice(0, 8)}</span>
-                            {r.gstin && (
+                            {r.gstin && !r.gstin.startsWith("{") && (
                               <>
                                 <span>•</span>
                                 <span>GST: {r.gstin}</span>
@@ -4953,7 +4970,7 @@ export default function SuperAdminPage() {
                       showTableFooter: false,
                       halfFullPortions: true,
                     };
-                    const isEnabled = currentFeats[feat.key as keyof typeof currentFeats] ?? true;
+                    const isEnabled = currentFeats[feat.key as keyof typeof currentFeats] ?? DEFAULT_RESTAURANT_FEATURES[feat.key as keyof RestaurantFeatures] ?? false;
 
                     return (
                       <div
@@ -6161,6 +6178,12 @@ export default function SuperAdminPage() {
                         icon: "📄",
                       },
                       {
+                        key: "customRequests" as const,
+                        label: "Specific Need Pills (Cutlery, Dips, Chair, AC)",
+                        desc: "1-Tap fast requests for Extra Cutlery, Green Chutney, Baby High Chair & AC",
+                        icon: "🥄",
+                      },
+                      {
                         key: "halfFullPortions" as const,
                         label: "Half & Full Portions",
                         desc: "Allow diners to select Half (60% price) or Full portion sizes",
@@ -6168,7 +6191,7 @@ export default function SuperAdminPage() {
                       },
                     ].map((feat) => {
                       const curFeats = cockpitResto.features || DEFAULT_RESTAURANT_FEATURES;
-                      const isEnabled = curFeats[feat.key] ?? true;
+                      const isEnabled = curFeats[feat.key] ?? DEFAULT_RESTAURANT_FEATURES[feat.key] ?? false;
 
                       return (
                         <div

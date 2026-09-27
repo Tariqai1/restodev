@@ -19,7 +19,97 @@ import {
   setRestaurantUpsellConfig,
   getRestaurantPhone,
   setRestaurantPhone,
+  type RestaurantFeatures,
+  DEFAULT_RESTAURANT_FEATURES,
+  type RestaurantThemeType,
+  type RestaurantBrandingConfig,
+  DEFAULT_BRANDING_CONFIG,
+  type RestaurantOfferConfig,
+  DEFAULT_OFFER_CONFIG,
+  type SmartUpsellConfig,
+  DEFAULT_UPSELL_CONFIG,
 } from "@/lib/platform/state";
+
+async function updateRestaurantMetadata(
+  admin: ReturnType<typeof createAdminClient>,
+  restaurantId: string,
+  updates: {
+    features?: Partial<RestaurantFeatures>;
+    theme?: RestaurantThemeType;
+    branding?: Partial<RestaurantBrandingConfig>;
+    offerConfig?: Partial<RestaurantOfferConfig>;
+    upsellConfig?: Partial<SmartUpsellConfig>;
+    gstin?: string | null;
+  }
+) {
+  const { data: currentResto } = await admin
+    .from("restaurants")
+    .select("gstin")
+    .eq("id", restaurantId)
+    .maybeSingle();
+
+  let meta: Record<string, unknown> = {};
+  const rawGstin = currentResto?.gstin || "";
+  if (rawGstin.startsWith("{") && rawGstin.endsWith("}")) {
+    try {
+      meta = JSON.parse(rawGstin);
+    } catch {}
+  } else if (rawGstin) {
+    meta.gstin_number = rawGstin;
+  }
+
+  if (updates.features && typeof updates.features === "object") {
+    const existingFeatures = (meta.features as Partial<RestaurantFeatures>) || {};
+    const updatedFeatures: RestaurantFeatures = {
+      ...DEFAULT_RESTAURANT_FEATURES,
+      ...existingFeatures,
+      ...updates.features,
+    };
+    meta.features = updatedFeatures;
+    setRestaurantFeatures(restaurantId, updatedFeatures);
+  }
+
+  if (updates.theme && ["amber", "crimson", "saffron", "emerald", "charcoal"].includes(updates.theme)) {
+    meta.theme = updates.theme;
+    setRestaurantTheme(restaurantId, updates.theme);
+  }
+
+  if (updates.branding && typeof updates.branding === "object") {
+    meta.branding = {
+      ...DEFAULT_BRANDING_CONFIG,
+      ...((meta.branding as Record<string, unknown>) || {}),
+      ...updates.branding,
+    };
+    setRestaurantBranding(restaurantId, meta.branding as RestaurantBrandingConfig);
+  }
+
+  if (updates.offerConfig && typeof updates.offerConfig === "object") {
+    meta.offerConfig = {
+      ...DEFAULT_OFFER_CONFIG,
+      ...((meta.offerConfig as Record<string, unknown>) || {}),
+      ...updates.offerConfig,
+    };
+    setRestaurantOfferConfig(restaurantId, meta.offerConfig as RestaurantOfferConfig);
+  }
+
+  if (updates.upsellConfig && typeof updates.upsellConfig === "object") {
+    meta.upsellConfig = {
+      ...DEFAULT_UPSELL_CONFIG,
+      ...((meta.upsellConfig as Record<string, unknown>) || {}),
+      ...updates.upsellConfig,
+    };
+    setRestaurantUpsellConfig(restaurantId, meta.upsellConfig as SmartUpsellConfig);
+  }
+
+  if (updates.gstin !== undefined) {
+    meta.gstin_number = updates.gstin ? updates.gstin.trim() : null;
+  }
+
+  await admin
+    .from("restaurants")
+    .update({ gstin: JSON.stringify(meta) })
+    .eq("id", restaurantId);
+}
 
 export async function GET(request: Request) {
   const authCheck = await requireSuperAdmin();
@@ -53,13 +143,23 @@ export async function GET(request: Request) {
     const billsList = billsRes.data || [];
 
     if (search) {
-      restaurants = restaurants.filter(
-        (r) =>
+      restaurants = restaurants.filter((r) => {
+        let gstinToMatch = r.gstin;
+        if (r.gstin?.startsWith("{")) {
+          try {
+            const parsed = JSON.parse(r.gstin);
+            gstinToMatch = parsed.gstin_number || null;
+          } catch {
+            gstinToMatch = null;
+          }
+        }
+        return (
           r.name?.toLowerCase().includes(search) ||
           r.owner_email?.toLowerCase().includes(search) ||
-          r.gstin?.toLowerCase().includes(search) ||
+          gstinToMatch?.toLowerCase().includes(search) ||
           r.id?.toLowerCase().includes(search)
-      );
+        );
+      });
     }
 
     if (plan !== "all") {
@@ -98,21 +198,37 @@ export async function GET(request: Request) {
 
       const archived = isRestaurantArchived(r.id) || r.subscription_status === "cancelled";
 
+      let meta: Record<string, unknown> = {};
+      const rawGstin = r.gstin || "";
+      if (rawGstin.startsWith("{") && rawGstin.endsWith("}")) {
+        try {
+          meta = JSON.parse(rawGstin);
+        } catch {}
+      }
+      const realGstin = (meta.gstin_number as string) || (rawGstin.startsWith("{") ? null : rawGstin) || null;
+      const dbFeatures = (meta.features as Partial<RestaurantFeatures>) || null;
+      const dbTheme = (meta.theme as RestaurantThemeType) || null;
+      const dbBranding = (meta.branding as RestaurantBrandingConfig) || null;
+      const dbOfferConfig = (meta.offerConfig as RestaurantOfferConfig) || null;
+      const dbUpsellConfig = (meta.upsellConfig as SmartUpsellConfig) || null;
+
       return {
         id: r.id,
         name: r.name,
         ownerEmail: r.owner_email,
         ownerName: owner?.name || "Unassigned",
         contactPhone: getRestaurantPhone(r.id) || r.contact_phone || null,
-        gstin: r.gstin,
+        gstin: realGstin,
         subscriptionPlan: r.subscription_plan || "trial",
         subscriptionStatus: r.subscription_status || "active",
         isArchived: archived,
-        theme: getRestaurantTheme(r.id),
-        branding: getRestaurantBranding(r.id),
-        features: getRestaurantFeatures(r.id),
-        offerConfig: getRestaurantOfferConfig(r.id),
-        upsellConfig: getRestaurantUpsellConfig(r.id),
+        theme: dbTheme || getRestaurantTheme(r.id),
+        branding: dbBranding || getRestaurantBranding(r.id),
+        features: dbFeatures
+          ? { ...DEFAULT_RESTAURANT_FEATURES, ...getRestaurantFeatures(r.id), ...dbFeatures }
+          : getRestaurantFeatures(r.id),
+        offerConfig: dbOfferConfig || getRestaurantOfferConfig(r.id),
+        upsellConfig: dbUpsellConfig || getRestaurantUpsellConfig(r.id),
         tables: restoTables.map((t) => ({
           id: t.id,
           table_number: t.table_number,
@@ -178,12 +294,17 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
 
     // 1. Insert restaurant (using verified columns from Postgres schema)
+    const initialMeta = {
+      features: DEFAULT_RESTAURANT_FEATURES,
+      gstin_number: gstin?.trim() || null,
+    };
+
     const { data: restaurant, error: restoError } = await admin
       .from("restaurants")
       .insert({
         name,
         owner_email: ownerEmail,
-        gstin,
+        gstin: JSON.stringify(initialMeta),
         subscription_plan: plan,
         subscription_status: "active",
       })
@@ -361,29 +482,15 @@ export async function PATCH(request: Request) {
 
     // Batch Operation for multiple restaurants
     if (targetIds.length > 1) {
-      if (features && typeof features === "object") {
+      if (features || theme || branding || offerConfig || upsellConfig) {
         for (const tid of targetIds) {
-          setRestaurantFeatures(tid, features);
-        }
-      }
-      if (theme && ["amber", "crimson", "saffron", "emerald", "charcoal"].includes(theme)) {
-        for (const tid of targetIds) {
-          setRestaurantTheme(tid, theme);
-        }
-      }
-      if (branding && typeof branding === "object") {
-        for (const tid of targetIds) {
-          setRestaurantBranding(tid, branding);
-        }
-      }
-      if (offerConfig && typeof offerConfig === "object") {
-        for (const tid of targetIds) {
-          setRestaurantOfferConfig(tid, offerConfig);
-        }
-      }
-      if (upsellConfig && typeof upsellConfig === "object") {
-        for (const tid of targetIds) {
-          setRestaurantUpsellConfig(tid, upsellConfig);
+          await updateRestaurantMetadata(admin, tid, {
+            features,
+            theme,
+            branding,
+            offerConfig,
+            upsellConfig,
+          });
         }
       }
       const batchUpdates: Record<string, unknown> = {};
@@ -478,61 +585,66 @@ export async function PATCH(request: Request) {
     }
 
     if (name) updates.name = name.trim();
-    if (gstin !== undefined) updates.gstin = gstin?.trim() || null;
 
-    if (theme && ["amber", "crimson", "saffron", "emerald", "charcoal"].includes(theme)) {
-      setRestaurantTheme(singleId, theme);
-      logActivity({
-        action: "STATUS_CHANGE",
-        actorEmail: authCheck.user?.email || "super-admin",
-        targetId: singleId,
-        targetName,
-        details: `Updated theme palette to "${theme}" for "${targetName}"`,
+    if (features || theme || branding || offerConfig || upsellConfig || gstin !== undefined) {
+      await updateRestaurantMetadata(admin, singleId, {
+        features,
+        theme,
+        branding,
+        offerConfig,
+        upsellConfig,
+        gstin,
       });
-    }
 
-    if (branding && typeof branding === "object") {
-      setRestaurantBranding(singleId, branding);
-      logActivity({
-        action: "STATUS_CHANGE",
-        actorEmail: authCheck.user?.email || "super-admin",
-        targetId: singleId,
-        targetName,
-        details: `Updated white-label branding (logo/tagline/theme) for "${targetName}"`,
-      });
-    }
+      if (theme && ["amber", "crimson", "saffron", "emerald", "charcoal"].includes(theme)) {
+        logActivity({
+          action: "STATUS_CHANGE",
+          actorEmail: authCheck.user?.email || "super-admin",
+          targetId: singleId,
+          targetName,
+          details: `Updated theme palette to "${theme}" for "${targetName}"`,
+        });
+      }
 
-    if (offerConfig && typeof offerConfig === "object") {
-      setRestaurantOfferConfig(singleId, offerConfig);
-      logActivity({
-        action: "STATUS_CHANGE",
-        actorEmail: authCheck.user?.email || "super-admin",
-        targetId: singleId,
-        targetName,
-        details: `Updated retention offers & scratch card settings for "${targetName}"`,
-      });
-    }
+      if (branding && typeof branding === "object") {
+        logActivity({
+          action: "STATUS_CHANGE",
+          actorEmail: authCheck.user?.email || "super-admin",
+          targetId: singleId,
+          targetName,
+          details: `Updated white-label branding (logo/tagline/theme) for "${targetName}"`,
+        });
+      }
 
-    if (upsellConfig && typeof upsellConfig === "object") {
-      setRestaurantUpsellConfig(singleId, upsellConfig);
-      logActivity({
-        action: "STATUS_CHANGE",
-        actorEmail: authCheck.user?.email || "super-admin",
-        targetId: singleId,
-        targetName,
-        details: `Updated Smart Upsell & Basket Pairing settings for "${targetName}"`,
-      });
-    }
+      if (offerConfig && typeof offerConfig === "object") {
+        logActivity({
+          action: "STATUS_CHANGE",
+          actorEmail: authCheck.user?.email || "super-admin",
+          targetId: singleId,
+          targetName,
+          details: `Updated retention offers & scratch card settings for "${targetName}"`,
+        });
+      }
 
-    if (features && typeof features === "object") {
-      setRestaurantFeatures(singleId, features);
-      logActivity({
-        action: "STATUS_CHANGE",
-        actorEmail: authCheck.user?.email || "super-admin",
-        targetId: singleId,
-        targetName,
-        details: `Updated feature entitlements switchboard for "${targetName}"`,
-      });
+      if (upsellConfig && typeof upsellConfig === "object") {
+        logActivity({
+          action: "STATUS_CHANGE",
+          actorEmail: authCheck.user?.email || "super-admin",
+          targetId: singleId,
+          targetName,
+          details: `Updated Smart Upsell & Basket Pairing settings for "${targetName}"`,
+        });
+      }
+
+      if (features && typeof features === "object") {
+        logActivity({
+          action: "STATUS_CHANGE",
+          actorEmail: authCheck.user?.email || "super-admin",
+          targetId: singleId,
+          targetName,
+          details: `Updated feature entitlements switchboard for "${targetName}"`,
+        });
+      }
     }
 
     if (Object.keys(updates).length > 0) {
