@@ -287,8 +287,8 @@ export default function TableLiveJourney({
             className="p-3 bg-stone-50/80 border-b flex items-center justify-between"
             style={{ borderColor: "var(--hairline)" }}
           >
-            <div className="flex items-center gap-2">
-              <span className="text-xl">
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <span className="text-xl shrink-0">
                 {activeStage === "served"
                   ? "🍽️"
                   : activeStage === "preparing"
@@ -297,16 +297,16 @@ export default function TableLiveJourney({
                   ? "👨‍💼"
                   : "📱"}
               </span>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-heading text-xs font-black uppercase tracking-wider text-stone-900">
+                  <span className="font-heading text-xs font-black uppercase tracking-wider text-stone-900 truncate">
                     Track Your Order
                   </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-stone-200 text-stone-700 font-bold">
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-stone-200 text-stone-700 font-bold shrink-0">
                     #{activeOrder.id.slice(0, 6)}
                   </span>
                 </div>
-                <div className="text-[10px] text-stone-500 font-medium">
+                <div className="text-[10px] text-stone-500 font-medium truncate">
                   Table {tableNumber} • {activeOrder.order_items.length} dishes (₹{orderTotal})
                 </div>
               </div>
@@ -318,7 +318,7 @@ export default function TableLiveJourney({
                 triggerHaptic(12);
                 setIsJourneySheetOpen(true);
               }}
-              className="text-[11px] font-bold px-3 py-1 rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-transform active:scale-95 text-white"
+              className="text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-transform active:scale-95 text-white whitespace-nowrap shrink-0 leading-none h-7"
               style={{
                 backgroundColor: isApprovalPending
                   ? "#D97706"
@@ -329,7 +329,7 @@ export default function TableLiveJourney({
                   : "#D96B27",
               }}
             >
-              <span>{isApprovalPending ? "Edit / Track" : "Track Order"}</span>
+              <span>{isApprovalPending ? "Edit / Track" : "Track"}</span>
               <span className="text-xs">▴</span>
             </button>
           </div>
