@@ -290,13 +290,22 @@ export default function AdminNavigation({
               );
             })}
 
+            {/* Owner Admin Panel Link */}
+            <Link
+              href="/admin"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-colors border border-purple-500/30 bg-purple-950/30 text-purple-300 text-xs font-bold mt-2 hover:bg-purple-900/40"
+            >
+              <i className="fa-solid fa-gauge-high text-purple-400 text-xs" />
+              <span>Owner Admin Panel</span>
+            </Link>
+
             {/* Super Admin Platform Link */}
             {isSuperAdmin && (
               <Link
                 href="/super-admin"
-                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl transition-colors border border-amber-800/40 bg-amber-950/20 text-amber-300 text-xs font-bold mt-2"
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl transition-colors border border-amber-800/40 bg-amber-950/20 text-amber-300 text-xs font-bold mt-1.5"
               >
-                <span>⚡</span>
+                <i className="fa-solid fa-bolt text-amber-400 text-xs" />
                 <span>Super Admin Platform</span>
               </Link>
             )}
