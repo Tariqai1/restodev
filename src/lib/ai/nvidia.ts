@@ -24,11 +24,11 @@ export async function callNvidiaChat(
   options: NvidiaCompletionOptions = {}
 ): Promise<{ text: string; raw: any }> {
   const apiKey = process.env.NVIDIA_API_KEY || DEFAULT_NVIDIA_KEY;
-  const model = options.model || "meta/llama-3.3-70b-instruct";
-  const temperature = options.temperature ?? 0.6;
+  const model = options.model || "nvidia/nemotron-3.5-lightning-30b-a3b";
+  const temperature = options.temperature ?? 0.3;
   const top_p = options.top_p ?? 0.95;
-  const max_tokens = options.max_tokens ?? 1024;
-  const timeoutMs = options.timeoutMs ?? 20000;
+  const max_tokens = options.max_tokens ?? 1536;
+  const timeoutMs = options.timeoutMs ?? 25000;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

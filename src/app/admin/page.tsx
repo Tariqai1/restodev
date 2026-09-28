@@ -1089,7 +1089,7 @@ export default function AdminPage() {
                 <div className="p-4 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-800">
-                      NVIDIA AI Waiter
+                      Smart AI Concierge
                     </span>
                     <input
                       type="checkbox"

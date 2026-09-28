@@ -36,9 +36,9 @@ Only recommend dish IDs that exist in the RESTAURANT MENU above. Recommend 1 to 
         { role: "user", content: prompt },
       ],
       {
-        model: "meta/llama-3.3-70b-instruct",
-        temperature: 0.6,
-        max_tokens: 600,
+        model: "nvidia/nemotron-3.5-lightning-30b-a3b",
+        temperature: 0.3,
+        max_tokens: 1536,
       }
     );
 

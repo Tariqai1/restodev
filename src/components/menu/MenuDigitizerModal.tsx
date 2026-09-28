@@ -100,13 +100,13 @@ export default function MenuDigitizerModal({
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between bg-stone-50">
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl">📸</span>
+            <i className="fa-solid fa-camera text-xl text-purple-600" />
             <div>
               <h2 className="font-heading font-bold text-sm text-stone-900">
                 AI Menu Digitizer (Photo to Menu)
               </h2>
               <p className="text-[11px] text-stone-500">
-                Powered by NVIDIA Llama 3.2 Vision · Snap printed menu card to auto-create items
+                Powered by Smart Vision AI · Snap printed menu card to auto-create items
               </p>
             </div>
           </div>
@@ -135,8 +135,8 @@ export default function MenuDigitizerModal({
                 htmlFor="menu-photo-upload"
                 className="cursor-pointer flex flex-col items-center space-y-2"
               >
-                <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-2xl shadow-xs">
-                  📷
+                <div className="w-14 h-14 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xl shadow-xs">
+                  <i className="fa-solid fa-cloud-arrow-up" />
                 </div>
                 <span className="text-sm font-bold text-stone-800">
                   Upload or Take Photo of Menu Card
@@ -144,7 +144,7 @@ export default function MenuDigitizerModal({
                 <span className="text-xs text-stone-500 max-w-sm">
                   Supports JPG, PNG photos of physical printed restaurant menus or flyers.
                 </span>
-                <span className="mt-2 inline-flex items-center px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold shadow-xs">
+                <span className="mt-2 inline-flex items-center px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs">
                   Choose Image
                 </span>
               </label>
@@ -176,16 +176,16 @@ export default function MenuDigitizerModal({
                 type="button"
                 disabled={loading}
                 onClick={handleScanMenu}
-                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-stone-950 font-bold text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 rounded-full border-2 border-stone-900 border-t-transparent animate-spin" />
-                    <span>NVIDIA Vision analyzing dishes &amp; prices...</span>
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>AI Vision analyzing dishes &amp; prices...</span>
                   </>
                 ) : (
                   <>
-                    <span>✨</span>
+                    <i className="fa-solid fa-wand-magic-sparkles text-xs" />
                     <span>Extract Dishes with AI Vision</span>
                   </>
                 )}

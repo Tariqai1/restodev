@@ -78,6 +78,11 @@ export default function StaffPage() {
   // Reset PIN Form
   const [newPin, setNewPin] = useState("");
 
+  // Owner Quick Unlock PIN Form
+  const [unlockPin, setUnlockPin] = useState("");
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -89,6 +94,7 @@ export default function StaffPage() {
 
   async function loadStaff() {
     setIsLoading(true);
+    setErrorMessage("");
     try {
       const response = await fetch("/api/staff");
       const data = await response.json();
@@ -101,6 +107,30 @@ export default function StaffPage() {
       setErrorMessage(error instanceof Error ? error.message : "Error loading staff");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleQuickOwnerUnlock() {
+    if (unlockPin.length !== 4 || isUnlocking) return;
+    setIsUnlocking(true);
+    setUnlockError("");
+    try {
+      const res = await fetch("/api/auth/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: unlockPin, restaurantId: restaurantId || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Incorrect PIN");
+      setUnlockPin("");
+      setUnlockError("");
+      setErrorMessage("");
+      await loadStaff();
+      showToast("Access granted as Owner / Manager!");
+    } catch (err: any) {
+      setUnlockError(err.message || "Incorrect PIN. Please enter an Owner or Manager PIN.");
+    } finally {
+      setIsUnlocking(false);
     }
   }
 
@@ -289,15 +319,22 @@ export default function StaffPage() {
               className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-sm"
               title="Open or Share 1-Tap Kitchen Display Link"
             >
-              <span>🍳</span>
+              <i className="fa-solid fa-fire-burner text-xs" />
               <span>Kitchen KDS Link</span>
             </button>
 
             <button
-              onClick={() => setIsAddingStaff(true)}
+              onClick={() => {
+                if (errorMessage) {
+                  // Prompt unlock
+                  showToast("Please enter Owner PIN to unlock staff controls.");
+                } else {
+                  setIsAddingStaff(true);
+                }
+              }}
               className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-orange-950/50 border border-orange-400/30 transition-all cursor-pointer"
             >
-              <span>+</span>
+              <i className="fa-solid fa-plus text-xs" />
               <span>Add New Staff</span>
             </button>
           </div>
@@ -324,8 +361,68 @@ export default function StaffPage() {
           )}
 
           {!isLoading && errorMessage && (
-            <div className="p-8 text-center text-red-400 text-xs bg-red-950/20 border-b border-red-900/30 font-mono">
-              {errorMessage}
+            <div className="p-8 sm:p-12 text-center max-w-md mx-auto space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-2xl shadow-inner">
+                <i className="fa-solid fa-shield-halved" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Manager or Owner Access Required
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  This station is currently active as Floor Staff. Enter your 4-digit Manager or Owner PIN to unlock staff management and permission controls.
+                </p>
+              </div>
+
+              {/* Inline PIN Unlock */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-center gap-2">
+                  <input
+                    type="password"
+                    maxLength={4}
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    placeholder="••••"
+                    value={unlockPin}
+                    onChange={(e) => setUnlockPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    onKeyDown={(e) => e.key === "Enter" && handleQuickOwnerUnlock()}
+                    className="w-40 text-center tracking-[0.5em] text-xl font-mono py-2.5 px-4 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl text-white outline-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={unlockPin.length !== 4 || isUnlocking}
+                    onClick={handleQuickOwnerUnlock}
+                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                  >
+                    {isUnlocking ? (
+                      <i className="fa-solid fa-circle-notch animate-spin" />
+                    ) : (
+                      <i className="fa-solid fa-key" />
+                    )}
+                    <span>Unlock</span>
+                  </button>
+                </div>
+
+                {unlockError && (
+                  <p className="text-xs text-rose-400 font-mono">{unlockError}</p>
+                )}
+
+                <div className="pt-2 flex items-center justify-center gap-4 text-xs">
+                  <Link
+                    href="/login"
+                    className="text-slate-400 hover:text-white underline underline-offset-4"
+                  >
+                    Switch Account / Station
+                  </Link>
+                  <span className="text-slate-600">·</span>
+                  <Link
+                    href="/admin"
+                    className="text-purple-400 hover:text-purple-300 font-semibold"
+                  >
+                    Owner Admin Panel
+                  </Link>
+                </div>
+              </div>
             </div>
           )}
 
@@ -361,8 +458,9 @@ export default function StaffPage() {
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[10px] text-slate-500 font-mono">ID: {member.id.slice(0, 8)}</span>
                             {(member.phone || member.permissions?.phone) && (
-                              <span className="text-[10px] text-emerald-400/90 font-mono font-medium">
-                                📞 {member.phone || member.permissions?.phone}
+                              <span className="text-[10px] text-emerald-400/90 font-mono font-medium flex items-center gap-1">
+                                <i className="fa-solid fa-phone text-[9px]" />
+                                <span>{member.phone || member.permissions?.phone}</span>
                               </span>
                             )}
                           </div>
@@ -437,8 +535,8 @@ export default function StaffPage() {
                                 const origin = typeof window !== "undefined" ? window.location.origin : "";
                                 const staffLoginUrl = `${origin}/login?resto=${restaurantId}&role=${member.role}&staff=${member.id}`;
                                 const roleLabel = member.role === "kitchen" ? "Kitchen KDS" : member.role === "owner" ? "Owner / Manager" : "Waiter";
-                                const pinText = member.permissions?.assignedPin ? `\n🔑 *PIN*: ${member.permissions.assignedPin}` : "";
-                                const msg = `👋 *${restaurantName} - Shift Access*\n\nHello *${member.name}*!\nYour shift terminal access is ready:\n🔗 *Direct Login*: ${staffLoginUrl}\n👤 *Staff Name*: ${member.name}\n💼 *Role*: ${roleLabel}${pinText}\n\nOpen this link on your phone to clock into your shift!`;
+                                const pinText = member.permissions?.assignedPin ? `\nPIN: ${member.permissions.assignedPin}` : "";
+                                const msg = `*${restaurantName} - Shift Access*\n\nHello *${member.name}*!\nYour shift terminal access is ready:\nDirect Login: ${staffLoginUrl}\nStaff Name: ${member.name}\nRole: ${roleLabel}${pinText}\n\nOpen this link on your phone to clock into your shift!`;
                                 const phoneNum = (member.phone || member.permissions?.phone || "").replace(/\D/g, "");
                                 const phoneParam = phoneNum ? `phone=91${phoneNum.length === 10 ? phoneNum : phoneNum}&` : "";
                                 return `https://api.whatsapp.com/send?${phoneParam}text=${encodeURIComponent(msg)}`;
@@ -448,7 +546,7 @@ export default function StaffPage() {
                               className="px-2 py-1 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/60 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
                               title="Send Shift Access Link via WhatsApp"
                             >
-                              <span>📲</span>
+                              <i className="fa-brands fa-whatsapp text-xs" />
                               <span>Share</span>
                             </a>
 
@@ -550,9 +648,9 @@ export default function StaffPage() {
                     onChange={(e) => handleAddRoleChange(e.target.value as StaffMember["role"])}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   >
-                    <option value="waiter">🛎️ Waiter (Floor Orders, Tables &amp; Service)</option>
-                    <option value="kitchen">🍳 Kitchen (Cooking &amp; KDS Display Only)</option>
-                    <option value="owner">👑 Owner / Manager (Full Access &amp; Billing)</option>
+                    <option value="waiter">Waiter (Floor Orders, Tables &amp; Service)</option>
+                    <option value="kitchen">Kitchen (Cooking &amp; KDS Display Only)</option>
+                    <option value="owner">Owner / Manager (Full Access &amp; Billing)</option>
                   </select>
                   <p className="text-[11px] text-slate-400 mt-1">
                     Owner has full control. Waiters take orders on the floor. Kitchen only accesses /kitchen.
@@ -581,7 +679,7 @@ export default function StaffPage() {
                 <div>
                   <label className="block text-xs font-bold text-slate-300 uppercase mb-1 flex items-center justify-between">
                     <span>Staff WhatsApp / Phone (Optional)</span>
-                    <span className="text-emerald-400">📲</span>
+                    <i className="fa-brands fa-whatsapp text-emerald-400 text-xs" />
                   </label>
                   <input
                     type="tel"
@@ -695,9 +793,9 @@ export default function StaffPage() {
                     }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   >
-                    <option value="waiter">🛎️ Waiter (Floor Orders, Tables &amp; Service)</option>
-                    <option value="kitchen">🍳 Kitchen (Cooking &amp; KDS Display Only)</option>
-                    <option value="owner">👑 Owner / Manager (Full Access &amp; Billing)</option>
+                    <option value="waiter">Waiter (Floor Orders, Tables &amp; Service)</option>
+                    <option value="kitchen">Kitchen (Cooking &amp; KDS Display Only)</option>
+                    <option value="owner">Owner / Manager (Full Access &amp; Billing)</option>
                   </select>
                 </div>
 
@@ -828,7 +926,7 @@ export default function StaffPage() {
               <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto sm:hidden shrink-0" />
               <div className="text-center space-y-1.5">
                 <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto text-xl shadow-lg">
-                  🎉
+                  <i className="fa-solid fa-circle-check" />
                 </div>
                 <h3 className="text-base font-bold text-white">Staff Member Created!</h3>
                 <p className="text-xs text-slate-400">
@@ -873,7 +971,7 @@ export default function StaffPage() {
                     const origin = typeof window !== "undefined" ? window.location.origin : "";
                     const loginUrl = `${origin}/login?resto=${restaurantId}&role=${staffSuccessModal.role}&staff=${staffSuccessModal.id}&pin=${staffSuccessModal.pin}`;
                     const phone = (staffSuccessModal.phone || "").replace(/\D/g, "");
-                    const msg = `👋 *${restaurantName} - Staff Shift Access*\n\nHello *${staffSuccessModal.name}*!\nYour staff terminal access for OrderDesk is ready:\n\n🔗 *1-Tap Shift Link*: ${loginUrl}\n👤 *Staff Name*: ${staffSuccessModal.name}\n💼 *Role*: ${staffSuccessModal.role.toUpperCase()}\n🔑 *Your PIN / Password*: ${staffSuccessModal.pin}\n\nTap the link above on your phone or tablet to start your shift immediately!`;
+                    const msg = `*${restaurantName} - Staff Shift Access*\n\nHello *${staffSuccessModal.name}*!\nYour staff terminal access for OrderDesk is ready:\n\n1-Tap Shift Link: ${loginUrl}\nStaff Name: ${staffSuccessModal.name}\nRole: ${staffSuccessModal.role.toUpperCase()}\nYour PIN / Password: ${staffSuccessModal.pin}\n\nTap the link above on your phone or tablet to start your shift immediately!`;
                     return phone
                       ? `https://api.whatsapp.com/send?phone=91${phone.length === 10 ? phone : phone}&text=${encodeURIComponent(msg)}`
                       : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
@@ -882,7 +980,7 @@ export default function StaffPage() {
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-950/40 cursor-pointer"
                 >
-                  <span>📲</span>
+                  <i className="fa-brands fa-whatsapp text-sm" />
                   <span>Send Credentials on WhatsApp</span>
                 </a>
 
@@ -897,9 +995,10 @@ export default function StaffPage() {
                       setCopiedStaffLink(true);
                       setTimeout(() => setCopiedStaffLink(false), 2500);
                     }}
-                    className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer border border-slate-700 text-center"
+                    className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer border border-slate-700 text-center flex items-center justify-center gap-1.5"
                   >
-                    {copiedStaffLink ? "Copied!" : "📋 Copy Link & PIN"}
+                    <i className="fa-regular fa-copy text-xs" />
+                    <span>{copiedStaffLink ? "Copied!" : "Copy Link & PIN"}</span>
                   </button>
 
                   <button
@@ -922,7 +1021,7 @@ export default function StaffPage() {
               <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto sm:hidden shrink-0" />
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-xl">🍳</span>
+                  <i className="fa-solid fa-fire-burner text-amber-400 text-lg" />
                   <div>
                     <h3 className="text-base font-bold text-white">Kitchen Display Rail (KDS)</h3>
                     <p className="text-[11px] text-slate-400">Permanent Station URL for Kitchen Tablet / TV</p>
@@ -936,8 +1035,9 @@ export default function StaffPage() {
                 </button>
               </div>
 
-              <div className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3.5 rounded-xl border border-slate-800">
-                💡 Open this link on your kitchen tablet or monitor. It stays logged into the Kitchen Rail display with live sound alerts, ticket timers, and mark-ready controls without requiring re-login.
+              <div className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-start gap-2">
+                <i className="fa-solid fa-circle-info text-amber-400 text-xs mt-0.5 shrink-0" />
+                <span>Open this link on your kitchen tablet or monitor. It stays logged into the Kitchen Rail display with live sound alerts, ticket timers, and mark-ready controls without requiring re-login.</span>
               </div>
 
               {/* Direct Kitchen Link */}
@@ -959,14 +1059,14 @@ export default function StaffPage() {
                   href={(() => {
                     const origin = typeof window !== "undefined" ? window.location.origin : "";
                     const kdsUrl = `${origin}/login?resto=${restaurantId}&role=kitchen`;
-                    const msg = `🍳 *${restaurantName} - Kitchen Display Link*\n\nOpen this link on the kitchen tablet or TV screen to view live orders and kitchen tickets:\n🔗 ${kdsUrl}`;
+                    const msg = `*${restaurantName} - Kitchen Display Link*\n\nOpen this link on the kitchen tablet or TV screen to view live orders and kitchen tickets:\n${kdsUrl}`;
                     return `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
                   })()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-950/40 cursor-pointer"
                 >
-                  <span>📲</span>
+                  <i className="fa-brands fa-whatsapp text-sm" />
                   <span>Share Kitchen Link on WhatsApp</span>
                 </a>
 
@@ -980,9 +1080,10 @@ export default function StaffPage() {
                       setCopiedKitchenLink(true);
                       setTimeout(() => setCopiedKitchenLink(false), 2500);
                     }}
-                    className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer border border-slate-700 text-center"
+                    className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer border border-slate-700 text-center flex items-center justify-center gap-1.5"
                   >
-                    {copiedKitchenLink ? "Copied!" : "📋 Copy Kitchen Link"}
+                    <i className="fa-regular fa-copy text-xs" />
+                    <span>{copiedKitchenLink ? "Copied!" : "Copy Kitchen Link"}</span>
                   </button>
 
                   <a

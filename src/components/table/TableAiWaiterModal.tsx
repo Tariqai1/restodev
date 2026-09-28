@@ -84,15 +84,21 @@ export default function TableAiWaiterModal({
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between shrink-0" style={{ borderColor: "var(--hairline)" }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg bg-gradient-to-tr from-amber-500 to-yellow-400 text-stone-950 shadow-sm font-bold">
-              🤖
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-sm font-bold"
+              style={{
+                backgroundColor: "var(--brand-primary)",
+                color: "var(--rust-text)",
+              }}
+            >
+              <i className="fa-solid fa-wand-magic-sparkles" />
             </div>
             <div>
               <h2 className="text-sm font-bold leading-tight" style={{ color: "var(--ink)" }}>
                 AI Waiter &amp; Recommendation
               </h2>
               <p className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
-                Powered by NVIDIA Llama 3.3 · Ask anything about menu
+                Smart Menu Concierge · Ask anything about our dishes
               </p>
             </div>
           </div>
@@ -101,7 +107,7 @@ export default function TableAiWaiterModal({
             onClick={onClose}
             className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-xs font-bold hover:bg-stone-200 cursor-pointer"
           >
-            ✕
+            <i className="fa-solid fa-xmark" />
           </button>
         </div>
 

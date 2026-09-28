@@ -4957,10 +4957,10 @@ export default function SuperAdminPage() {
                     { key: "quickAdds", label: "Quick Adds Carousel", desc: "1-Tap fast adds strip for rotis, beverages & extras (Default OFF)", icon: "⚡" },
                     { key: "showTableFooter", label: "Table Page Footer", desc: "Footer showing restaurant info, legal & kitchen dispatch (Default OFF)", icon: "📄" },
                     { key: "halfFullPortions", label: "Half & Full Portions", desc: "Allow diners to select Half (60% price) or Full portion sizes", icon: "⚖️" },
-                    { key: "aiWaiter", label: "Smart AI Waiter", desc: "NVIDIA Llama 3.3 conversational dish recommendation", icon: "🤖" },
+                    { key: "aiWaiter", label: "Smart AI Waiter", desc: "Conversational dish & taste recommendation for diners", icon: "🤖" },
                     { key: "aiVoiceOrder", label: "Voice Ordering", desc: "Speak-to-order speech recognition into cart", icon: "🎙️" },
-                    { key: "aiKitchenPrep", label: "Smart Prep Time", desc: "Nemotron AI cooking time auto-estimator for chefs", icon: "⏱️" },
-                    { key: "aiMenuDigitizer", label: "AI Menu Digitizer", desc: "Llama 3.2 Vision physical menu card scanner", icon: "📸" },
+                    { key: "aiKitchenPrep", label: "Smart Prep Time", desc: "Automated cooking time estimator based on kitchen queue", icon: "⏱️" },
+                    { key: "aiMenuDigitizer", label: "AI Menu Digitizer", desc: "Scan physical menu cards to auto-import dishes", icon: "📸" },
                   ].map((feat) => {
                     const currentFeats = editingRestaurant.features || {
                       callWaiter: true,

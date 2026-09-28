@@ -40,9 +40,9 @@ Respond ONLY with a JSON object:
         },
       ],
       {
-        model: "meta/llama-3.3-70b-instruct",
+        model: "nvidia/nemotron-3.5-lightning-30b-a3b",
         temperature: 0.2,
-        max_tokens: 300,
+        max_tokens: 1024,
       }
     );
 

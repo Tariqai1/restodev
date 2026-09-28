@@ -3326,13 +3326,13 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Section: NVIDIA AI Intelligence Controls */}
+            {/* Section: Smart AI Intelligence Controls */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                  NVIDIA AI Features
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                  Smart AI Intelligence
                 </span>
-                <span className="text-[10px] text-stone-400 font-mono">Meta Llama 3.3 · Nemotron · Vision</span>
+                <span className="text-[10px] text-stone-400 font-mono">Voice · Vision OCR · Kitchen Auto</span>
               </div>
 
               {/* 1. Smart AI Waiter / Dish Recommendation */}

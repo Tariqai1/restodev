@@ -654,10 +654,10 @@ export default function MenuManagementPage() {
               <button
                 type="button"
                 onClick={() => setIsMenuDigitizerOpen(true)}
-                className="px-3.5 py-2 text-xs font-bold rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 text-amber-300 hover:text-amber-200 hover:border-amber-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
-                title="Scan physical menu card with NVIDIA Vision AI"
+                className="px-3.5 py-2 text-xs font-bold rounded-xl border border-purple-500/40 bg-purple-50 text-purple-700 hover:bg-purple-100 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Scan physical menu card with Smart Vision AI"
               >
-                <span>📸</span>
+                <i className="fa-solid fa-camera text-xs" />
                 <span>Scan Menu with AI</span>
               </button>
             )}

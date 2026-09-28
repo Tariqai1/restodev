@@ -345,18 +345,20 @@ export default function AdminNavigation({
                 {isSuperAdmin && (
                   <Link
                     href="/super-admin"
-                    className="block px-2 py-1.5 rounded-lg text-amber-300 hover:bg-white/5 font-bold"
+                    className="flex items-center px-2 py-1.5 rounded-lg text-amber-300 hover:bg-white/5 font-bold gap-2"
                   >
-                    ⚡ Super Admin Platform
+                    <i className="fa-solid fa-bolt text-amber-400 text-xs" />
+                    <span>Super Admin Platform</span>
                   </Link>
                 )}
 
                 <button
                   type="button"
                   onClick={handleSignOutClick}
-                  className="w-full text-left px-2 py-1.5 rounded-lg text-red-400 hover:bg-red-950/40 font-bold cursor-pointer transition-colors"
+                  className="w-full text-left px-2 py-1.5 rounded-lg text-red-400 hover:bg-red-950/40 font-bold cursor-pointer transition-colors flex items-center gap-2"
                 >
-                  🚪 Sign Out
+                  <i className="fa-solid fa-arrow-right-from-bracket text-red-400 text-xs" />
+                  <span>Sign Out</span>
                 </button>
               </div>
             )}
