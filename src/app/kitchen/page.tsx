@@ -292,6 +292,35 @@ export default function KitchenDisplayPage() {
     }
   };
 
+  const [estimatingOrderId, setEstimatingOrderId] = useState<string | null>(null);
+
+  const handleAiAutoEstimate = async (order: KitchenOrder) => {
+    playCookChime();
+    setEstimatingOrderId(order.id);
+    try {
+      const orderItems = order.order_items.map((it: KitchenOrderItem) => ({
+        name: it.menu_items?.name || "Dish",
+        qty: it.qty,
+      }));
+      const res = await fetch("/api/ai/prep-time", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderItems,
+          activeKitchenOrdersCount: orders.length,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && typeof data.estimatedMinutes === "number") {
+        await handleSetPrepTime(order.id, data.estimatedMinutes);
+      }
+    } catch (err) {
+      console.error("[AI Auto Estimate Error]", err);
+    } finally {
+      setEstimatingOrderId(null);
+    }
+  };
+
   // Advance single item status
   async function bumpItem(itemId: string, currentStatus: "pending" | "preparing" | "served") {
     if (currentStatus === "served") return;
@@ -846,6 +875,23 @@ export default function KitchenDisplayPage() {
                     </div>
 
                     <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={estimatingOrderId === order.id}
+                        onClick={() => handleAiAutoEstimate(order)}
+                        className="px-2 py-0.5 rounded font-bold text-[10px] bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 shadow-2xs hover:from-amber-600 hover:to-yellow-500 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        title="Smart AI Prep Time Estimation (Nemotron)"
+                      >
+                        {estimatingOrderId === order.id ? (
+                          <span className="animate-pulse">AI...</span>
+                        ) : (
+                          <>
+                            <span>✨</span>
+                            <span>AI</span>
+                          </>
+                        )}
+                      </button>
+
                       {[10, 15, 20, 30].map((mins) => (
                         <button
                           key={mins}

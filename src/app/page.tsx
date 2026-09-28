@@ -3284,6 +3284,160 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Section: NVIDIA AI Intelligence Controls */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  🤖 NVIDIA AI Features
+                </span>
+                <span className="text-[10px] text-stone-400 font-mono">Meta Llama 3.3 · Nemotron · Vision</span>
+              </div>
+
+              {/* 1. Smart AI Waiter / Dish Recommendation */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>🤖</span>
+                    <span>Smart AI Waiter (Dish Recommender)</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Diners can ask in Hindi/English for personalized dish suggestions &amp; 1-tap add to cart.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = features?.aiWaiter !== false;
+                    const next = !current;
+                    handleUpdateFeature(
+                      { aiWaiter: next },
+                      next ? "AI Waiter Enabled for Diners" : "AI Waiter Disabled"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.aiWaiter !== false ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.aiWaiter !== false ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* 2. Voice Ordering */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>🎙️</span>
+                    <span>Voice Ordering (Speak to Order)</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Diners tap mic and speak (&quot;2 butter naan aur 1 dal makhani&quot;) to auto-fill cart.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = features?.aiVoiceOrder !== false;
+                    const next = !current;
+                    handleUpdateFeature(
+                      { aiVoiceOrder: next },
+                      next ? "Voice Ordering Enabled" : "Voice Ordering Disabled"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.aiVoiceOrder !== false ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.aiVoiceOrder !== false ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* 3. Smart Kitchen Prep Time Estimation */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>⏱️</span>
+                    <span>Smart AI Kitchen Prep Time</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Nemotron AI estimates cooking time based on dishes, quantities &amp; active kitchen rush.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = features?.aiKitchenPrep !== false;
+                    const next = !current;
+                    handleUpdateFeature(
+                      { aiKitchenPrep: next },
+                      next ? "Smart Kitchen Prep Time Enabled" : "Smart Kitchen Prep Time Disabled"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.aiKitchenPrep !== false ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.aiKitchenPrep !== false ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* 4. AI Menu Digitizer (Photo to Menu) */}
+              <div
+                className="p-3 rounded-xl border flex items-center justify-between transition-all"
+                style={{ backgroundColor: "var(--paper-dim)", borderColor: "var(--hairline)" }}
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
+                    <span>📸</span>
+                    <span>AI Menu Digitizer (Photo Scanner)</span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                    Upload physical menu photos to automatically extract dishes, prices &amp; categories.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = features?.aiMenuDigitizer !== false;
+                    const next = !current;
+                    handleUpdateFeature(
+                      { aiMenuDigitizer: next },
+                      next ? "AI Menu Digitizer Enabled" : "AI Menu Digitizer Disabled"
+                    );
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    features?.aiMenuDigitizer !== false ? "bg-amber-500" : "bg-stone-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      features?.aiMenuDigitizer !== false ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
             {/* Section 3: Live Order Journey Style */}
             <div className="space-y-2 pt-1">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-stone-500">

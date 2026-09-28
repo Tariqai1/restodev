@@ -65,6 +65,10 @@ export type RestaurantFeatures = {
   showTableFooter?: boolean;
   halfFullPortions?: boolean;
   orderJourneyLayout?: "floating_capsule" | "split_card" | "slim_accordion";
+  aiWaiter?: boolean;
+  aiKitchenPrep?: boolean;
+  aiVoiceOrder?: boolean;
+  aiMenuDigitizer?: boolean;
 };
 
 export type PortionType = "full" | "half";

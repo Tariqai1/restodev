@@ -49,6 +49,8 @@ import TableCartDrawer from "@/components/table/TableCartDrawer";
 import DishPreviewModal from "@/components/table/DishPreviewModal";
 import TableDispatchModal from "@/components/table/TableDispatchModal";
 import TableOrderHistory from "@/components/table/TableOrderHistory";
+import TableAiWaiterModal from "@/components/table/TableAiWaiterModal";
+import TableVoiceOrderModal from "@/components/table/TableVoiceOrderModal";
 
 const ScratchCardModal = dynamic(
   () => import("@/components/table/ScratchCardModal"),
@@ -190,7 +192,17 @@ export default function CustomerTableOrderingPage({
   const [isCartBouncing, setIsCartBouncing] = useState<boolean>(false);
   const [isCategorySheetOpen, setIsCategorySheetOpen] = useState<boolean>(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [isAiWaiterOpen, setIsAiWaiterOpen] = useState<boolean>(false);
+  const [isVoiceOrderOpen, setIsVoiceOrderOpen] = useState<boolean>(false);
   const [quickAddNotice, setQuickAddNotice] = useState<string>("");
+
+  const handleBatchAddToCart = (itemsToAdd: Array<{ dishId: string; qty: number; portion: PortionType }>) => {
+    itemsToAdd.forEach((it) => {
+      for (let i = 0; i < it.qty; i++) {
+        addToCart(it.dishId, it.portion);
+      }
+    });
+  };
 
   // Live timer tick
   const [nowTime, setNowTime] = useState<number>(() => Date.now());
@@ -1315,35 +1327,67 @@ export default function CustomerTableOrderingPage({
 
       {/* Menu Section */}
       <div id="menu-catalog-start" className="px-4 pt-4 pb-2 space-y-3">
-        {/* Menu Heading */}
-        <h2 className="font-heading text-lg font-bold" style={{ color: "var(--ink)" }}>
-          Menu
-        </h2>
-
-        {/* Search Bar */}
-        <div className="relative">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search dishes..."
-            className="w-full pl-9 pr-8 py-2.5 text-sm rounded-xl border focus:outline-none focus:ring-2 transition-all"
-            style={{
-              backgroundColor: "var(--paper-dim)",
-              borderColor: "var(--hairline)",
-              color: "var(--ink)",
-            }}
-          />
-          <span className="absolute left-3 top-3 text-sm text-stone-400">
-            <i className="fa-solid fa-magnifying-glass" />
-          </span>
-          {searchQuery && (
+        {/* Menu Heading & AI Waiter Pill */}
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-lg font-bold" style={{ color: "var(--ink)" }}>
+            Menu
+          </h2>
+          {features.aiWaiter !== false && (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2.5 text-sm text-stone-400 hover:text-stone-700 cursor-pointer"
+              onClick={() => {
+                triggerHaptic(10);
+                setIsAiWaiterOpen(true);
+              }}
+              className="px-3 py-1 rounded-full text-xs font-bold border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all active:scale-95"
             >
-              ✕
+              <span>🤖</span>
+              <span>Ask AI Waiter</span>
+            </button>
+          )}
+        </div>
+
+        {/* Search Bar + Voice Ordering Mic */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search dishes..."
+              className="w-full pl-9 pr-8 py-2.5 text-sm rounded-xl border focus:outline-none focus:ring-2 transition-all"
+              style={{
+                backgroundColor: "var(--paper-dim)",
+                borderColor: "var(--hairline)",
+                color: "var(--ink)",
+              }}
+            />
+            <span className="absolute left-3 top-3 text-sm text-stone-400">
+              <i className="fa-solid fa-magnifying-glass" />
+            </span>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-2.5 text-sm text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {features.aiVoiceOrder !== false && (
+            <button
+              type="button"
+              title="Voice Ordering (Speak to Order)"
+              onClick={() => {
+                triggerHaptic(12);
+                setIsVoiceOrderOpen(true);
+              }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center border bg-white text-stone-800 hover:bg-amber-50 hover:border-amber-400 transition-all active:scale-95 shadow-xs cursor-pointer shrink-0"
+              style={{ borderColor: "var(--hairline)" }}
+            >
+              <i className="fa-solid fa-microphone text-amber-600 text-sm" />
             </button>
           )}
         </div>
@@ -1615,6 +1659,23 @@ export default function CustomerTableOrderingPage({
         token={token}
         tableNumber={tableNumber}
         restaurantName={restaurantName}
+      />
+
+      {/* 9. Smart AI Waiter Recommendation Modal */}
+      <TableAiWaiterModal
+        isOpen={isAiWaiterOpen}
+        onClose={() => setIsAiWaiterOpen(false)}
+        menuItems={items}
+        restaurantName={restaurantName}
+        onAddToCart={(dishId, portion) => addToCart(dishId, portion)}
+      />
+
+      {/* 10. Voice Ordering Modal */}
+      <TableVoiceOrderModal
+        isOpen={isVoiceOrderOpen}
+        onClose={() => setIsVoiceOrderOpen(false)}
+        menuItems={items}
+        onBatchAddToCart={handleBatchAddToCart}
       />
     </div>
   );

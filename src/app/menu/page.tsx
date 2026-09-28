@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import ShareMenuModal, { ShareMenuTable } from "@/components/ShareMenuModal";
 import AdminNavigation from "@/components/AdminNavigation";
+import MenuDigitizerModal from "@/components/menu/MenuDigitizerModal";
 import type { RestaurantFeatures } from "@/lib/platform/state";
 
 type Category = {
@@ -39,6 +40,7 @@ const SPECIAL_BADGE_OPTIONS = [
 export default function MenuManagementPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [restaurantId, setRestaurantId] = useState<string>("");
   const [restaurantName, setRestaurantName] = useState<string>("Order Desk");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,6 +56,7 @@ export default function MenuManagementPage() {
 
   // Modals
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isMenuDigitizerOpen, setIsMenuDigitizerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -114,6 +117,7 @@ export default function MenuManagementPage() {
       if (res.ok) {
         setCategories(data.categories || []);
         setItems(data.items || []);
+        if (data.restaurantId) setRestaurantId(data.restaurantId);
         if (data.restaurantName) setRestaurantName(data.restaurantName);
         if (data.tables) setTables(data.tables);
         if (data.features) setFeatures(data.features);
@@ -135,6 +139,7 @@ export default function MenuManagementPage() {
         if (!isMounted || !data) return;
         setCategories(data.categories || []);
         setItems(data.items || []);
+        if (data.restaurantId) setRestaurantId(data.restaurantId);
         if (data.restaurantName) setRestaurantName(data.restaurantName);
         if (data.tables) setTables(data.tables);
         if (data.features) {
@@ -643,6 +648,19 @@ export default function MenuManagementPage() {
               <span>📁</span>
               <span>+ New Category</span>
             </button>
+
+            {/* AI Menu Digitizer */}
+            {features?.aiMenuDigitizer !== false && (
+              <button
+                type="button"
+                onClick={() => setIsMenuDigitizerOpen(true)}
+                className="px-3.5 py-2 text-xs font-bold rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 text-amber-300 hover:text-amber-200 hover:border-amber-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Scan physical menu card with NVIDIA Vision AI"
+              >
+                <span>📸</span>
+                <span>Scan Menu with AI</span>
+              </button>
+            )}
 
             {/* Add New Dish */}
             <button
@@ -2078,6 +2096,17 @@ export default function MenuManagementPage() {
         onClose={() => setIsShareModalOpen(false)}
         restaurantName={restaurantName}
         tables={tables}
+      />
+
+      {/* AI Menu Digitizer Modal */}
+      <MenuDigitizerModal
+        isOpen={isMenuDigitizerOpen}
+        onClose={() => setIsMenuDigitizerOpen(false)}
+        restaurantId={restaurantId}
+        onImportComplete={() => {
+          refreshMenu();
+          setToastMessage("Menu photo digitized & items imported successfully!");
+        }}
       />
     </div>
   );

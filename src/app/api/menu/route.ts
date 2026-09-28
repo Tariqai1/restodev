@@ -56,6 +56,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
+    restaurantId: staffContext.restaurantId,
     restaurantName: restaurantResult.data?.name || staffContext.restaurantName || "Order Desk",
     categories: categoriesResult.data ?? [],
     items: itemsWithTags,

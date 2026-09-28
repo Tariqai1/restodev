@@ -205,8 +205,9 @@
       "tableNumber": "T03",
       "restaurantId": "ee2ddb95-d317-4dc3-8a62-4f24cfbc77c5",
       "type": "chair",
-      "status": "active",
-      "createdAt": "2026-09-26T19:46:13.145Z"
+      "status": "resolved",
+      "createdAt": "2026-09-26T19:46:13.145Z",
+      "acknowledgedAt": "2026-09-28T17:15:25.993Z"
     },
     {
       "id": "call-mufu8hkjyij",
