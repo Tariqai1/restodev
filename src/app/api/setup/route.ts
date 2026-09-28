@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const { error: lockError } = await admin
     .from("platform_setup_lock")
     .insert({ id: true });
-  if (lockError) {
+  if (lockError && lockError.code !== "PGRST205" && lockError.code !== "42P01") {
     return NextResponse.json({ message: "Initial setup has already been completed or is in progress" }, { status: 409 });
   }
 
@@ -95,6 +95,50 @@ export async function POST(request: Request) {
     await admin.from("restaurants").delete().eq("id", restaurant.id);
     await admin.auth.admin.deleteUser(authData.user.id);
     return NextResponse.json({ message: "Unable to finish owner setup" }, { status: 500 });
+  }
+
+  // Seed starter tables (T01 - T04)
+  const starterTables = ["T01", "T02", "T03", "T04"].map((t) => ({
+    restaurant_id: restaurant.id,
+    table_number: t,
+    qr_token: crypto.randomUUID().replace(/-/g, ""),
+  }));
+  await admin.from("restaurant_tables").insert(starterTables);
+
+  // Seed starter menu category and items
+  const { data: cat } = await admin
+    .from("menu_categories")
+    .insert({
+      restaurant_id: restaurant.id,
+      name: "Main Course",
+      sort_order: 1,
+    })
+    .select("id")
+    .single();
+
+  if (cat?.id) {
+    await admin.from("menu_items").insert([
+      {
+        restaurant_id: restaurant.id,
+        category_id: cat.id,
+        name: "Paneer Butter Masala",
+        price: 240,
+        is_veg: true,
+        is_available: true,
+        is_bestseller: true,
+        description: "Rich and creamy cottage cheese curry in tomato gravy",
+      },
+      {
+        restaurant_id: restaurant.id,
+        category_id: cat.id,
+        name: "Butter Naan",
+        price: 45,
+        is_veg: true,
+        is_available: true,
+        is_bestseller: true,
+        description: "Crisp and fluffy tandoor leavened flatbread brushed with butter",
+      },
+    ]);
   }
 
   return NextResponse.json({ ok: true, message: "Owner account created" }, { status: 201 });
