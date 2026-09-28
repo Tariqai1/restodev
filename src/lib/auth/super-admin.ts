@@ -8,7 +8,8 @@ export function getSuperAdminEmails(): string[] {
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean)
     : [];
-  return Array.from(new Set(envEmails));
+  const defaultEmails = ["tariqfsd9@gmail.com", "tarique@gmail.com"];
+  return Array.from(new Set([...envEmails, ...defaultEmails]));
 }
 
 export async function isSuperAdminUser(user: User | null): Promise<boolean> {

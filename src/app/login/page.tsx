@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type StaffProfile = {
@@ -527,6 +528,16 @@ export default function TerminalLoginPage() {
             </button>
           </form>
         )}
+
+        <div className="mt-4 pt-3 border-t border-[#261E17] flex justify-center">
+          <Link
+            href="/super-admin/login"
+            className="text-[11px] font-mono text-[#8C8275] hover:text-[#D96B27] transition-colors flex items-center gap-1.5"
+          >
+            <i className="fa-solid fa-shield-halved text-[10px]" />
+            <span>Super Admin Console</span>
+          </Link>
+        </div>
       </div>
     </main>
   );
