@@ -136,7 +136,7 @@ export default function ShareMenuModal({
         <div className="flex items-center justify-between pb-4 border-b border-dashed border-[#DCD1B7]">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xl">🍽️</span>
+              <i className="fa-solid fa-qrcode text-lg text-[#C1652C]" />
               <h3 className="font-heading text-xl font-bold tracking-tight text-[#2A2312]">
                 Customer Digital Menu
               </h3>
@@ -201,7 +201,7 @@ export default function ShareMenuModal({
                 color: "#FFFFFF",
               }}
             >
-              <span>{copied ? "✓" : "📋"}</span>
+              <i className={`fa-solid ${copied ? "fa-check" : "fa-copy"} text-xs`} />
               <span>{copied ? "Link Copied!" : "Copy Link"}</span>
             </button>
 
@@ -211,7 +211,7 @@ export default function ShareMenuModal({
               onClick={handleWhatsAppShare}
               className="w-full py-2.5 px-3 rounded text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm text-white bg-[#25D366] hover:bg-[#20BA5A] active:scale-98"
             >
-              <span>💬</span>
+              <i className="fa-brands fa-whatsapp text-xs" />
               <span>WhatsApp Share</span>
             </button>
 
@@ -221,7 +221,7 @@ export default function ShareMenuModal({
               onClick={handlePreviewCustomerView}
               className="w-full py-2.5 px-3 rounded text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm text-[#2A2312] bg-[#FAF6EC] hover:bg-[#EBE2CD] border border-[#C5BBA4] active:scale-98"
             >
-              <span>👁️</span>
+              <i className="fa-solid fa-arrow-up-right-from-square text-xs" />
               <span>Open Customer View</span>
             </button>
           </div>
@@ -266,7 +266,8 @@ export default function ShareMenuModal({
                   onClick={handleDownloadQr}
                   className="mt-2 text-[11px] font-bold text-[#C1652C] hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  <span>📥</span> Download QR (.png)
+                  <i className="fa-solid fa-download text-xs" />
+                  <span>Download QR (.png)</span>
                 </button>
               </div>
             ) : (

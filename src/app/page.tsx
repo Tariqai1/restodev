@@ -80,44 +80,44 @@ type WaiterCall = {
 
 function getBuzzerDetails(call: WaiterCall) {
   let label = "Call Captain";
-  let icon = "🛎️";
+  let icon = "fa-bell-concierge";
   let colorClass = "bg-amber-100 text-amber-900 border-amber-300";
   let description = "Guest requested table assistance";
 
   switch (call.type) {
     case "water":
       label = "Need Water";
-      icon = "💧";
+      icon = "fa-glass-water";
       colorClass = "bg-blue-100 text-blue-900 border-blue-300";
       description = "Bring water glasses / jug to table";
       break;
     case "cutlery":
       label = "Extra Cutlery";
-      icon = "🍴";
+      icon = "fa-utensils";
       colorClass = "bg-stone-100 text-stone-900 border-stone-300";
       description = "Extra plates, spoons & napkins";
       break;
     case "condiments":
       label = "Green Chutney & Dips";
-      icon = "🌶️";
+      icon = "fa-pepper-hot";
       colorClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
       description = "Green chutney, sauces & dips";
       break;
     case "chair":
       label = "Baby High Chair";
-      icon = "🪑";
+      icon = "fa-chair";
       colorClass = "bg-orange-100 text-orange-900 border-orange-300";
       description = "Provide baby high chair";
       break;
     case "ac":
       label = "Adjust AC / Fan";
-      icon = "❄️";
+      icon = "fa-snowflake";
       colorClass = "bg-cyan-100 text-cyan-900 border-cyan-300";
       description = "Adjust cooling / fan speed";
       break;
     case "clean":
       label = "Clear Table";
-      icon = "🧹";
+      icon = "fa-broom";
       colorClass = "bg-purple-100 text-purple-900 border-purple-300";
       description = "Clear empty plates and wipe table";
       break;
@@ -127,7 +127,7 @@ function getBuzzerDetails(call: WaiterCall) {
         : call.paymentMode === "card"
         ? "Bill: Card Machine"
         : "Bill: Cash / Card";
-      icon = call.paymentMode === "upi" ? "💳" : "🧾";
+      icon = call.paymentMode === "upi" ? "fa-qrcode" : "fa-receipt";
       colorClass = "bg-green-100 text-green-900 border-green-300";
       description = call.paymentMode === "upi"
         ? "Customer paying via Table UPI QR"
@@ -135,13 +135,13 @@ function getBuzzerDetails(call: WaiterCall) {
       break;
     case "custom":
       label = call.customNote ? `Special: "${call.customNote}"` : "Special Guest Request";
-      icon = "💬";
+      icon = "fa-comment-dots";
       colorClass = "bg-rose-100 text-rose-900 border-rose-300";
       description = call.customNote || "Guest sent a custom request note";
       break;
     default:
       label = "Call Captain";
-      icon = "🛎️";
+      icon = "fa-bell-concierge";
       colorClass = "bg-amber-100 text-amber-900 border-amber-300";
       description = "Floor captain table assistance";
       break;
@@ -700,7 +700,7 @@ export default function Home() {
       }
     } else if (sessionStr.startsWith("merged_into:")) {
       const masterNum = sessionStr.replace("merged_into:", "").trim();
-      joinedBadge = `🔗 Joined ${masterNum}`;
+      joinedBadge = `Joined ${masterNum}`;
     }
 
     const hasPendingApproval = pendingApprovals.some(
@@ -1124,7 +1124,15 @@ export default function Home() {
                   : "Buzzer muted"
               }
             >
-              <span>{notificationPerm !== "granted" ? "⚡" : soundEnabled ? "🔔" : "🔕"}</span>
+              <i
+                className={`fa-solid ${
+                  notificationPerm !== "granted"
+                    ? "fa-bolt"
+                    : soundEnabled
+                    ? "fa-bell"
+                    : "fa-bell-slash"
+                } text-xs`}
+              />
               <span className="hidden sm:inline">
                 {notificationPerm !== "granted"
                   ? "Enable Alerts"
@@ -1144,7 +1152,7 @@ export default function Home() {
                   className="px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100"
                   title="Share Customer Digital Menu Link & QR"
                 >
-                  <span>📤</span>
+                  <i className="fa-solid fa-qrcode text-xs text-emerald-700" />
                   <span className="hidden sm:inline">Share Menu</span>
                 </button>
 
@@ -1166,7 +1174,7 @@ export default function Home() {
                   }`}
                   title="Toggle Waiter / Captain Order Verification before Kitchen Dispatch"
                 >
-                  <span>👨‍💼</span>
+                  <i className="fa-solid fa-user-tie text-xs text-amber-800" />
                   <span>Captain: {features?.waiterOrderApproval !== false ? "ON" : "OFF"}</span>
                 </button>
 
@@ -1177,7 +1185,7 @@ export default function Home() {
                   className="px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 bg-white hover:bg-stone-50 text-stone-800 border-stone-300"
                   title="Configure Quick Adds, Half/Full Portions, Table Footer & Journey Layout"
                 >
-                  <span>⚙️</span>
+                  <i className="fa-solid fa-sliders text-xs text-stone-700" />
                   <span>Options</span>
                 </button>
               </>
@@ -1188,10 +1196,11 @@ export default function Home() {
                 setOrderTable(floorTables[0]?.number || "T01");
                 setIsNewOrderOpen(true);
               }}
-              className="px-4 py-2 rounded text-xs font-bold cursor-pointer shadow-sm transition-transform active:scale-95"
-              style={{ backgroundColor: "var(--rust)", color: "var(--rust-text)", borderRadius: "5px" }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow-xs transition-transform active:scale-95 flex items-center gap-1.5"
+              style={{ backgroundColor: "var(--rust)", color: "var(--rust-text)" }}
             >
-              + New order
+              <i className="fa-solid fa-plus text-xs" />
+              <span>New order</span>
             </button>
           </div>
         </header>
@@ -1212,7 +1221,9 @@ export default function Home() {
           return (
             <section className="p-4 bg-red-50 text-red-950 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-red-200">
               <div className="flex items-center gap-2.5">
-                <span className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center text-xl animate-pulse">🚨</span>
+                <span className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center text-base animate-pulse">
+                  <i className="fa-solid fa-triangle-exclamation" />
+                </span>
                 <div>
                   <div className="font-heading font-black text-sm tracking-wide uppercase text-red-900">
                     Needs immediate attention
@@ -1229,22 +1240,24 @@ export default function Home() {
                     setAlarmSnoozedUntil(Date.now() + 120000);
                     notify("Alarm silenced for 2 minutes");
                   }}
-                  className="px-3 py-1.5 bg-white text-red-700 text-xs font-bold rounded shadow-sm hover:bg-red-50 cursor-pointer"
+                  className="px-3 py-1.5 bg-white text-red-700 text-xs font-bold rounded shadow-xs hover:bg-red-50 cursor-pointer flex items-center gap-1.5"
                 >
-                  🔕 Silence alarm
+                  <i className="fa-solid fa-bell-slash text-xs" />
+                  <span>Silence alarm</span>
                 </button>
               </div>
             </section>
           );
         })()}
 
-        {/* ACTIVE TABLE BUZZER ALERTS (Call Waiter / Water / Bill) */}
         {/* ACTIVE TABLE BUZZER ALERTS (Call Waiter / Water / Bill / Specific Requests) */}
         {waiterCalls.length > 0 && (
           <div className="p-4 rounded-xl border border-red-200 bg-gradient-to-br from-red-50/90 via-orange-50/40 to-amber-50/50 shadow-xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-red-100">
               <div className="flex items-center gap-2.5">
-                <span className="text-xl animate-bounce">🛎️</span>
+                <span className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center text-xs animate-bounce">
+                  <i className="fa-solid fa-bell-concierge" />
+                </span>
                 <div>
                   <div className="font-heading text-base font-bold text-red-950 flex items-center gap-2">
                     <span>{waiterCalls.length} Active Table Request{waiterCalls.length > 1 ? "s" : ""}</span>
@@ -1277,7 +1290,7 @@ export default function Home() {
                       color: Date.now() < alarmSnoozedUntil ? "#757575" : "var(--rust)",
                     }}
                   >
-                    {Date.now() < alarmSnoozedUntil ? "🔔 Resume Sound" : "🔕 Snooze Alarm (2m)"}
+                    {Date.now() < alarmSnoozedUntil ? "Resume Sound" : "Snooze Alarm (2m)"}
                   </button>
                 )}
                 <span className="text-[11px] font-medium hidden md:inline" style={{ color: "var(--ink-soft)" }}>
@@ -1331,7 +1344,7 @@ export default function Home() {
                       {/* Request Badge */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${details.colorClass}`}>
-                          <span>{details.icon}</span>
+                          <i className={`fa-solid ${details.icon}`} />
                           <span>{details.label}</span>
                         </span>
                       </div>
@@ -1344,7 +1357,7 @@ export default function Home() {
                       {/* Guest Custom Note (if provided) */}
                       {call.customNote && (
                         <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-1.5 font-medium">
-                          <span className="text-amber-700">💬</span>
+                          <i className="fa-solid fa-comment-dots text-amber-700 mt-0.5" />
                           <div>
                             <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
                               Guest Note:
@@ -1365,7 +1378,7 @@ export default function Home() {
                       {/* Escalation Warning */}
                       {isEscalated && (
                         <div className="text-[10px] font-bold text-red-600 flex items-center gap-1 pt-0.5">
-                          <span className="animate-ping">🚨</span>
+                          <i className="fa-solid fa-triangle-exclamation text-red-600 animate-ping" />
                           <span>Escalated to Manager ({elapsedText})</span>
                         </div>
                       )}
@@ -1383,18 +1396,20 @@ export default function Home() {
                             paymentMode: call.paymentMode,
                           })
                         }
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:scale-95 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:scale-95 transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
                         title="Forward Request on WhatsApp"
                       >
-                        <span>💬 WhatsApp</span>
+                        <i className="fa-brands fa-whatsapp text-xs text-emerald-600" />
+                        <span>WhatsApp</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleResolveWaiterCall(call.id)}
-                        className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                       >
-                        <span>Attended ✓</span>
+                        <i className="fa-solid fa-check text-xs" />
+                        <span>Attended</span>
                       </button>
                     </div>
                   </div>
@@ -1415,13 +1430,13 @@ export default function Home() {
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="animate-pulse text-base">👨‍💼</span>
+                <i className="fa-solid fa-user-tie text-amber-900 text-sm animate-pulse" />
                 <span className="font-heading text-sm font-bold tracking-wide text-amber-900">
                   {pendingApprovals.length} ORDER{pendingApprovals.length > 1 ? "S" : ""} AWAITING CAPTAIN VERIFICATION
                 </span>
                 {features?.persistentAlarm !== false && (
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-bold hidden sm:inline">
-                    🚨 Alarm Loop Active
+                    Alarm Loop Active
                   </span>
                 )}
               </div>
@@ -1441,7 +1456,7 @@ export default function Home() {
                     }}
                     className="px-2.5 py-1 text-[11px] font-bold rounded border border-amber-300 bg-white text-amber-900 cursor-pointer hover:bg-amber-50"
                   >
-                    {Date.now() < alarmSnoozedUntil ? "🔔 Resume Sound" : "🔕 Snooze Alarm (2m)"}
+                    {Date.now() < alarmSnoozedUntil ? "Resume Sound" : "Snooze Alarm (2m)"}
                   </button>
                 )}
                 <span className="text-[11px] font-medium text-amber-800 hidden md:inline">
@@ -1492,7 +1507,7 @@ export default function Home() {
                       <div className="mt-1">
                         {isEscalated ? (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 animate-pulse">
-                            ⚠️ Escalated ({elapsedText})
+                            Escalated ({elapsedText})
                           </span>
                         ) : isElevated ? (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
@@ -1519,7 +1534,7 @@ export default function Home() {
                         className="px-2 py-1.5 rounded text-[11px] font-bold border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 cursor-pointer active:scale-95 transition-all shadow-2xs"
                         title="Forward Order to Captain on WhatsApp"
                       >
-                        💬 WhatsApp
+                        WhatsApp
                       </button>
 
                       <button
@@ -1540,80 +1555,106 @@ export default function Home() {
           </section>
         )}
 
-        {/* Metrics Section: Executive Revenue for Owners/Managers, Operational Service Stats for Waiters */}
+        {/* Metrics Section: Modern 4-Card Executive KPI Grid */}
         {isOwnerOrManager ? (
-          <section className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch">
-            {/* Dominant Hero Metric: Today's Revenue */}
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* 1. Today's Revenue */}
             <div
-              className="lg:col-span-2 p-5 rounded"
+              className="p-4 rounded-xl border flex flex-col justify-between shadow-2xs transition-all hover:shadow-xs"
               style={{
                 backgroundColor: "var(--paper)",
-                border: "1.5px solid var(--hairline)",
-                boxShadow: "var(--shadow-md)",
+                borderColor: "var(--hairline)",
               }}
             >
-              <div className="text-xs font-medium" style={{ color: "var(--ink-soft)" }}>
-                Today&apos;s revenue
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Today&apos;s Revenue
+                </span>
+                <span className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-700 flex items-center justify-center text-xs">
+                  <i className="fa-solid fa-indian-rupee-sign" />
+                </span>
               </div>
-              <div className="font-heading text-4xl font-bold mt-1" style={{ color: "var(--rust)" }}>
+              <div className="font-heading text-2xl font-bold tracking-tight" style={{ color: "var(--rust)" }}>
                 ₹{metrics.todayRevenue.toLocaleString("en-IN")}
               </div>
-              <div className="text-xs mt-2 font-medium" style={{ color: "var(--sage)" }}>
-                Gross settled sales for the current shift
+              <div className="text-[11px] mt-1 font-medium text-stone-400">
+                Gross settled sales
               </div>
             </div>
 
-            {/* Grouped Secondary Operational Stats */}
+            {/* 2. Dispatched Orders */}
             <div
-              className="lg:col-span-2 p-5 rounded flex flex-col justify-between"
+              className="p-4 rounded-xl border flex flex-col justify-between shadow-2xs transition-all hover:shadow-xs"
               style={{
-                backgroundColor: "var(--paper-dim)",
-                border: "1px solid var(--hairline)",
+                backgroundColor: "var(--paper)",
+                borderColor: "var(--hairline)",
               }}
             >
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <div className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                    Dispatched
-                  </div>
-                  <div className="font-heading text-2xl font-bold mt-0.5" style={{ color: "var(--ink)" }}>
-                    {metrics.dispatchedOrders}
-                  </div>
-                  <div className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
-                    orders today
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                    Average bill
-                  </div>
-                  <div className="font-heading text-2xl font-bold mt-0.5" style={{ color: "var(--ink)" }}>
-                    ₹{metrics.avgOrderValue}
-                  </div>
-                  <div className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
-                    per order
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                    Attention
-                  </div>
-                  <div
-                    className="font-heading text-2xl font-bold mt-0.5"
-                    style={{ color: metrics.needsAttentionCount > 0 ? "var(--brick)" : "var(--sage)" }}
-                  >
-                    {metrics.needsAttentionCount}
-                  </div>
-                  <div className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
-                    tables waiting
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Dispatched
+                </span>
+                <span className="w-7 h-7 rounded-lg bg-blue-500/15 text-blue-700 flex items-center justify-center text-xs">
+                  <i className="fa-solid fa-receipt" />
+                </span>
               </div>
+              <div className="font-heading text-2xl font-bold tracking-tight" style={{ color: "var(--ink)" }}>
+                {metrics.dispatchedOrders}
+              </div>
+              <div className="text-[11px] mt-1 font-medium text-stone-400">
+                Orders completed today
+              </div>
+            </div>
 
-              <div className="pt-3 mt-3 border-t border-dashed text-xs" style={{ borderColor: "var(--hairline)", color: "var(--ink-soft)" }}>
-                {occupiedCount} of {floorTables.length} tables currently seated
+            {/* 3. Average Bill */}
+            <div
+              className="p-4 rounded-xl border flex flex-col justify-between shadow-2xs transition-all hover:shadow-xs"
+              style={{
+                backgroundColor: "var(--paper)",
+                borderColor: "var(--hairline)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Average Bill
+                </span>
+                <span className="w-7 h-7 rounded-lg bg-purple-500/15 text-purple-700 flex items-center justify-center text-xs">
+                  <i className="fa-solid fa-chart-line" />
+                </span>
+              </div>
+              <div className="font-heading text-2xl font-bold tracking-tight" style={{ color: "var(--ink)" }}>
+                ₹{metrics.avgOrderValue}
+              </div>
+              <div className="text-[11px] mt-1 font-medium text-stone-400">
+                Average ticket size
+              </div>
+            </div>
+
+            {/* 4. Table Occupancy */}
+            <div
+              className="p-4 rounded-xl border flex flex-col justify-between shadow-2xs transition-all hover:shadow-xs"
+              style={{
+                backgroundColor: "var(--paper)",
+                borderColor: "var(--hairline)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Table Seating
+                </span>
+                <span className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-700 flex items-center justify-center text-xs">
+                  <i className="fa-solid fa-table-cells" />
+                </span>
+              </div>
+              <div className="font-heading text-2xl font-bold tracking-tight" style={{ color: "var(--ink)" }}>
+                {occupiedCount} <span className="text-sm font-normal text-stone-400">/ {floorTables.length}</span>
+              </div>
+              <div className="text-[11px] mt-1 font-medium text-stone-400">
+                {metrics.needsAttentionCount > 0 ? (
+                  <span className="text-red-600 font-semibold">{metrics.needsAttentionCount} tables waiting</span>
+                ) : (
+                  <span>Floor active</span>
+                )}
               </div>
             </div>
           </section>
@@ -1742,15 +1783,16 @@ export default function Home() {
                       </span>
                     )}
                     {table.hasPendingApproval && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-black bg-amber-500 text-white animate-pulse shadow-xs">
-                        ⏳ Approval
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-black bg-amber-500 text-white animate-pulse shadow-xs flex items-center gap-1">
+                        <i className="fa-solid fa-clock text-[9px]" />
+                        <span>Approval</span>
                       </span>
                     )}
                     {table.hasActiveBuzzer && (() => {
                       const buzzerDetails = table.activeTableCall ? getBuzzerDetails(table.activeTableCall) : null;
                       return (
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-black bg-red-600 text-white animate-bounce shadow-xs flex items-center gap-1">
-                          <span>{buzzerDetails?.icon || "🛎️"}</span>
+                          <i className={`fa-solid ${buzzerDetails?.icon || "fa-bell-concierge"}`} />
                           <span className="uppercase">{buzzerDetails?.label || "BUZZER"}</span>
                         </span>
                       );
@@ -2040,12 +2082,12 @@ export default function Home() {
                       </h2>
                       {activeOrder?.table_session_id?.startsWith("joined:") && (
                         <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                          🔗 Group: +{activeOrder.table_session_id.replace("joined:", "").split(",").filter((n: string) => n.trim() !== selectedTable).join(" + ")}
+                          Group: +{activeOrder.table_session_id.replace("joined:", "").split(",").filter((n: string) => n.trim() !== selectedTable).join(" + ")}
                         </span>
                       )}
                       {activeOrder?.table_session_id?.startsWith("merged_into:") && (
                         <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                          🔗 Joined into Table {activeOrder.table_session_id.replace("merged_into:", "").trim()}
+                          Joined into Table {activeOrder.table_session_id.replace("merged_into:", "").trim()}
                         </span>
                       )}
                     </div>
@@ -2116,12 +2158,12 @@ export default function Home() {
                                 )}
                                 {isCooking && (
                                   <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-800 border border-blue-200 shrink-0">
-                                    🍳 Cooking
+                                    Cooking
                                   </span>
                                 )}
                                 {isServed && (
                                   <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                                    ✓ Served
+                                    Served
                                   </span>
                                 )}
                               </div>
@@ -2156,7 +2198,7 @@ export default function Home() {
                                     className="px-2 py-1 rounded-md text-[10px] font-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white cursor-pointer active:scale-95 transition-all shadow-2xs flex items-center gap-0.5 disabled:opacity-50"
                                     title="Verify & dispatch only this dish to kitchen"
                                   >
-                                    <span>🔥</span>
+                                    <i className="fa-solid fa-fire text-amber-500" />
                                     <span>{isActionBusy ? "..." : "Fire"}</span>
                                   </button>
                                   <button
@@ -2277,7 +2319,7 @@ export default function Home() {
                         <div className="p-2.5 rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 space-y-2 shadow-xs animate-fade-in">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
-                              <span>👨‍💼</span>
+                              <i className="fa-solid fa-user-tie text-amber-700" />
                               <span>
                                 {totalPendingItems > 1
                                   ? `${totalPendingItems} Items Awaiting Verification`
@@ -2300,7 +2342,7 @@ export default function Home() {
                               }}
                               className="flex-1 py-2 px-3 text-xs font-black rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white cursor-pointer shadow-xs active:scale-95 transition-all text-center flex items-center justify-center gap-1.5 disabled:opacity-50"
                             >
-                              <span>🔥</span>
+                              <i className="fa-solid fa-fire text-amber-500" />
                               <span>
                                 {isProcessingApproval
                                   ? "Firing to Kitchen..."
@@ -2339,7 +2381,7 @@ export default function Home() {
                           className="py-1.5 px-1.5 text-[11px] font-bold rounded-lg border bg-white hover:bg-stone-50 flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-2xs"
                           style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
                         >
-                          <span>➕</span>
+                          <i className="fa-solid fa-plus text-xs" />
                           <span>Add Dishes</span>
                         </button>
                       ) : (
@@ -2348,7 +2390,7 @@ export default function Home() {
                           style={{ borderColor: "var(--hairline)" }}
                           title="Add dishes locked by owner"
                         >
-                          🔒 Add Locked
+                          Add Locked
                         </div>
                       )}
 
@@ -2366,7 +2408,7 @@ export default function Home() {
                         }}
                         title="Join two tables together into a single combined order"
                       >
-                        <span>🔗</span>
+                        <i className="fa-solid fa-link text-xs" />
                         <span>{isMergeOpen ? "Close" : "Join Table"}</span>
                       </button>
 
@@ -2384,7 +2426,7 @@ export default function Home() {
                         }}
                         title="Transfer this order to another table"
                       >
-                        <span>🔄</span>
+                        <i className="fa-solid fa-rotate text-xs" />
                         <span>{isTransferOpen ? "Close" : "Shift Table"}</span>
                       </button>
                     </div>
@@ -2394,7 +2436,7 @@ export default function Home() {
                       <div className="p-2.5 rounded-xl border bg-amber-50/70 space-y-1.5 border-amber-200 shadow-xs">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-bold text-amber-950 flex items-center gap-1">
-                            <span>🔗</span>
+                            <i className="fa-solid fa-link text-xs" />
                             <span>Join Another Table with Table {selectedTable}</span>
                           </span>
                         </div>
@@ -2434,7 +2476,7 @@ export default function Home() {
                       <div className="p-2.5 rounded-xl border bg-blue-50/70 space-y-1.5 border-blue-200 shadow-xs">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-bold text-blue-950 flex items-center gap-1">
-                            <span>🔄</span>
+                            <i className="fa-solid fa-rotate text-xs" />
                             <span>Shift Table {selectedTable} to New Table</span>
                           </span>
                         </div>
@@ -2477,7 +2519,7 @@ export default function Home() {
                         className="w-1/3 py-2.5 px-3 rounded-xl text-xs font-bold cursor-pointer shrink-0 flex items-center justify-center gap-1.5 border border-stone-300 bg-white text-stone-800 hover:bg-stone-50 active:scale-98 transition-all shadow-xs"
                         title="Print thermal guest receipt"
                       >
-                        <span>🖨️</span>
+                        <i className="fa-solid fa-print text-xs" />
                         <span>Print Slip</span>
                       </button>
 
@@ -2593,7 +2635,7 @@ export default function Home() {
               <div>
                 <input
                   type="text"
-                  placeholder="🔍 Search dish by name (e.g. Biryani, Paneer, Naan)..."
+                  placeholder="Search dish by name (e.g. Biryani, Paneer, Naan)..."
                   value={quickSearch}
                   onChange={(e) => setQuickSearch(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border text-xs focus:outline-none bg-white mb-2"
@@ -2777,7 +2819,7 @@ export default function Home() {
                           <span>Sending KOT...</span>
                         ) : (
                           <>
-                            <span>🚀</span>
+                            <i className="fa-solid fa-rocket text-xs" />
                             <span>Send KOT to Kitchen</span>
                           </>
                         )}
@@ -2839,7 +2881,7 @@ export default function Home() {
             {upsellConfig.ownerCanManageUpsell === false ? (
               <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">
-                  <span>🔒</span>
+                  <i className="fa-solid fa-lock text-xs" />
                   <span>Centrally Managed by Platform Super Admin</span>
                 </div>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
@@ -2896,9 +2938,9 @@ export default function Home() {
                 className="w-full px-3 py-2 rounded-lg border text-xs bg-white focus:outline-none disabled:bg-stone-100"
                 style={{ borderColor: "var(--hairline)" }}
               >
-                <option value="smart_ai">⚡ Smart AI Pairing (Curry → Breads/Rice, Starters → Drinks, Meals → Desserts)</option>
-                <option value="bestsellers">🔥 Top Bestsellers (Highest demand items across menu)</option>
-                <option value="high_margin">💰 High Margin Boosters (Beverages &amp; Appetizers)</option>
+                <option value="smart_ai">Smart AI Pairing (Curry → Breads/Rice, Starters → Drinks, Meals → Desserts)</option>
+                <option value="bestsellers">Top Bestsellers (Highest demand items across menu)</option>
+                <option value="high_margin">High Margin Boosters (Beverages &amp; Appetizers)</option>
                 <option value="budget_addons">🪙 Budget Add-ons (Dishes under ₹120 for instant additions)</option>
               </select>
             </div>
@@ -3113,7 +3155,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>👨‍💼</span>
+                    <i className="fa-solid fa-user-tie text-amber-700" />
                     <span>Captain Order Verification</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3149,7 +3191,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>⚡</span>
+                    <i className="fa-solid fa-bolt text-xs" />
                     <span>Quick Adds Carousel Strip</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3192,7 +3234,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>⚖️</span>
+                    <i className="fa-solid fa-scale-balanced text-xs" />
                     <span>Half &amp; Full Portions</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3228,7 +3270,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>📄</span>
+                    <i className="fa-solid fa-file-lines text-xs" />
                     <span>Restaurant Info &amp; Legal Footer</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3264,7 +3306,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>💡</span>
+                    <i className="fa-solid fa-lightbulb text-xs" />
                     <span>Smart Upsell Recommendations</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3288,7 +3330,7 @@ export default function Home() {
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                  🤖 NVIDIA AI Features
+                  NVIDIA AI Features
                 </span>
                 <span className="text-[10px] text-stone-400 font-mono">Meta Llama 3.3 · Nemotron · Vision</span>
               </div>
@@ -3300,7 +3342,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>🤖</span>
+                    <i className="fa-solid fa-microchip text-xs" />
                     <span>Smart AI Waiter (Dish Recommender)</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3336,7 +3378,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>🎙️</span>
+                    <i className="fa-solid fa-microphone text-xs" />
                     <span>Voice Ordering (Speak to Order)</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3408,7 +3450,7 @@ export default function Home() {
               >
                 <div className="pr-3">
                   <div className="text-xs font-bold flex items-center gap-1.5 text-stone-900">
-                    <span>📸</span>
+                    <i className="fa-solid fa-camera text-xs" />
                     <span>AI Menu Digitizer (Photo Scanner)</span>
                   </div>
                   <div className="text-[11px] text-stone-500 mt-0.5 leading-snug">
@@ -3445,9 +3487,9 @@ export default function Home() {
               </span>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "floating_capsule", label: "Floating Sheet", icon: "📱", desc: "Swipe-up bottom sheet" },
+                  { id: "floating_capsule", label: "Floating Sheet", icon: "fa-mobile-screen", desc: "Swipe-up bottom sheet" },
                   { id: "split_card", label: "Side Split", icon: "🃏", desc: "Side-by-side card" },
-                  { id: "slim_accordion", label: "Slim Accordion", icon: "📜", desc: "Ultra-slim strip" },
+                  { id: "slim_accordion", label: "Slim Accordion", icon: "fa-scroll", desc: "Ultra-slim strip" },
                 ].map((layout) => {
                   const isSelected = (features?.orderJourneyLayout || "floating_capsule") === layout.id;
                   return (
@@ -3599,7 +3641,7 @@ export default function Home() {
                             </div>
                             {item.notes && (
                               <div className="text-[11px] text-amber-700 italic mt-0.5">
-                                ✏️ &quot;{item.notes}&quot;
+                                &quot;{item.notes}&quot;
                               </div>
                             )}
                           </div>
@@ -3665,7 +3707,7 @@ export default function Home() {
                   onClick={() => setShowRejectInput(true)}
                   className="px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors border border-rose-200"
                 >
-                  ✕ Reject Order
+                  Reject Order
                 </button>
 
                 <div className="flex items-center gap-2">
@@ -3685,7 +3727,7 @@ export default function Home() {
                     className="px-5 py-2 text-xs font-bold text-white rounded-lg cursor-pointer shadow-sm transition-transform active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
                     style={{ backgroundColor: "var(--rust)" }}
                   >
-                    <span>🔥</span>
+                    <i className="fa-solid fa-fire text-amber-500" />
                     <span>{isProcessingApproval ? "Dispatching..." : "Approve & Fire to Kitchen (KOT)"}</span>
                   </button>
                 </div>

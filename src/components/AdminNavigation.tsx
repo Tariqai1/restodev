@@ -111,7 +111,7 @@ export default function AdminNavigation({
       label: "Floor Overview",
       shortLabel: "Floor",
       href: "/",
-      icon: "📊",
+      icon: "fa-table-cells-large",
       badge: occupiedTablesCount > 0 ? `${occupiedTablesCount} active` : null,
       badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/40",
     },
@@ -122,7 +122,7 @@ export default function AdminNavigation({
             label: "Floor Layout & QR",
             shortLabel: "Tables",
             href: "/tables",
-            icon: "🪑",
+            icon: "fa-qrcode",
             badge: totalTablesCount !== undefined ? `${totalTablesCount} tables` : null,
             badgeColor: "bg-stone-800 text-stone-300 border-stone-700",
           },
@@ -133,7 +133,7 @@ export default function AdminNavigation({
       label: "Kitchen Rail (KDS)",
       shortLabel: "Kitchen",
       href: "/kitchen",
-      icon: "👨‍🍳",
+      icon: "fa-fire-burner",
       badge: pendingKitchenCount > 0 ? `${pendingKitchenCount} pending` : null,
       badgeColor: "bg-red-500/20 text-red-300 border-red-500/40",
     },
@@ -144,7 +144,7 @@ export default function AdminNavigation({
             label: "Menu & Stock",
             shortLabel: "Menu",
             href: "/menu",
-            icon: "📖",
+            icon: "fa-utensils",
             badge: totalMenuItemsCount !== undefined ? `${totalMenuItemsCount}` : null,
             badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/30",
           },
@@ -153,7 +153,7 @@ export default function AdminNavigation({
             label: "Staff & Roles",
             shortLabel: "Staff",
             href: "/staff",
-            icon: "👥",
+            icon: "fa-user-group",
             badge: staffMembersCount !== undefined ? `${staffMembersCount}` : null,
             badgeColor: "bg-stone-800 text-stone-300 border-stone-700",
           },
@@ -197,64 +197,24 @@ export default function AdminNavigation({
           {/* Restaurant Brand Header */}
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-stone-800/80">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🍽️</span>
-                <h1 className="font-heading text-xl font-bold tracking-wide text-white">
-                  Order Desk
-                </h1>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs border border-amber-500/30 shrink-0">
+                  <i className="fa-solid fa-utensils" />
+                </div>
+                <div>
+                  <h1 className="font-heading text-lg font-bold tracking-tight text-white leading-tight">
+                    Order Desk
+                  </h1>
+                  <p className="text-[11px] truncate max-w-[160px] text-stone-400 leading-tight">
+                    {restaurantName}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs truncate max-w-[170px] mt-0.5 text-stone-400">
-                {restaurantName}
-              </p>
             </div>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30 shrink-0">
               POS
             </span>
           </div>
-
-          {/* Restaurant Theme Switcher */}
-          {onToggleTheme && (
-            <div className="mb-5 p-2 rounded-xl bg-stone-900/80 border border-stone-800/80">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1.5 flex items-center justify-between">
-                <span>Brand Theme</span>
-                <span
-                  className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
-                  style={{
-                    backgroundColor: theme === "amber" ? "#FFBE0B" : "#741A2F",
-                    color: theme === "amber" ? "#2A2312" : "#FFFFFF",
-                  }}
-                >
-                  {theme === "amber" ? "Amber Gold" : "Velvet Crimson"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onToggleTheme("amber")}
-                  className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                    theme === "amber"
-                      ? "bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-xs"
-                      : "text-stone-400 hover:text-stone-200 border border-transparent"
-                  }`}
-                >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#FFBE0B] shrink-0 border border-stone-900 shadow-sm" />
-                  <span className="truncate">Amber</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onToggleTheme("crimson")}
-                  className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                    theme === "crimson"
-                      ? "bg-rose-950/60 text-rose-300 border border-rose-600/50 shadow-xs"
-                      : "text-stone-400 hover:text-stone-200 border border-transparent"
-                  }`}
-                >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#741A2F] shrink-0 border border-rose-300/40 shadow-sm" />
-                  <span className="truncate">Crimson</span>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Navigation Links */}
           <nav className="space-y-1 text-xs font-semibold">
@@ -358,25 +318,6 @@ export default function AdminNavigation({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Theme Quick Switcher */}
-          {onToggleTheme && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(8);
-                onToggleTheme(theme === "amber" ? "crimson" : "amber");
-              }}
-              title="Switch Brand Theme"
-              className="w-7 h-7 rounded-full border flex items-center justify-center text-xs cursor-pointer active:scale-95 shadow-xs"
-              style={{
-                backgroundColor: theme === "amber" ? "#2A2312" : "#741A2F",
-                borderColor: theme === "amber" ? "#FFBE0B" : "#FFC6A8",
-              }}
-            >
-              <span>{theme === "amber" ? "👑" : "✨"}</span>
-            </button>
-          )}
-
           {/* Profile & Sign-Out Avatar Dropdown */}
           <div className="relative">
             <button
@@ -429,7 +370,7 @@ export default function AdminNavigation({
               className="p-1.5 rounded-lg text-stone-300 hover:text-white hover:bg-stone-800 cursor-pointer"
               title="Open menu"
             >
-              ☰
+              
             </button>
           )}
         </div>
@@ -528,7 +469,9 @@ export default function AdminNavigation({
             <div>
               <div className="flex items-center justify-between pb-4 border-b border-stone-800">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🍽️</span>
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs border border-amber-500/30">
+                    <i className="fa-solid fa-utensils" />
+                  </div>
                   <div>
                     <h2 className="font-heading text-base font-bold text-white">Order Desk</h2>
                     <p className="text-xs text-stone-400 truncate max-w-[160px]">{restaurantName}</p>
@@ -539,7 +482,7 @@ export default function AdminNavigation({
                   onClick={() => setMobileDrawerOpen(false)}
                   className="w-8 h-8 rounded-lg bg-stone-900 text-stone-400 flex items-center justify-center font-bold"
                 >
-                  ✕
+                  
                 </button>
               </div>
 
@@ -569,13 +512,23 @@ export default function AdminNavigation({
                   </Link>
                 ))}
 
+                {/* Owner Admin Panel */}
+                <Link
+                  href="/admin"
+                  onClick={handleNavClick}
+                  className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-purple-500/30 bg-purple-950/30 text-purple-300 text-xs font-bold mt-2"
+                >
+                  <i className="fa-solid fa-gauge-high text-purple-400 text-xs" />
+                  <span>Owner Admin Panel</span>
+                </Link>
+
                 {isSuperAdmin && (
                   <Link
                     href="/super-admin"
                     onClick={handleNavClick}
-                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-800/40 bg-amber-950/20 text-amber-300 text-xs font-bold mt-2"
+                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-800/40 bg-amber-950/20 text-amber-300 text-xs font-bold mt-1.5"
                   >
-                    <span>⚡</span>
+                    <i className="fa-solid fa-bolt text-amber-400 text-xs" />
                     <span>Super Admin Platform</span>
                   </Link>
                 )}
