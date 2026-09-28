@@ -56,10 +56,10 @@ export default function TableAiWaiterModal({
         setResponseMsg(data.message);
         setRecommendedIds(data.recommendedDishIds || []);
       } else {
-        setResponseMsg(data.error || "Maaf kijiye, abhi recommend nahi kar pa rahe.");
+        setResponseMsg(data.message || "Maaf kijiye, abhi recommend nahi kar pa rahe. Kripya dobara try karein.");
       }
     } catch (err: any) {
-      setResponseMsg("Connection error. Kripya dobara try karein.");
+      setResponseMsg("Kripya thodi der baad dobara poochhein ya captain ko call karein.");
     } finally {
       setLoading(false);
     }
@@ -130,7 +130,8 @@ export default function TableAiWaiterModal({
                   className="px-2.5 py-1.5 rounded-lg border text-xs font-medium bg-white hover:bg-amber-50 hover:border-amber-300 transition-colors cursor-pointer text-left"
                   style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
                 >
-                  💬 {p}
+                  <i className="fa-regular fa-comment-dots text-amber-600 text-[11px] mr-1.5" />
+                  <span>{p}</span>
                 </button>
               ))}
             </div>
@@ -147,7 +148,7 @@ export default function TableAiWaiterModal({
           {responseMsg && !loading && (
             <div className="p-3.5 rounded-xl border bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 space-y-3" style={{ borderColor: "var(--hairline)" }}>
               <div className="flex items-start gap-2">
-                <span className="text-base shrink-0">✨</span>
+                <i className="fa-solid fa-wand-magic-sparkles text-amber-600 text-xs mt-0.5 shrink-0" />
                 <p className="text-xs leading-relaxed text-stone-800 font-medium">{responseMsg}</p>
               </div>
 

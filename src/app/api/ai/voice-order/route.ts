@@ -45,9 +45,10 @@ If no dishes match the menu, return {"summary": "Koi dish match nahi hui, kripya
         { role: "user", content: `Customer said: "${transcript}"` },
       ],
       {
-        model: "nvidia/nemotron-3.5-lightning-30b-a3b",
+        model: "meta/llama-3.2-11b-vision-instruct",
         temperature: 0.1,
-        max_tokens: 1024,
+        max_tokens: 400,
+        timeoutMs: 12000,
       }
     );
 

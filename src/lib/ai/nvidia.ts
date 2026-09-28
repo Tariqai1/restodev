@@ -24,11 +24,11 @@ export async function callNvidiaChat(
   options: NvidiaCompletionOptions = {}
 ): Promise<{ text: string; raw: any }> {
   const apiKey = process.env.NVIDIA_API_KEY || DEFAULT_NVIDIA_KEY;
-  const model = options.model || "nvidia/nemotron-3.5-lightning-30b-a3b";
-  const temperature = options.temperature ?? 0.3;
+  const model = options.model || "meta/llama-3.2-11b-vision-instruct";
+  const temperature = options.temperature ?? 0.2;
   const top_p = options.top_p ?? 0.95;
-  const max_tokens = options.max_tokens ?? 1536;
-  const timeoutMs = options.timeoutMs ?? 25000;
+  const max_tokens = options.max_tokens ?? 800;
+  const timeoutMs = options.timeoutMs ?? 15000;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -55,8 +55,8 @@ export async function callNvidiaChat(
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error(`[NVIDIA AI] ${model} Error (${res.status}):`, errText);
-      throw new Error(`NVIDIA API returned ${res.status}: ${errText.slice(0, 200)}`);
+      console.error(`[AI Service] ${model} Error (${res.status}):`, errText);
+      throw new Error(`AI service returned status ${res.status}`);
     }
 
     const data = await res.json();
@@ -65,7 +65,7 @@ export async function callNvidiaChat(
   } catch (err: any) {
     clearTimeout(timer);
     if (err.name === "AbortError") {
-      throw new Error(`NVIDIA model ${model} timed out after ${timeoutMs / 1000}s`);
+      throw new Error("AI request timed out");
     }
     throw err;
   }
