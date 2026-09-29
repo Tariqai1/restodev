@@ -345,6 +345,32 @@ export default function AdminPage() {
       } catch {
         // ignore
       }
+
+      // Fetch Invoices / Bills
+      try {
+        const billsRes = await fetch("/api/bills");
+        if (billsRes.ok) {
+          const billsData = await billsRes.json();
+          if (Array.isArray(billsData.bills)) {
+            setInvoices(
+              billsData.bills.map((b: any) => ({
+                id: b.id,
+                bill_number: b.bill_number,
+                table_number: b.table_number,
+                order_id: b.order_id,
+                subtotal: b.subtotal,
+                tax_amount: b.tax_amount,
+                total: b.total,
+                payment_mode: b.payment_mode === "upi" || b.payment_mode === "card" ? b.payment_mode : "cash",
+                payment_status: b.payment_status,
+                paid_at: b.created_at,
+              }))
+            );
+          }
+        }
+      } catch {
+        // ignore
+      }
     } catch {
       // Gracefully fall back to local starter data if fresh
     } finally {

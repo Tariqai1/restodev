@@ -153,6 +153,7 @@ export type PlatformState = {
   dishHalfPrices?: Record<string, number>;
   pendingOrderApprovals?: Record<string, PendingOrderApprovalBatch>;
   rolePermissions?: Record<string, RolePermissionsConfig>;
+  cashRegisters?: Record<string, CashRegisterState>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -857,3 +858,70 @@ export function updateItemQtyInPendingBatch(
   }
   return modified;
 }
+
+export interface CashRegisterState {
+  openingFloat: number;
+  isClosed: boolean;
+  closedAt: string | null;
+  closedBy?: string | null;
+  denominations: {
+    d500: number;
+    d200: number;
+    d100: number;
+    d50: number;
+    d20: number;
+    d10: number;
+    coins: number;
+  };
+  notes?: string;
+  updatedAt?: string;
+}
+
+export function getCashRegisterState(restaurantId?: string): CashRegisterState {
+  const defaultState: CashRegisterState = {
+    openingFloat: 0,
+    isClosed: false,
+    closedAt: null,
+    closedBy: null,
+    denominations: {
+      d500: 0,
+      d200: 0,
+      d100: 0,
+      d50: 0,
+      d20: 0,
+      d10: 0,
+      coins: 0,
+    },
+    notes: "",
+  };
+  if (!restaurantId) return defaultState;
+  const state = getPlatformState();
+  if (state.cashRegisters && state.cashRegisters[restaurantId]) {
+    return { ...defaultState, ...state.cashRegisters[restaurantId] };
+  }
+  return defaultState;
+}
+
+export function setCashRegisterState(
+  restaurantId: string,
+  register: Partial<CashRegisterState>
+): CashRegisterState {
+  const state = getPlatformState();
+  if (!state.cashRegisters) {
+    state.cashRegisters = {};
+  }
+  const current = getCashRegisterState(restaurantId);
+  const updated: CashRegisterState = {
+    ...current,
+    ...register,
+    denominations: {
+      ...current.denominations,
+      ...(register.denominations || {}),
+    },
+    updatedAt: new Date().toISOString(),
+  };
+  state.cashRegisters[restaurantId] = updated;
+  savePlatformState(state);
+  return updated;
+}
+
