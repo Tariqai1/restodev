@@ -14,7 +14,7 @@ import {
   RolePermissionsConfig,
   DEFAULT_ROLE_PERMISSIONS,
   RolePermissionModules,
-} from "@/lib/platform/state";
+} from "@/lib/types/roles";
 
 const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), {
   ssr: false,
