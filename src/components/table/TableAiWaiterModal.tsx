@@ -19,6 +19,7 @@ interface ChatMessage {
   sender: "ai" | "user";
   text: string;
   dishes?: MenuItem[];
+  pairingTip?: string | null;
   quickSuggestions?: string[];
   time: string;
 }
@@ -147,6 +148,7 @@ export default function TableAiWaiterModal({
           prompt: q,
           menuItems,
           restaurantName,
+          chatHistory: messages.slice(-5).map((m) => ({ sender: m.sender, text: m.text })),
         }),
       });
 
@@ -159,26 +161,15 @@ export default function TableAiWaiterModal({
         );
       }
 
-      // Generate contextual follow-up quick reply suggestions
-      const qLower = q.toLowerCase();
-      let followUps = [
-        "Inke saath best breads ya rice? 🫓",
-        "Kuch meetha bhi dikhao 🍨",
-        "Thode aur options dikhaiye 🍲",
-      ];
-      if (qLower.includes("sweet") || qLower.includes("dessert") || qLower.includes("ice cream")) {
-        followUps = [
-          "Thandi cold coffee ya mojito? 🥤",
-          "Chef's top savoury starters ⭐",
-          "Table bill status kya hai? 🧾",
-        ];
-      } else if (qLower.includes("starter") || qLower.includes("spicy")) {
-        followUps = [
-          "Main course me kya best rahega? 🍛",
-          "Garlic Naan & Butter Roti 🫓",
-          "Kuch refreshing coolers 🥤",
-        ];
-      }
+      // Contextual follow-up quick reply suggestions from AI or smart defaults
+      const followUps =
+        Array.isArray(data.followUpSuggestions) && data.followUpSuggestions.length > 0
+          ? data.followUpSuggestions
+          : [
+              "Inke saath best roti ya rice? 🫓",
+              "Kuch meetha bhi dikhao 🍨",
+              "Thode aur options dikhaiye 🍲",
+            ];
 
       const aiMsg: ChatMessage = {
         id: `msg_ai_${Date.now()}`,
@@ -187,6 +178,7 @@ export default function TableAiWaiterModal({
           data.message ||
           "Aapke taste aur mood ke hisaab se humne ye behtareen dishes chuni hain:",
         dishes: matchedDishes.length > 0 ? matchedDishes : undefined,
+        pairingTip: data.pairingTip || null,
         quickSuggestions: followUps,
         time: formatCurrentTime(),
       };
@@ -321,6 +313,19 @@ export default function TableAiWaiterModal({
                 }`}
               >
                 <p className="whitespace-pre-line font-medium">{msg.text}</p>
+
+                {/* Chef's Pairing Tip */}
+                {msg.pairingTip && (
+                  <div className="mt-2.5 px-3 py-2 rounded-xl bg-amber-50/90 border border-amber-200/90 text-[11px] text-amber-950 font-medium flex items-start gap-2 shadow-2xs">
+                    <span className="text-amber-600 text-xs shrink-0 mt-0.5">💡</span>
+                    <div className="leading-snug">
+                      <span className="font-extrabold text-amber-900 block text-[9px] uppercase tracking-wider mb-0.5">
+                        Chef's Pairing Tip
+                      </span>
+                      {msg.pairingTip}
+                    </div>
+                  </div>
+                )}
 
                 {/* Attached Interactive Dish Cards */}
                 {msg.dishes && msg.dishes.length > 0 && (

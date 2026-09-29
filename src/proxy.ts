@@ -54,7 +54,8 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname === "/api/health" ||
     request.nextUrl.pathname === "/api/setup" ||
     request.nextUrl.pathname.startsWith("/api/public/") ||
-    request.nextUrl.pathname.startsWith("/api/auth/");
+    request.nextUrl.pathname.startsWith("/api/auth/") ||
+    request.nextUrl.pathname.startsWith("/api/ai/");
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
 
   const isSuperAdminRoute = request.nextUrl.pathname.startsWith("/super-admin");
