@@ -156,6 +156,7 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Core Data
+  const [restaurantId, setRestaurantId] = useState("");
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [ownerEmail, setOwnerEmail] = useState("owner@restaurant.com");
   const [ownerName, setOwnerName] = useState("Restaurant Owner");
@@ -234,6 +235,7 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.restaurant) {
+          setRestaurantId(data.restaurant.id || "");
           setRestaurantName(data.restaurant.name || "Restaurant");
           setOwnerEmail(data.restaurant.owner_email || data.user?.email || "owner@restaurant.com");
           setOwnerName(data.restaurant.owner_name || data.user?.name || "Restaurant Owner");
@@ -2123,7 +2125,13 @@ export default function AdminPage() {
           {/* ======================================================== */}
           {/* VIEW: AI COPILOT & OCR HUB */}
           {/* ======================================================== */}
-          {currentView === "ai_studio" && <AiStudioView />}
+          {currentView === "ai_studio" && (
+            <AiStudioView
+              restaurantId={restaurantId}
+              onGoToMenu={() => setCurrentView("menu_items")}
+              onDataUpdated={fetchData}
+            />
+          )}
         </main>
       </div>
 

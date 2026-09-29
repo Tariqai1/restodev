@@ -16,6 +16,69 @@
       "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
       "targetName": "Tauheed Resto",
       "details": "Updated feature entitlements switchboard for \"Tauheed Resto\"",
+      "id": "act-mun4xp0c-nk3d",
+      "createdAt": "2026-09-29T20:34:52.764Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated Smart Upsell & Basket Pairing settings for \"Tauheed Resto\"",
+      "id": "act-mun4xp09-313c",
+      "createdAt": "2026-09-29T20:34:52.761Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated retention offers & scratch card settings for \"Tauheed Resto\"",
+      "id": "act-mun4xp06-4hcz",
+      "createdAt": "2026-09-29T20:34:52.758Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated white-label branding (logo/tagline/theme) for \"Tauheed Resto\"",
+      "id": "act-mun4xp03-pf9l",
+      "createdAt": "2026-09-29T20:34:52.755Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated theme palette to \"charcoal\" for \"Tauheed Resto\"",
+      "id": "act-mun4xp00-p1ph",
+      "createdAt": "2026-09-29T20:34:52.752Z"
+    },
+    {
+      "action": "PLAN_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated subscription tier to \"trial\" for \"Tauheed Resto\"",
+      "id": "act-mun4xorb-no2n",
+      "createdAt": "2026-09-29T20:34:52.439Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Changed outlet status to \"active\" for \"Tauheed Resto\"",
+      "id": "act-mun4xor7-orwq",
+      "createdAt": "2026-09-29T20:34:52.435Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated feature entitlements switchboard for \"Tauheed Resto\"",
       "id": "act-mun4tq9f-q1xg",
       "createdAt": "2026-09-29T20:31:47.763Z"
     },
@@ -209,7 +272,7 @@
       "mobileSheetModals": true,
       "autoMobileCards": true,
       "orderJourneyLayout": "floating_capsule",
-      "onlineOrdering": false,
+      "onlineOrdering": true,
       "aiWaiter": true,
       "aiKitchenPrep": true,
       "aiVoiceOrder": true,
