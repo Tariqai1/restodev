@@ -48,6 +48,11 @@ export async function GET() {
         status,
         opened_at,
         table_session_id,
+        order_type,
+        customer_name,
+        customer_phone,
+        delivery_address,
+        scheduled_for,
         restaurant_tables (
           table_number
         ),

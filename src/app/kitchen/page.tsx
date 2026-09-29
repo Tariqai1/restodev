@@ -19,9 +19,14 @@ type KitchenOrderItem = {
 
 type KitchenOrder = {
   id: string;
-  table_id: string;
+  table_id: string | null;
   status: string;
   opened_at: string;
+  order_type?: "dine_in" | "delivery" | "pickup";
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  delivery_address?: string | null;
+  scheduled_for?: string | null;
   restaurant_tables?: {
     table_number: string;
   };
@@ -65,7 +70,7 @@ export default function KitchenDisplayPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [filter, setFilter] = useState<"all" | "pending" | "preparing">("all");
+  const [filter, setFilter] = useState<"all" | "dine_in" | "delivery" | "pickup">("all");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
@@ -371,20 +376,23 @@ export default function KitchenDisplayPage() {
     const unservedItems = ord.order_items.filter((it) => it.item_status !== "served");
     if (unservedItems.length === 0) return false;
 
-    // Status filter
-    if (filter === "pending" && !unservedItems.some((it) => it.item_status === "pending"))
-      return false;
-    if (filter === "preparing" && !unservedItems.some((it) => it.item_status === "preparing"))
-      return false;
+    // Order Type Filter
+    const ordType = ord.order_type || (ord.table_id ? "dine_in" : "pickup");
+    if (filter === "dine_in" && ordType !== "dine_in") return false;
+    if (filter === "delivery" && ordType !== "delivery") return false;
+    if (filter === "pickup" && ordType !== "pickup") return false;
 
     // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const tableMatch = (ord.restaurant_tables?.table_number || "").toLowerCase().includes(q);
+      const nameMatch = (ord.customer_name || "").toLowerCase().includes(q);
+      const phoneMatch = (ord.customer_phone || "").toLowerCase().includes(q);
+      const addressMatch = (ord.delivery_address || "").toLowerCase().includes(q);
       const itemMatch = ord.order_items.some((it) =>
         (it.menu_items?.name || "").toLowerCase().includes(q)
       );
-      if (!tableMatch && !itemMatch) return false;
+      if (!tableMatch && !nameMatch && !phoneMatch && !addressMatch && !itemMatch) return false;
     }
 
     return true;
@@ -394,7 +402,15 @@ export default function KitchenDisplayPage() {
   const pendingDishMap: { [name: string]: { count: number; isVeg: boolean; tables: string[] } } =
     {};
   activeOrders.forEach((order) => {
-    const tableNum = order.restaurant_tables?.table_number || "T--";
+    const ordType = order.order_type || (order.table_id ? "dine_in" : "pickup");
+    const tableNum =
+      ordType === "dine_in"
+        ? order.restaurant_tables?.table_number
+          ? `T${order.restaurant_tables.table_number}`
+          : "Dine-In"
+        : ordType === "delivery"
+        ? "Delivery"
+        : "Pickup";
     order.order_items.forEach((item) => {
       if (item.item_status !== "served") {
         const name = item.menu_items?.name || "Dish";
@@ -461,25 +477,39 @@ export default function KitchenDisplayPage() {
           </button>
           <button
             type="button"
-            onClick={() => setFilter("pending")}
-            className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-              filter === "pending"
-                ? "bg-blue-600 text-white font-bold shadow-xs"
+            onClick={() => setFilter("dine_in")}
+            className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+              filter === "dine_in"
+                ? "bg-purple-600 text-white font-bold shadow-xs"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            New
+            <i className="fa-solid fa-utensils text-[10px]" />
+            <span>Dine-In</span>
           </button>
           <button
             type="button"
-            onClick={() => setFilter("preparing")}
-            className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-              filter === "preparing"
+            onClick={() => setFilter("delivery")}
+            className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+              filter === "delivery"
                 ? "bg-amber-600 text-white font-bold shadow-xs"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Cooking
+            <i className="fa-solid fa-motorcycle text-[10px]" />
+            <span>Delivery</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("pickup")}
+            className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+              filter === "pickup"
+                ? "bg-blue-600 text-white font-bold shadow-xs"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <i className="fa-solid fa-bag-shopping text-[10px]" />
+            <span>Pickup</span>
           </button>
         </div>
 
@@ -738,11 +768,30 @@ export default function KitchenDisplayPage() {
                 <div>
                   {/* Ticket Header: Table + Time Elapsed */}
                   <div className="p-3.5 border-b border-slate-800 bg-slate-950/70 flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-1">
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                         <span className="text-[10px] font-mono uppercase font-bold text-slate-400">
                           #{order.id.slice(-4).toUpperCase()}
                         </span>
+
+                        {/* Order Type Badge */}
+                        {order.order_type === "delivery" ? (
+                          <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                            <i className="fa-solid fa-motorcycle text-[9px]" />
+                            <span>Delivery</span>
+                          </span>
+                        ) : order.order_type === "pickup" ? (
+                          <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 flex items-center gap-1">
+                            <i className="fa-solid fa-bag-shopping text-[9px]" />
+                            <span>Pickup</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                            <i className="fa-solid fa-utensils text-[9px]" />
+                            <span>Dine-In</span>
+                          </span>
+                        )}
+
                         {isFullyReady ? (
                           <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                             ✓ Ready
@@ -754,12 +803,25 @@ export default function KitchenDisplayPage() {
                         ) : null}
                       </div>
 
-                      <strong className="text-2xl font-black tracking-tight text-white block">
-                        Table {order.restaurant_tables?.table_number || "T--"}
-                      </strong>
+                      {order.order_type === "delivery" || order.order_type === "pickup" ? (
+                        <div>
+                          <strong className="text-xl font-black tracking-tight text-white block truncate">
+                            {order.customer_name || (order.order_type === "delivery" ? "Delivery Customer" : "Pickup Customer")}
+                          </strong>
+                          {order.customer_phone && (
+                            <span className="text-xs font-mono text-purple-300 block font-semibold mt-0.5">
+                              📞 {order.customer_phone}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <strong className="text-2xl font-black tracking-tight text-white block">
+                          Table {order.restaurant_tables?.table_number || "T--"}
+                        </strong>
+                      )}
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <span
                         className={`text-xs px-2.5 py-1 rounded-lg border font-mono font-bold inline-block ${
                           isCritical
@@ -776,6 +838,14 @@ export default function KitchenDisplayPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Delivery Address Banner */}
+                  {order.order_type === "delivery" && order.delivery_address && (
+                    <div className="px-3.5 py-1.5 bg-amber-950/40 border-b border-amber-600/30 text-[11px] text-amber-200 flex items-start gap-1.5">
+                      <i className="fa-solid fa-location-dot text-amber-400 mt-0.5 shrink-0 text-[10px]" />
+                      <span className="line-clamp-2 leading-tight">{order.delivery_address}</span>
+                    </div>
+                  )}
 
                   {/* Cooking Target Pill Strip */}
                   <div className="px-3.5 py-1.5 border-b border-slate-800/80 bg-slate-950/40 flex items-center justify-between text-xs">
@@ -909,7 +979,13 @@ export default function KitchenDisplayPage() {
                     className="flex-1 h-9 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <i className="fa-solid fa-check-double text-xs" />
-                    <span>Complete Order</span>
+                    <span>
+                      {order.order_type === "delivery"
+                        ? "Packed for Rider"
+                        : order.order_type === "pickup"
+                        ? "Ready at Counter"
+                        : "Complete Order"}
+                    </span>
                   </button>
                 </div>
               </div>

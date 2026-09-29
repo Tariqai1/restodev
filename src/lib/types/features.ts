@@ -20,6 +20,7 @@ export type RestaurantFeatures = {
   mobileSheetModals?: boolean; // 📲 Native Bottom Sheet Drawers for mobile forms (Default: true)
   autoMobileCards?: boolean;  // 🖼️ Auto-switch from dense tables to touch cards on mobile (Default: true)
   orderJourneyLayout?: "floating_capsule" | "split_card" | "slim_accordion"; // 🗺️ Customer live order journey UX layout
+  onlineOrdering?: boolean; // 🛵 Online Ordering (Delivery & Pickup without table QR)
   // 🤖 NVIDIA NIM AI Powered Capabilities
   aiWaiter?: boolean;        // 🤖 Smart AI Waiter / Dish Recommendation (Llama-3.3-70B)
   aiKitchenPrep?: boolean;   // ⏱️ Smart AI Kitchen Prep Time Estimation (Nemotron)
@@ -49,6 +50,7 @@ export const DEFAULT_RESTAURANT_FEATURES: RestaurantFeatures = {
   mobileSheetModals: true,
   autoMobileCards: true,
   orderJourneyLayout: "floating_capsule",
+  onlineOrdering: false,
   aiWaiter: true,
   aiKitchenPrep: true,
   aiVoiceOrder: true,

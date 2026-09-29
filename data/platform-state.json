@@ -11,6 +11,159 @@
   },
   "activities": [
     {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated feature entitlements switchboard for \"Tauheed Resto\"",
+      "id": "act-mun4tq9f-q1xg",
+      "createdAt": "2026-09-29T20:31:47.763Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated Smart Upsell & Basket Pairing settings for \"Tauheed Resto\"",
+      "id": "act-mun4tq9b-z7wc",
+      "createdAt": "2026-09-29T20:31:47.759Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated retention offers & scratch card settings for \"Tauheed Resto\"",
+      "id": "act-mun4tq98-g3cp",
+      "createdAt": "2026-09-29T20:31:47.756Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated white-label branding (logo/tagline/theme) for \"Tauheed Resto\"",
+      "id": "act-mun4tq92-yhbq",
+      "createdAt": "2026-09-29T20:31:47.750Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated theme palette to \"charcoal\" for \"Tauheed Resto\"",
+      "id": "act-mun4tq8y-qds8",
+      "createdAt": "2026-09-29T20:31:47.746Z"
+    },
+    {
+      "action": "PLAN_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated subscription tier to \"trial\" for \"Tauheed Resto\"",
+      "id": "act-mun4tq50-c37a",
+      "createdAt": "2026-09-29T20:31:47.604Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Changed outlet status to \"active\" for \"Tauheed Resto\"",
+      "id": "act-mun4tq4u-fzu1",
+      "createdAt": "2026-09-29T20:31:47.598Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated feature entitlements switchboard for \"Tauheed Resto\"",
+      "id": "act-mun4tfd4-1kj2",
+      "createdAt": "2026-09-29T20:31:33.640Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated Smart Upsell & Basket Pairing settings for \"Tauheed Resto\"",
+      "id": "act-mun4tfd0-t8lk",
+      "createdAt": "2026-09-29T20:31:33.637Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated retention offers & scratch card settings for \"Tauheed Resto\"",
+      "id": "act-mun4tfcx-c437",
+      "createdAt": "2026-09-29T20:31:33.633Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated white-label branding (logo/tagline/theme) for \"Tauheed Resto\"",
+      "id": "act-mun4tfct-0rfx",
+      "createdAt": "2026-09-29T20:31:33.629Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated theme palette to \"charcoal\" for \"Tauheed Resto\"",
+      "id": "act-mun4tfcq-598b",
+      "createdAt": "2026-09-29T20:31:33.626Z"
+    },
+    {
+      "action": "PLAN_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated subscription tier to \"trial\" for \"Tauheed Resto\"",
+      "id": "act-mun4tf6k-rny1",
+      "createdAt": "2026-09-29T20:31:33.404Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Changed outlet status to \"active\" for \"Tauheed Resto\"",
+      "id": "act-mun4tf6f-0oc4",
+      "createdAt": "2026-09-29T20:31:33.399Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated retention offers & scratch card settings for \"Tauheed Resto\"",
+      "id": "act-mun4olvj-6wrk",
+      "createdAt": "2026-09-29T20:27:48.799Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated feature entitlements switchboard for \"Tauheed Resto\"",
+      "id": "act-mun4n805-13jf",
+      "createdAt": "2026-09-29T20:26:44.165Z"
+    },
+    {
+      "action": "STATUS_CHANGE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Updated Smart Upsell & Basket Pairing settings for \"Tauheed Resto\"",
+      "id": "act-mun4n7zr-tf2x",
+      "createdAt": "2026-09-29T20:26:44.151Z"
+    },
+    {
       "action": "IMPERSONATE",
       "actorEmail": "tariqfsd9@gmail.com",
       "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
@@ -23,11 +176,70 @@
   "archivedRestaurants": {},
   "staffPermissions": {},
   "waiterCalls": [],
-  "restaurantThemes": {},
-  "restaurantBrandings": {},
-  "restaurantFeatures": {},
-  "restaurantOffers": {},
-  "restaurantUpsellConfigs": {},
+  "restaurantThemes": {
+    "ebde73c4-c316-4101-9469-062c83319d7b": "charcoal"
+  },
+  "restaurantBrandings": {
+    "ebde73c4-c316-4101-9469-062c83319d7b": {
+      "theme": "charcoal",
+      "logoUrl": null,
+      "tagline": null
+    }
+  },
+  "restaurantFeatures": {
+    "ebde73c4-c316-4101-9469-062c83319d7b": {
+      "callWaiter": true,
+      "prepTimeTracker": true,
+      "customRequests": true,
+      "tablePayUpi": false,
+      "dishNotes": true,
+      "smartUpsell": true,
+      "feedbackReview": true,
+      "loyaltyOffers": false,
+      "waiterOrderApproval": true,
+      "quickAdds": false,
+      "showTableFooter": false,
+      "halfFullPortions": true,
+      "persistentAlarm": true,
+      "alarmEscalationSec": 90,
+      "whatsappAlerts": false,
+      "whatsappCaptainPhone": "",
+      "whatsappWebhookUrl": "",
+      "mobileNavStyle": "bottom_bar",
+      "mobileSheetModals": true,
+      "autoMobileCards": true,
+      "orderJourneyLayout": "floating_capsule",
+      "onlineOrdering": false,
+      "aiWaiter": true,
+      "aiKitchenPrep": true,
+      "aiVoiceOrder": true,
+      "aiMenuDigitizer": true
+    }
+  },
+  "restaurantOffers": {
+    "ebde73c4-c316-4101-9469-062c83319d7b": {
+      "active": false,
+      "bannerText": "FLAT 20% OFF TODAY · Auto-applied on orders above ₹399",
+      "discountPercent": 20,
+      "minOrderValue": 399,
+      "bounceBackReward": "₹100 OFF on your next visit (Min order ₹499)",
+      "bounceBackCode": "REPEAT100",
+      "referralDiscount": "15% OFF for your friends",
+      "validityDays": 15
+    }
+  },
+  "restaurantUpsellConfigs": {
+    "ebde73c4-c316-4101-9469-062c83319d7b": {
+      "enabled": true,
+      "headline": "Pair With Your Order · Chef's Match",
+      "strategy": "bestsellers",
+      "maxItems": 4,
+      "pushBeveragesWithStarters": true,
+      "pushDessertsNearCheckout": true,
+      "showSpendGoalNudge": true,
+      "ownerCanManageUpsell": true
+    }
+  },
   "orderPrepEstimates": {},
   "restaurantPhones": {},
   "dishSpecialTags": {},
@@ -46,23 +258,6 @@
       "id": "batch-1790618121031-ed2zx",
       "status": "awaiting_approval",
       "createdAt": "2026-09-28T17:55:21.031Z"
-    }
-  },
-  "cashRegisters": {
-    "ebde73c4-c316-4101-9469-062c83319d7b": {
-      "isClosed": false,
-      "closedAt": null,
-      "closedBy": "Tauheed Ansari",
-      "denominations": {
-        "d500": 0,
-        "d200": 0,
-        "d100": 0,
-        "d50": 0,
-        "d20": 0,
-        "d10": 0,
-        "coins": 0
-      },
-      "updatedAt": "2026-09-29T19:59:26.283Z"
     }
   }
 }

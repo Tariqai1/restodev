@@ -19,6 +19,9 @@ import {
   setRestaurantUpsellConfig,
   getRestaurantPhone,
   setRestaurantPhone,
+  getDeliverySettings,
+  setDeliverySettings,
+  type DeliverySettings,
   type RestaurantFeatures,
   DEFAULT_RESTAURANT_FEATURES,
   type RestaurantThemeType,
@@ -235,6 +238,11 @@ export async function GET(request: Request) {
           qr_token: t.qr_token,
         })),
         firstTableToken: restoTables[0]?.qr_token || null,
+        onlineOrderingEnabled: Boolean(
+          r.online_ordering_enabled ?? getDeliverySettings(r.id).onlineOrderingEnabled ?? false
+        ),
+        slug: r.slug || getDeliverySettings(r.id).slug || "",
+        deliverySettings: getDeliverySettings(r.id),
         createdAt: r.created_at,
         stats: {
           tableCount: restoTables.length,
@@ -585,6 +593,29 @@ export async function PATCH(request: Request) {
     }
 
     if (name) updates.name = name.trim();
+
+    const onlineOrderVal =
+      typeof body.online_ordering_enabled === "boolean"
+        ? body.online_ordering_enabled
+        : typeof body.onlineOrderingEnabled === "boolean"
+        ? body.onlineOrderingEnabled
+        : undefined;
+
+    if (onlineOrderVal !== undefined) {
+      updates.online_ordering_enabled = onlineOrderVal;
+      setDeliverySettings(singleId, { onlineOrderingEnabled: onlineOrderVal });
+      logActivity({
+        action: "STATUS_CHANGE",
+        actorEmail: authCheck.user?.email || "super-admin",
+        targetId: singleId,
+        targetName,
+        details: `${onlineOrderVal ? "Enabled" : "Disabled"} online ordering (delivery/pickup) for "${targetName}"`,
+      });
+    }
+
+    if (body.deliverySettings && typeof body.deliverySettings === "object") {
+      setDeliverySettings(singleId, body.deliverySettings);
+    }
 
     if (features || theme || branding || offerConfig || upsellConfig || gstin !== undefined) {
       await updateRestaurantMetadata(admin, singleId, {

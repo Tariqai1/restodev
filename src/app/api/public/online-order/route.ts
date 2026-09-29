@@ -1,0 +1,278 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getDeliverySettings } from "@/lib/platform/state";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+
+type OrderItemPayload = {
+  menuItemId: string;
+  portion?: "half" | "full";
+  qty: number;
+  notes?: string;
+};
+
+export async function POST(req: NextRequest) {
+  try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown-client";
+    const body = await req.json().catch(() => ({}));
+
+    const {
+      restaurantId,
+      orderType = "pickup",
+      customerName,
+      customerPhone,
+      deliveryAddress,
+      items,
+      notes,
+      paymentMode = "cash",
+    } = body as {
+      restaurantId: string;
+      orderType: "delivery" | "pickup";
+      customerName: string;
+      customerPhone: string;
+      deliveryAddress?: string;
+      items: OrderItemPayload[];
+      notes?: string;
+      paymentMode?: "cash" | "upi" | "card";
+    };
+
+    if (!restaurantId || typeof restaurantId !== "string") {
+      return NextResponse.json({ message: "Restaurant ID is required." }, { status: 400 });
+    }
+
+    if (!["delivery", "pickup"].includes(orderType)) {
+      return NextResponse.json({ message: "orderType must be 'delivery' or 'pickup'." }, { status: 400 });
+    }
+
+    if (!customerName || !customerName.trim()) {
+      return NextResponse.json({ message: "Customer name is required." }, { status: 400 });
+    }
+
+    if (!customerPhone || !customerPhone.trim()) {
+      return NextResponse.json({ message: "Valid contact phone number is required." }, { status: 400 });
+    }
+
+    if (orderType === "delivery" && (!deliveryAddress || !deliveryAddress.trim())) {
+      return NextResponse.json({ message: "Delivery address is required for home delivery." }, { status: 400 });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ message: "Cart cannot be empty." }, { status: 400 });
+    }
+
+    // Rate Limiting: Max 5 online orders per IP per 5 minutes
+    const rateCheck = checkRateLimit(`online-order:${restaurantId}:${ip}`, 5, 5 * 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { message: "Order limit reached. Please wait a few minutes before placing another order." },
+        { status: 429 }
+      );
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Verify Restaurant & Online Ordering Status
+    const { data: restaurant } = await admin
+      .from("restaurants")
+      .select("id, name, online_ordering_enabled")
+      .eq("id", restaurantId)
+      .maybeSingle();
+
+    if (!restaurant) {
+      return NextResponse.json({ message: "Restaurant not found." }, { status: 404 });
+    }
+
+    const fallbackSettings = getDeliverySettings(restaurantId);
+    const isOnlineEnabled =
+      typeof restaurant.online_ordering_enabled === "boolean"
+        ? restaurant.online_ordering_enabled
+        : fallbackSettings.onlineOrderingEnabled;
+
+    if (!isOnlineEnabled) {
+      return NextResponse.json(
+        { message: "Online ordering is currently disabled for this restaurant." },
+        { status: 403 }
+      );
+    }
+
+    // 2. Fetch delivery settings
+    const { data: dbDelivery } = await admin
+      .from("delivery_settings")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle();
+
+    const pickupEnabled =
+      typeof dbDelivery?.pickup_enabled === "boolean"
+        ? dbDelivery.pickup_enabled
+        : fallbackSettings.pickupEnabled;
+
+    const deliveryEnabled =
+      typeof dbDelivery?.delivery_enabled === "boolean"
+        ? dbDelivery.delivery_enabled
+        : fallbackSettings.deliveryEnabled;
+
+    const minAmount =
+      Number(dbDelivery?.minimum_order_amount) ?? fallbackSettings.minimumOrderAmount ?? 0;
+
+    const deliveryFee =
+      orderType === "delivery"
+        ? Number(dbDelivery?.delivery_fee) ?? fallbackSettings.deliveryFee ?? 0
+        : 0;
+
+    const estimatedPrepMinutes =
+      Number(dbDelivery?.estimated_prep_minutes) || fallbackSettings.estimatedPrepMinutes || 25;
+
+    if (orderType === "pickup" && !pickupEnabled) {
+      return NextResponse.json({ message: "Takeaway pickup is not offered at this time." }, { status: 400 });
+    }
+
+    if (orderType === "delivery" && !deliveryEnabled) {
+      return NextResponse.json({ message: "Home delivery is not offered at this time." }, { status: 400 });
+    }
+
+    // 3. Price resolution from database
+    const itemIds = items.map((i) => i.menuItemId).filter(Boolean);
+    const { data: menuItems, error: menuErr } = await admin
+      .from("menu_items")
+      .select("id, name, price, has_half_portion, half_price, is_available")
+      .eq("restaurant_id", restaurantId)
+      .in("id", itemIds);
+
+    if (menuErr || !menuItems || menuItems.length === 0) {
+      return NextResponse.json({ message: "Selected items not found in menu." }, { status: 400 });
+    }
+
+    const itemCatalog = new Map<string, { price: number; halfPrice: number; isAvailable: boolean; name: string }>();
+    for (const m of menuItems) {
+      if (!m.is_available) {
+        return NextResponse.json(
+          { message: `"${m.name}" is currently sold out. Please remove it from your cart.` },
+          { status: 400 }
+        );
+      }
+      const full = Number(m.price) || 0;
+      const half = m.half_price ? Number(m.half_price) : Math.round(full * 0.6);
+      itemCatalog.set(m.id, {
+        price: full,
+        halfPrice: half,
+        isAvailable: true,
+        name: m.name,
+      });
+    }
+
+    // 4. Calculate Subtotal
+    let subtotal = 0;
+    const preparedItems: Array<{
+      menu_item_id: string;
+      qty: number;
+      unit_price: number;
+      notes: string | null;
+      customer_name: string;
+    }> = [];
+
+    for (const it of items) {
+      const cat = itemCatalog.get(it.menuItemId);
+      if (!cat) continue;
+
+      const rate = it.portion === "half" ? cat.halfPrice : cat.price;
+      const qty = Math.max(1, Math.floor(Number(it.qty) || 1));
+      subtotal += rate * qty;
+
+      const portionLabel = it.portion === "half" ? "(Half)" : "";
+      const itemNote = [portionLabel, it.notes?.trim()].filter(Boolean).join(" - ") || null;
+
+      preparedItems.push({
+        menu_item_id: it.menuItemId,
+        qty,
+        unit_price: rate,
+        notes: itemNote,
+        customer_name: customerName.trim(),
+      });
+    }
+
+    if (preparedItems.length === 0) {
+      return NextResponse.json({ message: "No valid items to order." }, { status: 400 });
+    }
+
+    // Check minimum order amount
+    if (minAmount > 0 && subtotal < minAmount) {
+      return NextResponse.json(
+        {
+          message: `Minimum order amount is ₹${minAmount}. Your current subtotal is ₹${subtotal}.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const taxAmount = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST
+    const totalAmount = Math.round((subtotal + taxAmount + deliveryFee) * 100) / 100;
+
+    // 5. Create Order in Database (table_id MUST be null for delivery/pickup per trigger)
+    const { data: newOrder, error: orderErr } = await admin
+      .from("orders")
+      .insert({
+        restaurant_id: restaurantId,
+        table_id: null,
+        order_type: orderType,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        delivery_address: orderType === "delivery" ? deliveryAddress?.trim() : null,
+        status: "open",
+        opened_at: new Date().toISOString(),
+      })
+      .select("id, opened_at")
+      .single();
+
+    if (orderErr || !newOrder) {
+      console.error("Failed to create online order:", orderErr);
+      return NextResponse.json(
+        { message: orderErr?.message || "Failed to place order." },
+        { status: 500 }
+      );
+    }
+
+    // 6. Insert Order Items
+    const itemsToInsert = preparedItems.map((pi) => ({
+      order_id: newOrder.id,
+      menu_item_id: pi.menu_item_id,
+      qty: pi.qty,
+      unit_price: pi.unit_price,
+      notes: pi.notes,
+      item_status: "pending",
+      customer_name: pi.customer_name,
+    }));
+
+    await admin.from("order_items").insert(itemsToInsert);
+
+    // 7. Insert Initial Bill Record
+    const billNumber = `ORD-${newOrder.id.slice(-4).toUpperCase()}`;
+    await admin.from("bills").insert({
+      order_id: newOrder.id,
+      bill_number: billNumber,
+      subtotal,
+      tax_amount: taxAmount,
+      total: totalAmount,
+      payment_mode: paymentMode,
+      payment_status: "unpaid",
+    });
+
+    return NextResponse.json({
+      ok: true,
+      orderId: newOrder.id,
+      orderNumber: billNumber,
+      orderType,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      deliveryAddress: orderType === "delivery" ? deliveryAddress?.trim() : null,
+      subtotal,
+      taxAmount,
+      deliveryFee,
+      total: totalAmount,
+      estimatedPrepMinutes,
+      message: `Your ${orderType} order has been placed successfully!`,
+    });
+  } catch (err: any) {
+    console.error("[/api/public/online-order POST] Error:", err);
+    return NextResponse.json({ message: err?.message || "Internal server error" }, { status: 500 });
+  }
+}

@@ -4957,6 +4957,7 @@ export default function SuperAdminPage() {
                     { key: "quickAdds", label: "Quick Adds Carousel", desc: "1-Tap fast adds strip for rotis, beverages & extras (Default OFF)", icon: "⚡" },
                     { key: "showTableFooter", label: "Table Page Footer", desc: "Footer showing restaurant info, legal & kitchen dispatch (Default OFF)", icon: "📄" },
                     { key: "halfFullPortions", label: "Half & Full Portions", desc: "Allow diners to select Half (60% price) or Full portion sizes", icon: "⚖️" },
+                    { key: "onlineOrdering", label: "Online Ordering (Delivery/Pickup)", desc: "Direct web ordering storefront without table QR", icon: "🛵" },
                     { key: "aiWaiter", label: "Smart AI Waiter", desc: "Conversational dish & taste recommendation for diners", icon: "🤖" },
                     { key: "aiVoiceOrder", label: "Voice Ordering", desc: "Speak-to-order speech recognition into cart", icon: "🎙️" },
                     { key: "aiKitchenPrep", label: "Smart Prep Time", desc: "Automated cooking time estimator based on kitchen queue", icon: "⏱️" },
@@ -6115,6 +6116,12 @@ export default function SuperAdminPage() {
 
                   <div className="space-y-2">
                     {[
+                      {
+                        key: "onlineOrdering" as const,
+                        label: "Online Ordering (Delivery & Pickup)",
+                        desc: "Enable direct customer storefront without table QR code (orderdesk.app/r/{slug})",
+                        icon: "🛵",
+                      },
                       {
                         key: "loyaltyOffers" as const,
                         label: "Loyalty Offers & Mystery Scratch Card",

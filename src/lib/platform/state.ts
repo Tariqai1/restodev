@@ -155,6 +155,7 @@ export type PlatformState = {
   rolePermissions?: Record<string, RolePermissionsConfig>;
   cashRegisters?: Record<string, CashRegisterState>;
   gstFilingStatuses?: Record<string, Record<string, "filed" | "due" | "upcoming" | "no_liability">>;
+  deliverySettings?: Record<string, DeliverySettings>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -949,5 +950,62 @@ export function setGstFilingStatus(
   state.gstFilingStatuses[restaurantId][monthKey] = status;
   savePlatformState(state);
   return state.gstFilingStatuses[restaurantId];
+}
+
+export type DeliverySettings = {
+  restaurantId: string;
+  onlineOrderingEnabled: boolean;
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryRadiusKm: number;
+  deliveryFee: number;
+  minimumOrderAmount: number;
+  estimatedPrepMinutes: number;
+  slug?: string;
+  updatedAt?: string;
+};
+
+export const DEFAULT_DELIVERY_SETTINGS: Omit<DeliverySettings, "restaurantId"> = {
+  onlineOrderingEnabled: false,
+  pickupEnabled: true,
+  deliveryEnabled: false,
+  deliveryRadiusKm: 5,
+  deliveryFee: 0,
+  minimumOrderAmount: 0,
+  estimatedPrepMinutes: 25,
+  slug: "",
+};
+
+export function getDeliverySettings(restaurantId?: string): DeliverySettings {
+  const defaults: DeliverySettings = {
+    restaurantId: restaurantId || "",
+    ...DEFAULT_DELIVERY_SETTINGS,
+  };
+  if (!restaurantId) return defaults;
+  const state = getPlatformState();
+  if (state.deliverySettings && state.deliverySettings[restaurantId]) {
+    return { ...defaults, ...state.deliverySettings[restaurantId] };
+  }
+  return defaults;
+}
+
+export function setDeliverySettings(
+  restaurantId: string,
+  settings: Partial<DeliverySettings>
+): DeliverySettings {
+  const state = getPlatformState();
+  if (!state.deliverySettings) {
+    state.deliverySettings = {};
+  }
+  const current = getDeliverySettings(restaurantId);
+  const updated: DeliverySettings = {
+    ...current,
+    ...settings,
+    restaurantId,
+    updatedAt: new Date().toISOString(),
+  };
+  state.deliverySettings[restaurantId] = updated;
+  savePlatformState(state);
+  return updated;
 }
 
