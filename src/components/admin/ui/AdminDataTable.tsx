@@ -145,9 +145,9 @@ export default function AdminDataTable<T extends Record<string, any>>({
                   />
                 </th>
               )}
-              {columns.map((col) => (
+              {columns.map((col, colIdx) => (
                 <th
-                  key={col.key}
+                  key={`${col.key}-${colIdx}`}
                   style={{ width: col.width }}
                   onClick={() => handleSort(col.key, col.sortable)}
                   className={`py-3.5 px-4 font-semibold text-slate-600 tracking-wider uppercase text-[11px] select-none ${
@@ -280,9 +280,9 @@ export default function AdminDataTable<T extends Record<string, any>>({
                         />
                       </td>
                     )}
-                    {columns.map((col) => (
+                    {columns.map((col, colIdx) => (
                       <td
-                        key={col.key}
+                        key={`${col.key}-${colIdx}`}
                         className={`py-3.5 px-4 text-slate-700 ${
                           col.align === "right"
                             ? "text-right"

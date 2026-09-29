@@ -14,6 +14,7 @@ export type AdminViewType =
   | "menu_items"
   | "menu_categories"
   | "stockout"
+  | "ai_studio"
   | "staff"
   | "roles"
   | "activity"
@@ -72,6 +73,7 @@ const NAV_SECTIONS: NavSection[] = [
           { id: "menu_items", label: "Dishes & Items", icon: "fa-bowl-food" },
           { id: "menu_categories", label: "Categories", icon: "fa-layer-group" },
           { id: "stockout", label: "86 / Stock Out List", icon: "fa-ban" },
+          { id: "ai_studio", label: "AI Copilot & OCR", icon: "fa-wand-magic-sparkles" },
         ],
       },
     ],

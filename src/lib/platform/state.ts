@@ -150,6 +150,7 @@ export type PlatformState = {
   restaurantPhones?: Record<string, string>;
   dishSpecialTags?: Record<string, string>;
   dishHalfPortions?: Record<string, boolean>;
+  dishHalfPrices?: Record<string, number>;
   pendingOrderApprovals?: Record<string, PendingOrderApprovalBatch>;
   rolePermissions?: Record<string, RolePermissionsConfig>;
 };
@@ -191,6 +192,7 @@ let memoryState: PlatformState = {
   restaurantPhones: {},
   dishSpecialTags: {},
   dishHalfPortions: {},
+  dishHalfPrices: {},
   pendingOrderApprovals: {},
 };
 
@@ -711,6 +713,26 @@ export function setDishHalfPortion(dishId: string, enabled: boolean): void {
     state.dishHalfPortions = {};
   }
   state.dishHalfPortions[dishId] = enabled;
+  savePlatformState(state);
+}
+
+export function getDishHalfPrice(dishId: string): number | null {
+  if (!dishId) return null;
+  const state = getPlatformState();
+  if (state.dishHalfPrices && dishId in state.dishHalfPrices) {
+    const val = Number(state.dishHalfPrices[dishId]);
+    return !isNaN(val) && val > 0 ? val : null;
+  }
+  return null;
+}
+
+export function setDishHalfPrice(dishId: string, price: number): void {
+  if (!dishId) return;
+  const state = getPlatformState();
+  if (!state.dishHalfPrices) {
+    state.dishHalfPrices = {};
+  }
+  state.dishHalfPrices[dishId] = price;
   savePlatformState(state);
 }
 

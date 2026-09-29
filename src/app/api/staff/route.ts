@@ -191,6 +191,7 @@ export async function PATCH(request: Request) {
   const admin = createAdminClient();
   const updates: Record<string, unknown> = {};
   if (isActive !== undefined) updates.is_active = Boolean(isActive);
+  if (body.name) updates.name = String(body.name).trim();
   if (role) {
     const rawR = String(role).trim().toLowerCase();
     if (rawR === "owner" || rawR === "admin" || rawR === "manager") {

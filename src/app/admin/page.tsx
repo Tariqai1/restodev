@@ -16,6 +16,17 @@ import {
   RolePermissionModules,
 } from "@/lib/types/roles";
 
+import StockoutView from "@/components/admin/views/StockoutView";
+import KitchenKDSView from "@/components/admin/views/KitchenKDSView";
+import ActivityLogsView from "@/components/admin/views/ActivityLogsView";
+import CashRegisterView from "@/components/admin/views/CashRegisterView";
+import TaxesView from "@/components/admin/views/TaxesView";
+import HardwarePrintersView from "@/components/admin/views/HardwarePrintersView";
+import AiStudioView from "@/components/admin/views/AiStudioView";
+import TableQRStudioView from "@/components/admin/views/TableQRStudioView";
+import ApprovalsView from "@/components/admin/views/ApprovalsView";
+import StoreSettingsView from "@/components/admin/views/StoreSettingsView";
+
 const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), {
   ssr: false,
 });
@@ -82,6 +93,7 @@ interface MenuItem {
   is_available: boolean;
   description?: string;
   has_half_portion?: boolean;
+  half_price?: number;
   photo_url?: string | null;
   photo_urls?: string[];
   special_tag?: string;
@@ -117,9 +129,11 @@ interface OrderRecord {
 interface StaffRecord {
   id: string;
   name: string;
-  role: "waiter" | "kitchen" | "captain" | "manager";
+  role: "waiter" | "kitchen" | "captain" | "manager" | "owner";
   pin: string;
+  phone?: string;
   is_active: boolean;
+  created_at?: string;
 }
 
 interface InvoiceRecord {
@@ -167,6 +181,9 @@ export default function AdminPage() {
   const [dishIsVeg, setDishIsVeg] = useState(true);
   const [dishDesc, setDishDesc] = useState("");
   const [dishHasHalf, setDishHasHalf] = useState(false);
+  const [dishHalfPrice, setDishHalfPrice] = useState("");
+  const [halfPricingMode, setHalfPricingMode] = useState<"percentage" | "fixed">("percentage");
+  const [halfPercentage, setHalfPercentage] = useState<number>(60);
   const [dishImages, setDishImages] = useState<string[]>([]);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -184,8 +201,22 @@ export default function AdminPage() {
 
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
-  const [newStaffRole, setNewStaffRole] = useState<"waiter" | "kitchen" | "captain">("waiter");
+  const [newStaffRole, setNewStaffRole] = useState<"waiter" | "kitchen" | "captain" | "manager">("waiter");
   const [newStaffPin, setNewStaffPin] = useState("");
+  const [newStaffPhone, setNewStaffPhone] = useState("");
+  const [isEditStaffOpen, setIsEditStaffOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<StaffRecord | null>(null);
+  const [editStaffName, setEditStaffName] = useState("");
+  const [editStaffRole, setEditStaffRole] = useState<"waiter" | "kitchen" | "captain" | "manager">("waiter");
+  const [editStaffPin, setEditStaffPin] = useState("");
+  const [editStaffPhone, setEditStaffPhone] = useState("");
+  const [isSavingStaff, setIsSavingStaff] = useState(false);
+
+  // AI Copilot & Hub States
+  const [isScanningOCR, setIsScanningOCR] = useState(false);
+  const [ocrSuccessMsg, setOcrSuccessMsg] = useState("");
+  const [isEstimatingPrep, setIsEstimatingPrep] = useState(false);
+  const [prepEstimateMsg, setPrepEstimateMsg] = useState("");
 
   const [selectedQRTable, setSelectedQRTable] = useState<TableRecord | null>(null);
 
@@ -274,6 +305,9 @@ export default function AdminPage() {
               description: m.description,
               photo_url: m.photo_url || null,
               has_half_portion: Boolean(m.has_half_portion),
+              half_price: m.half_price
+                ? Number(m.half_price)
+                : Math.round((Number(m.price) || 0) * 0.6),
               special_tag: m.special_tag,
             }))
           );
@@ -290,8 +324,10 @@ export default function AdminPage() {
               id: s.id,
               name: s.name,
               role: s.role || "waiter",
-              pin: s.pin || "••••",
-              is_active: true,
+              pin: s.permissions?.assignedPin || s.pin || "••••",
+              phone: s.phone || "",
+              is_active: s.is_active !== false,
+              created_at: s.created_at,
             }))
           );
         }
@@ -403,6 +439,9 @@ export default function AdminPage() {
     setDishIsVeg(true);
     setDishDesc("");
     setDishHasHalf(false);
+    setHalfPricingMode("percentage");
+    setHalfPercentage(60);
+    setDishHalfPrice("");
     setDishImages([]);
     setUploadError("");
     setCustomImageUrl("");
@@ -418,6 +457,26 @@ export default function AdminPage() {
     setDishIsVeg(dish.is_veg);
     setDishDesc(dish.description || "");
     setDishHasHalf(Boolean(dish.has_half_portion));
+    if (dish.half_price) {
+      setDishHalfPrice(String(dish.half_price));
+      const full = Number(dish.price) || 0;
+      if (full > 0) {
+        const pct = Math.round((dish.half_price / full) * 100);
+        if ([50, 60, 65, 70].includes(pct)) {
+          setHalfPricingMode("percentage");
+          setHalfPercentage(pct);
+        } else {
+          setHalfPricingMode("fixed");
+        }
+      } else {
+        setHalfPricingMode("fixed");
+      }
+    } else {
+      const calc = Math.round((Number(dish.price) || 0) * 0.6);
+      setDishHalfPrice(String(calc));
+      setHalfPricingMode("percentage");
+      setHalfPercentage(60);
+    }
     const imgs: string[] = [];
     if (dish.photo_url) imgs.push(dish.photo_url);
     if (Array.isArray(dish.photo_urls)) {
@@ -493,6 +552,11 @@ export default function AdminPage() {
       const matchedCat = categoriesList.find((c) => c.name === dishCategory);
       const catId = matchedCat?.id || editingDish?.category_id;
       const primaryPhoto = dishImages[0] || "";
+      const calculatedHalfPrice = dishHasHalf
+        ? halfPricingMode === "percentage"
+          ? Math.round((Number(dishPrice) || 0) * (halfPercentage / 100))
+          : Number(dishHalfPrice) || Math.round((Number(dishPrice) || 0) * 0.6)
+        : undefined;
 
       if (editingDish) {
         const res = await fetch("/api/menu", {
@@ -506,6 +570,7 @@ export default function AdminPage() {
             isVeg: dishIsVeg,
             description: dishDesc.trim() || null,
             hasHalfPortion: dishHasHalf,
+            halfPrice: calculatedHalfPrice,
             photoUrl: primaryPhoto || null,
           }),
         });
@@ -525,6 +590,7 @@ export default function AdminPage() {
                     is_veg: dishIsVeg,
                     description: dishDesc.trim(),
                     has_half_portion: dishHasHalf,
+                    half_price: calculatedHalfPrice,
                     photo_url: primaryPhoto || null,
                   }
                 : d
@@ -542,6 +608,7 @@ export default function AdminPage() {
                     is_veg: dishIsVeg,
                     description: dishDesc.trim(),
                     has_half_portion: dishHasHalf,
+                    half_price: calculatedHalfPrice,
                     photo_url: primaryPhoto || null,
                   }
                 : d
@@ -559,6 +626,7 @@ export default function AdminPage() {
             isVeg: dishIsVeg,
             description: dishDesc.trim() || null,
             hasHalfPortion: dishHasHalf,
+            halfPrice: calculatedHalfPrice,
             photoUrl: primaryPhoto || null,
           }),
         });
@@ -576,6 +644,7 @@ export default function AdminPage() {
             is_available: true,
             description: dishDesc.trim(),
             has_half_portion: dishHasHalf,
+            half_price: calculatedHalfPrice,
             photo_url: primaryPhoto || null,
           };
           setMenuItems((prev) => [newDish, ...prev]);
@@ -589,6 +658,7 @@ export default function AdminPage() {
             is_available: true,
             description: dishDesc.trim(),
             has_half_portion: dishHasHalf,
+            half_price: calculatedHalfPrice,
             photo_url: primaryPhoto || null,
           };
           setMenuItems((prev) => [newDish, ...prev]);
@@ -749,19 +819,158 @@ export default function AdminPage() {
   };
 
   // Add Staff Action
-  const handleCreateStaff = () => {
+  const handleCreateStaff = async () => {
     if (!newStaffName.trim() || !newStaffPin) return;
-    const newMember: StaffRecord = {
-      id: `staff-${Date.now()}`,
-      name: newStaffName.trim(),
-      role: newStaffRole,
-      pin: newStaffPin,
-      is_active: true,
-    };
-    setStaffList((prev) => [...prev, newMember]);
-    setIsAddStaffOpen(false);
-    setNewStaffName("");
-    setNewStaffPin("");
+    try {
+      const res = await fetch("/api/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newStaffName.trim(),
+          role: newStaffRole,
+          pin: newStaffPin.trim(),
+          phone: newStaffPhone.trim(),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const created = data.staff;
+        const newMember: StaffRecord = {
+          id: created?.id || `staff-${Date.now()}`,
+          name: created?.name || newStaffName.trim(),
+          role: created?.role || newStaffRole,
+          pin: newStaffPin.trim(),
+          phone: newStaffPhone.trim(),
+          is_active: true,
+        };
+        setStaffList((prev) => [...prev, newMember]);
+      } else {
+        const newMember: StaffRecord = {
+          id: `staff-${Date.now()}`,
+          name: newStaffName.trim(),
+          role: newStaffRole,
+          pin: newStaffPin.trim(),
+          phone: newStaffPhone.trim(),
+          is_active: true,
+        };
+        setStaffList((prev) => [...prev, newMember]);
+      }
+      setIsAddStaffOpen(false);
+      setNewStaffName("");
+      setNewStaffPin("");
+      setNewStaffPhone("");
+    } catch (err) {
+      console.error("Failed to create staff member:", err);
+    }
+  };
+
+  // Toggle Staff Status (1-Click Active / Deactivate)
+  const handleToggleStaffStatus = async (staffId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    setStaffList((prev) =>
+      prev.map((s) => (s.id === staffId ? { ...s, is_active: newStatus } : s))
+    );
+    try {
+      await fetch("/api/staff", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId, isActive: newStatus }),
+      });
+    } catch (err) {
+      console.warn("Failed to update staff status:", err);
+    }
+  };
+
+  // Open Edit Staff Modal
+  const handleOpenEditStaff = (staff: StaffRecord) => {
+    setEditingStaff(staff);
+    setEditStaffName(staff.name);
+    setEditStaffRole(staff.role as any);
+    setEditStaffPin(staff.pin && staff.pin !== "••••" ? staff.pin : "");
+    setEditStaffPhone(staff.phone || "");
+    setIsEditStaffOpen(true);
+  };
+
+  // Save Edit Staff Details & PIN
+  const handleSaveEditStaff = async () => {
+    if (!editingStaff) return;
+    setIsSavingStaff(true);
+    try {
+      const payload: Record<string, any> = {
+        staffId: editingStaff.id,
+        name: editStaffName.trim(),
+        role: editStaffRole,
+        phone: editStaffPhone.trim(),
+      };
+      if (editStaffPin.trim().length === 4) {
+        payload.newPin = editStaffPin.trim();
+      }
+      const res = await fetch("/api/staff", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setStaffList((prev) =>
+          prev.map((s) =>
+            s.id === editingStaff.id
+              ? {
+                  ...s,
+                  name: editStaffName.trim(),
+                  role: editStaffRole,
+                  phone: editStaffPhone.trim(),
+                  pin: editStaffPin.trim() || s.pin,
+                }
+              : s
+          )
+        );
+      }
+      setIsEditStaffOpen(false);
+      setEditingStaff(null);
+    } catch (err) {
+      console.error("Failed to update staff:", err);
+    } finally {
+      setIsSavingStaff(false);
+    }
+  };
+
+  // Restock All Sold Out Items (86-List)
+  const handleRestockAll = async () => {
+    const outItems = menuItems.filter((m) => !m.is_available);
+    setMenuItems((prev) => prev.map((m) => ({ ...m, is_available: true })));
+    for (const item of outItems) {
+      try {
+        await fetch("/api/menu", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemId: item.id, isAvailable: true }),
+        });
+      } catch (err) {
+        console.warn("Restock item error:", err);
+      }
+    }
+  };
+
+  // KDS & Order Status Handlers
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    newStatus: "preparing" | "served" | "completed"
+  ) => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+    );
+  };
+
+  const handleApproveOrder = async (orderId: string) => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: "preparing" } : o))
+    );
+  };
+
+  const handleRejectOrder = async (orderId: string) => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: "cancelled" } : o))
+    );
   };
 
   // Page titles mapping
@@ -776,6 +985,7 @@ export default function AdminPage() {
     menu_items: { title: "Dishes & Modifiers", breadcrumb: ["Admin", "Catalog", "Dishes"] },
     menu_categories: { title: "Menu Categories", breadcrumb: ["Admin", "Catalog", "Categories"] },
     stockout: { title: "86 / Stock Out List", breadcrumb: ["Admin", "Catalog", "Stock Out"] },
+    ai_studio: { title: "AI Copilot & OCR Hub", breadcrumb: ["Admin", "Catalog", "AI Studio"] },
     staff: { title: "Staff Roster", breadcrumb: ["Admin", "Staff", "Roster"] },
     roles: { title: "Roles & Permissions", breadcrumb: ["Admin", "Staff", "Roles"] },
     activity: { title: "Audit & Activity Logs", breadcrumb: ["Admin", "Staff", "Activity"] },
@@ -1257,7 +1467,7 @@ export default function AdminPage() {
                     ),
                   },
                   {
-                    key: "sort_order",
+                    key: "assigned_dishes",
                     header: "Assigned Dishes",
                     align: "center",
                     render: (r) => {
@@ -1441,9 +1651,43 @@ export default function AdminPage() {
           )}
 
           {/* ======================================================== */}
+          {/* VIEW: 86 / STOCK OUT LIST */}
+          {/* ======================================================== */}
+          {currentView === "stockout" && (
+            <StockoutView
+              dishes={menuItems}
+              onToggleStock={handleToggleStock}
+              onRestockAll={handleRestockAll}
+              isLoading={isLoading}
+            />
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW: KITCHEN DISPLAY (KDS) */}
+          {/* ======================================================== */}
+          {currentView === "kitchen" && (
+            <KitchenKDSView
+              orders={orders as any}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+              onRefresh={fetchData}
+            />
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW: CAPTAIN APPROVALS */}
+          {/* ======================================================== */}
+          {currentView === "approvals" && (
+            <ApprovalsView
+              pendingOrders={orders.filter((o) => o.status === "placed") as any}
+              onApproveOrder={handleApproveOrder}
+              onRejectOrder={handleRejectOrder}
+            />
+          )}
+
+          {/* ======================================================== */}
           {/* VIEW: LIVE FLOOR & TABLES */}
           {/* ======================================================== */}
-          {(currentView === "floor" || currentView === "qr_studio") && (
+          {currentView === "floor" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -1532,6 +1776,16 @@ export default function AdminPage() {
           )}
 
           {/* ======================================================== */}
+          {/* VIEW: TABLE QR STUDIO */}
+          {/* ======================================================== */}
+          {currentView === "qr_studio" && (
+            <TableQRStudioView
+              tables={tables as any}
+              restaurantName={restaurantName}
+            />
+          )}
+
+          {/* ======================================================== */}
           {/* VIEW: STAFF ROSTER */}
           {/* ======================================================== */}
           {currentView === "staff" && (
@@ -1554,9 +1808,16 @@ export default function AdminPage() {
                         <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-xs">
                           {r.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="font-semibold text-slate-900">
-                          {r.name}
-                        </span>
+                        <div>
+                          <span className="font-semibold text-slate-900 block">
+                            {r.name}
+                          </span>
+                          {r.phone && (
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {r.phone}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ),
                   },
@@ -1573,7 +1834,7 @@ export default function AdminPage() {
                     key: "pin",
                     header: "Fast Login PIN",
                     render: (r) => (
-                      <span className="font-mono text-slate-500">
+                      <span className="font-mono text-slate-500 font-bold tracking-wider">
                         {r.pin ? "••••" : "Not Set"}
                       </span>
                     ),
@@ -1581,10 +1842,24 @@ export default function AdminPage() {
                   {
                     key: "is_active",
                     header: "Status",
-                    render: () => (
-                      <AdminBadge variant="active" size="sm">
-                        Active
-                      </AdminBadge>
+                    render: (r) => (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStaffStatus(r.id, r.is_active)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                          r.is_active
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                            : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+                        }`}
+                        title="Click to toggle Active / Deactivated"
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            r.is_active ? "bg-emerald-500" : "bg-slate-400"
+                          }`}
+                        />
+                        <span>{r.is_active ? "Active" : "Deactivated"}</span>
+                      </button>
                     ),
                   },
                 ]}
@@ -1592,11 +1867,18 @@ export default function AdminPage() {
                 isLoading={isLoading}
                 rowActions={[
                   {
+                    label: "Edit & Change PIN",
+                    icon: "fa-pen-to-square",
+                    onClick: (r) => handleOpenEditStaff(r),
+                  },
+                  {
                     label: "Remove Staff",
                     icon: "fa-trash",
                     variant: "danger",
                     onClick: (r) => {
-                      setStaffList((prev) => prev.filter((s) => s.id !== r.id));
+                      if (confirm(`Remove staff member ${r.name}?`)) {
+                        setStaffList((prev) => prev.filter((s) => s.id !== r.id));
+                      }
                     },
                   },
                 ]}
@@ -1711,11 +1993,14 @@ export default function AdminPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: INVOICES & FINANCE */}
+          {/* VIEW: AUDIT & ACTIVITY LOGS */}
           {/* ======================================================== */}
-          {(currentView === "invoices" ||
-            currentView === "cash_register" ||
-            currentView === "taxes") && (
+          {currentView === "activity" && <ActivityLogsView />}
+
+          {/* ======================================================== */}
+          {/* VIEW: INVOICES & RECEIPTS */}
+          {/* ======================================================== */}
+          {currentView === "invoices" && (
             <div className="space-y-4">
               <AdminTableFilters
                 searchQuery={searchQuery}
@@ -1790,86 +2075,29 @@ export default function AdminPage() {
           )}
 
           {/* ======================================================== */}
+          {/* VIEW: DAY-END CASH REGISTER */}
+          {/* ======================================================== */}
+          {currentView === "cash_register" && <CashRegisterView />}
+
+          {/* ======================================================== */}
+          {/* VIEW: TAXES & FINANCIAL YEAR */}
+          {/* ======================================================== */}
+          {currentView === "taxes" && <TaxesView />}
+
+          {/* ======================================================== */}
+          {/* VIEW: HARDWARE & PRINTERS */}
+          {/* ======================================================== */}
+          {currentView === "hardware" && <HardwarePrintersView />}
+
+          {/* ======================================================== */}
           {/* VIEW: STORE & SYSTEM SETTINGS */}
           {/* ======================================================== */}
-          {(currentView === "settings" || currentView === "hardware") && (
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Store & Operations Settings
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Configure table digital ordering, kitchen printing, and billing defaults
-                </p>
-              </div>
+          {currentView === "settings" && <StoreSettingsView initialName={restaurantName} />}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">
-                      Customer QR Digital Ordering
-                    </span>
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Allows guests to scan table QR code to browse live menu and send orders.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">
-                      Kitchen KDS Auto-Routing
-                    </span>
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Automatically routes placed orders directly to kitchen station display.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">
-                      Thermal Printer Direct Dispatch
-                    </span>
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Automatically print 80mm KOT slips upon captain order approval.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">
-                      Persistent Sound Chime on New Order
-                    </span>
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Plays audio chime in Kitchen & Floor workspace on new orders and call bell.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* ======================================================== */}
+          {/* VIEW: AI COPILOT & OCR HUB */}
+          {/* ======================================================== */}
+          {currentView === "ai_studio" && <AiStudioView />}
         </main>
       </div>
 
@@ -1912,30 +2140,23 @@ export default function AdminPage() {
 
           {/* Category & Price */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="font-semibold text-slate-700">
-                  Category *
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setInlineCategoryMode(!inlineCategoryMode)}
-                  className="text-[10px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer flex items-center gap-1"
-                >
-                  <i
-                    className={`fa-solid ${
-                      inlineCategoryMode ? "fa-xmark" : "fa-plus"
-                    }`}
-                  />
-                  <span>{inlineCategoryMode ? "Cancel" : "+ New"}</span>
-                </button>
-              </div>
-
-              {inlineCategoryMode && (
-                <div className="flex items-center gap-1.5 mb-2 p-1.5 bg-purple-50/70 border border-purple-200 rounded-xl animate-in fade-in duration-150">
+            {/* If inline category mode is active, show full-width row */}
+            {inlineCategoryMode && (
+              <div className="col-span-2 p-2.5 bg-purple-50/90 border border-purple-200 rounded-xl space-y-1.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between text-[11px] font-bold text-purple-900">
+                  <span>Create New Menu Category</span>
+                  <button
+                    type="button"
+                    onClick={() => setInlineCategoryMode(false)}
+                    className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-xmark" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="New category name..."
+                    placeholder="e.g. Starters, Main Course, Breads..."
                     value={inlineCategoryName}
                     onChange={(e) => setInlineCategoryName(e.target.value)}
                     onKeyDown={(e) => {
@@ -1944,19 +2165,37 @@ export default function AdminPage() {
                         handleQuickCreateInlineCategory();
                       }
                     }}
-                    className="flex-1 px-2.5 py-1 bg-white border border-purple-200 rounded-lg text-xs focus:outline-none focus:border-purple-500"
+                    className="flex-1 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs focus:outline-none focus:border-purple-500 shadow-xs"
                     autoFocus
                   />
                   <button
                     type="button"
                     onClick={handleQuickCreateInlineCategory}
                     disabled={!inlineCategoryName.trim()}
-                    className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shrink-0 shadow-xs"
                   >
-                    Add
+                    Save Category
                   </button>
                 </div>
-              )}
+              </div>
+            )}
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-semibold text-slate-700">
+                  Category *
+                </label>
+                {!inlineCategoryMode && (
+                  <button
+                    type="button"
+                    onClick={() => setInlineCategoryMode(true)}
+                    className="text-[10px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer flex items-center gap-1"
+                  >
+                    <i className="fa-solid fa-plus" />
+                    <span>New</span>
+                  </button>
+                )}
+              </div>
 
               <select
                 value={dishCategory}
@@ -2036,7 +2275,7 @@ export default function AdminPage() {
           </div>
 
           {/* FULL / HALF PORTION OPTION */}
-          <div className="border border-slate-200 bg-slate-50/80 rounded-xl p-3.5 space-y-2.5">
+          <div className="border border-slate-200 bg-slate-50/80 rounded-xl p-3.5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs">
@@ -2044,7 +2283,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <span className="font-bold text-slate-800 text-xs block">
-                    Offer Half Portion (Full & Half Sizing)
+                    Offer Half Portion (Full &amp; Half Sizing)
                   </span>
                   <span className="text-[11px] text-slate-500 block">
                     Allow diners to order Half or Full portion on QR menu
@@ -2067,23 +2306,108 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {dishHasHalf ? (
-              <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            {dishHasHalf && (
+              <div className="pt-3 border-t border-slate-200 space-y-3 animate-in fade-in">
+                {/* Mode Selector: Percentage vs Custom Fixed Price */}
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-600 font-medium">Pricing Preview:</span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-800 font-bold font-mono text-xs shadow-xs">
-                    <span>Half: ₹{Math.round(Number(dishPrice || 0) * 0.6 || 0)}</span>
-                    <span className="text-slate-300">|</span>
-                    <span>Full: ₹{dishPrice || 0}</span>
+                  <span className="text-[11px] font-bold text-slate-600">Pricing Mode:</span>
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setHalfPricingMode("percentage")}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                        halfPricingMode === "percentage"
+                          ? "bg-purple-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Percentage (%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHalfPricingMode("fixed");
+                        if (!dishHalfPrice) {
+                          setDishHalfPrice(String(Math.round((Number(dishPrice) || 0) * 0.6)));
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                        halfPricingMode === "fixed"
+                          ? "bg-purple-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Custom Fixed Price (₹)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Percentage Mode Controls */}
+                {halfPricingMode === "percentage" ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[50, 60, 65, 70].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setHalfPercentage(pct)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          halfPercentage === pct
+                            ? "bg-purple-700 text-white shadow-xs"
+                            : "bg-white border border-slate-200 text-slate-700 hover:border-purple-300"
+                        }`}
+                      >
+                        {pct}% {pct === 60 ? "(Standard)" : ""}
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1 ml-2">
+                      <input
+                        type="number"
+                        min="20"
+                        max="90"
+                        value={halfPercentage}
+                        onChange={(e) => setHalfPercentage(Number(e.target.value) || 60)}
+                        className="w-14 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold text-center"
+                      />
+                      <span className="text-slate-500 font-bold">%</span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Custom Fixed Price Input */
+                  <div className="flex items-center gap-2 max-w-xs">
+                    <span className="text-xs font-bold text-slate-700">Half Portion Price:</span>
+                    <div className="relative flex-1">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 170"
+                        value={dishHalfPrice}
+                        onChange={(e) => setDishHalfPrice(e.target.value)}
+                        className="w-full pl-6 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Preview Pill */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/80">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 font-medium">Pricing Preview:</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-800 font-bold font-mono text-xs shadow-xs">
+                      <span>
+                        Half: ₹
+                        {halfPricingMode === "percentage"
+                          ? Math.round((Number(dishPrice) || 0) * (halfPercentage / 100))
+                          : Number(dishHalfPrice) || 0}
+                      </span>
+                      <span className="text-slate-300">|</span>
+                      <span>Full: ₹{dishPrice || 0}</span>
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
+                    <i className="fa-solid fa-check text-[9px]" /> Full &amp; Half Active
                   </span>
                 </div>
-                <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
-                  <i className="fa-solid fa-check text-[9px]" /> Half (60%) & Full Active
-                </span>
-              </div>
-            ) : (
-              <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-400">
-                Full portion only will be available on the customer menu.
               </div>
             )}
           </div>
@@ -2363,6 +2687,100 @@ export default function AdminPage() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 font-mono tracking-widest text-center"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">
+              Mobile Phone (Optional)
+            </label>
+            <input
+              type="tel"
+              value={newStaffPhone}
+              onChange={(e) => setNewStaffPhone(e.target.value)}
+              placeholder="e.g. 9876543210"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 font-mono"
+            />
+          </div>
+        </div>
+      </AdminModal>
+
+      {/* ======================================================== */}
+      {/* MODAL: EDIT STAFF MEMBER & CHANGE PIN */}
+      {/* ======================================================== */}
+      <AdminModal
+        isOpen={isEditStaffOpen}
+        onClose={() => {
+          setIsEditStaffOpen(false);
+          setEditingStaff(null);
+        }}
+        title="Edit Staff Member & PIN"
+        subtitle={`Update details and 4-digit fast login PIN for ${editingStaff?.name || "Staff Member"}.`}
+        icon="fa-user-pen"
+        confirmText={isSavingStaff ? "Saving..." : "Update Staff"}
+        isConfirmLoading={isSavingStaff}
+        onConfirm={handleSaveEditStaff}
+      >
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">
+              Staff Full Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={editStaffName}
+              onChange={(e) => setEditStaffName(e.target.value)}
+              placeholder="e.g. Ramesh Kumar"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 text-sm font-semibold"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Role *
+              </label>
+              <select
+                value={editStaffRole}
+                onChange={(e) => setEditStaffRole(e.target.value as any)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 bg-white"
+              >
+                <option value="waiter">Waiter (Floor Service)</option>
+                <option value="kitchen">Kitchen Master (Chef)</option>
+                <option value="captain">Captain (Floor Supervisor)</option>
+                <option value="manager">Manager</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Change 4-Digit PIN
+              </label>
+              <input
+                type="password"
+                maxLength={4}
+                value={editStaffPin}
+                onChange={(e) => setEditStaffPin(e.target.value)}
+                placeholder="Leave blank to keep"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 font-mono tracking-widest text-center"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Type 4 digits to reset PIN
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">
+              Mobile Phone
+            </label>
+            <input
+              type="tel"
+              value={editStaffPhone}
+              onChange={(e) => setEditStaffPhone(e.target.value)}
+              placeholder="e.g. 9876543210"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 font-mono"
+            />
           </div>
         </div>
       </AdminModal>

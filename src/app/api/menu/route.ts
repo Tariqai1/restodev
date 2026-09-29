@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
-import { getDishSpecialTag, setDishSpecialTag, getRestaurantFeatures, getDishHalfPortion, setDishHalfPortion } from "@/lib/platform/state";
+import {
+  getDishSpecialTag,
+  setDishSpecialTag,
+  getRestaurantFeatures,
+  getDishHalfPortion,
+  setDishHalfPortion,
+  getDishHalfPrice,
+  setDishHalfPrice,
+} from "@/lib/platform/state";
 
 export async function GET() {
   const supabase = await createClient();
@@ -47,10 +55,15 @@ export async function GET() {
 
   const itemsWithTags = (itemsResult.data ?? []).map((item) => {
     const halfPortionConfig = getDishHalfPortion(item.id);
+    const halfPriceConfig = getDishHalfPrice(item.id);
     return {
       ...item,
       special_tag: getDishSpecialTag(item.id) || (item.is_bestseller ? "Chef's Special" : null),
       has_half_portion: halfPortionConfig !== null ? halfPortionConfig : undefined,
+      half_price:
+        halfPriceConfig !== null
+          ? halfPriceConfig
+          : Math.round(Number(item.price) * 0.6),
     };
   });
 
@@ -82,7 +95,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json().catch(() => ({}));
-  const { categoryId, name, description, price, costPrice, isVeg, isBestseller, photoUrl, hasHalfPortion } = body;
+  const { categoryId, name, description, price, costPrice, isVeg, isBestseller, photoUrl, hasHalfPortion, halfPrice } = body;
 
   if (!name || price === undefined) {
     return NextResponse.json({ message: "Name and Price are required" }, { status: 400 });
@@ -118,6 +131,10 @@ export async function POST(request: Request) {
     setDishHalfPortion(newItem.id, Boolean(hasHalfPortion));
   }
 
+  if (halfPrice !== undefined) {
+    setDishHalfPrice(newItem.id, Number(halfPrice));
+  }
+
   return NextResponse.json(
     {
       ok: true,
@@ -125,6 +142,7 @@ export async function POST(request: Request) {
         ...newItem,
         special_tag: specialTagVal,
         has_half_portion: hasHalfPortion !== undefined ? Boolean(hasHalfPortion) : undefined,
+        half_price: halfPrice !== undefined ? Number(halfPrice) : Math.round(Number(newItem.price) * 0.6),
       },
     },
     { status: 201 }
@@ -148,7 +166,7 @@ export async function PATCH(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json().catch(() => ({}));
-  const { itemId, name, description, categoryId, price, costPrice, isVeg, isBestseller, isAvailable, photoUrl, specialTag, hasHalfPortion } = body;
+  const { itemId, name, description, categoryId, price, costPrice, isVeg, isBestseller, isAvailable, photoUrl, specialTag, hasHalfPortion, halfPrice } = body;
 
   if (!itemId) {
     return NextResponse.json({ message: "itemId is required" }, { status: 400 });
@@ -189,10 +207,15 @@ export async function PATCH(request: Request) {
     setDishHalfPortion(itemId, Boolean(hasHalfPortion));
   }
 
+  if (halfPrice !== undefined) {
+    setDishHalfPrice(itemId, Number(halfPrice));
+  }
+
   const finalTag = specialTag !== undefined ? specialTag : (getDishSpecialTag(updated.id) || (updated.is_bestseller ? "Chef's Special" : null));
   const finalHalf = hasHalfPortion !== undefined ? Boolean(hasHalfPortion) : (getDishHalfPortion(itemId) ?? undefined);
+  const finalHalfPrice = halfPrice !== undefined ? Number(halfPrice) : (getDishHalfPrice(itemId) ?? Math.round(Number(updated.price) * 0.6));
 
-  return NextResponse.json({ ok: true, item: { ...updated, special_tag: finalTag, has_half_portion: finalHalf } });
+  return NextResponse.json({ ok: true, item: { ...updated, special_tag: finalTag, has_half_portion: finalHalf, half_price: finalHalfPrice } });
 }
 
 export async function DELETE(request: Request) {
