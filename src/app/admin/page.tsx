@@ -9,6 +9,11 @@ import AdminBadge, { BadgeVariant } from "@/components/admin/ui/AdminBadge";
 import AdminButton from "@/components/admin/ui/AdminButton";
 import AdminModal from "@/components/admin/ui/AdminModal";
 import AdminTableFilters from "@/components/admin/ui/AdminTableFilters";
+import dynamic from "next/dynamic";
+
+const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), {
+  ssr: false,
+});
 
 interface MenuItem {
   id: string;
@@ -284,7 +289,6 @@ export default function AdminPage() {
     menu_items: { title: "Dishes & Modifiers", breadcrumb: ["Admin", "Catalog", "Dishes"] },
     menu_categories: { title: "Menu Categories", breadcrumb: ["Admin", "Catalog", "Categories"] },
     stockout: { title: "86 / Stock Out List", breadcrumb: ["Admin", "Catalog", "Stock Out"] },
-    menu_ocr: { title: "AI Menu Digitizer", breadcrumb: ["Admin", "Catalog", "AI Digitizer"] },
     staff: { title: "Staff Roster", breadcrumb: ["Admin", "Staff", "Roster"] },
     roles: { title: "Roles & Permissions", breadcrumb: ["Admin", "Staff", "Roles"] },
     activity: { title: "Audit & Activity Logs", breadcrumb: ["Admin", "Staff", "Activity"] },
@@ -295,7 +299,6 @@ export default function AdminPage() {
     taxes: { title: "Taxes & Financial Year", breadcrumb: ["Admin", "Finance", "Taxes"] },
     qr_studio: { title: "Table QR Studio", breadcrumb: ["Admin", "Configuration", "QR Studio"] },
     hardware: { title: "Hardware & Printers", breadcrumb: ["Admin", "Configuration", "Hardware"] },
-    ai_config: { title: "AI Feature Controls", breadcrumb: ["Admin", "Configuration", "AI Settings"] },
     settings: { title: "Administration & Store", breadcrumb: ["Admin", "Configuration", "Settings"] },
   };
 
@@ -331,6 +334,7 @@ export default function AdminPage() {
           activeTablesCount={activeTablesCount}
           totalTablesCount={tables.length}
           onQuickAction={() => setIsAddDishOpen(true)}
+          onSelectView={setCurrentView}
         />
 
         {/* View Canvas Container */}
@@ -1070,18 +1074,16 @@ export default function AdminPage() {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW: AI & SYSTEM SETTINGS */}
+          {/* VIEW: STORE & SYSTEM SETTINGS */}
           {/* ======================================================== */}
-          {(currentView === "ai_config" ||
-            currentView === "settings" ||
-            currentView === "hardware") && (
+          {(currentView === "settings" || currentView === "hardware") && (
             <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-6">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  AI & Smart Operations Configuration
+                  Store & Operations Settings
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Control real-time AI automation models and hardware integration
+                  Configure table digital ordering, kitchen printing, and billing defaults
                 </p>
               </div>
 
@@ -1089,7 +1091,7 @@ export default function AdminPage() {
                 <div className="p-4 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-800">
-                      Smart AI Concierge
+                      Customer QR Digital Ordering
                     </span>
                     <input
                       type="checkbox"
@@ -1098,14 +1100,14 @@ export default function AdminPage() {
                     />
                   </div>
                   <p className="text-xs text-slate-500">
-                    Allows guests on table QR to query dishes and get dietary suggestions.
+                    Allows guests to scan table QR code to browse live menu and send orders.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-800">
-                      Dynamic Prep Time Estimator
+                      Kitchen KDS Auto-Routing
                     </span>
                     <input
                       type="checkbox"
@@ -1114,7 +1116,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <p className="text-xs text-slate-500">
-                    Predicts cooking duration based on kitchen rush and item complexity.
+                    Automatically routes placed orders directly to kitchen station display.
                   </p>
                 </div>
 
@@ -1137,7 +1139,7 @@ export default function AdminPage() {
                 <div className="p-4 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-800">
-                      Persistent Alarm Sound on New Order
+                      Persistent Sound Chime on New Order
                     </span>
                     <input
                       type="checkbox"
@@ -1146,7 +1148,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <p className="text-xs text-slate-500">
-                    Rings loud buzzer in Kitchen & Floor workspace until acknowledged.
+                    Plays audio chime in Kitchen & Floor workspace on new orders and call bell.
                   </p>
                 </div>
               </div>
@@ -1330,41 +1332,19 @@ export default function AdminPage() {
       </AdminModal>
 
       {/* ======================================================== */}
-      {/* MODAL: TABLE QR CODE VIEWER / PRINT */}
+      {/* REAL LUXURY TABLE QR CODE MODAL */}
       {/* ======================================================== */}
-      <AdminModal
+      <ShareMenuModal
         isOpen={!!selectedQRTable}
         onClose={() => setSelectedQRTable(null)}
-        title={`Table ${selectedQRTable?.table_number || ""} QR Code`}
-        subtitle="Guests scan this QR code to browse digital menu and order."
-        icon="fa-qrcode"
-        confirmText="Print QR Card"
-        onConfirm={() => {
-          if (typeof window !== "undefined") window.print();
-        }}
-      >
-        {selectedQRTable && (
-          <div className="text-center py-4 space-y-4">
-            <div className="inline-block p-4 bg-white border-2 border-slate-900 rounded-2xl shadow-md">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                  typeof window !== "undefined"
-                    ? `${window.location.origin}/table/${selectedQRTable.qr_token}`
-                    : ""
-                )}`}
-                alt="Table QR Code"
-                className="w-44 h-44 mx-auto"
-              />
-              <span className="block mt-2 font-bold text-sm tracking-wider uppercase text-slate-900">
-                Table {selectedQRTable.table_number}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 max-w-xs mx-auto">
-              Direct live kitchen order connection. No customer app installation required.
-            </p>
-          </div>
-        )}
-      </AdminModal>
+        restaurantName={restaurantName || "Order Desk"}
+        tables={tables.map((t) => ({
+          id: t.id,
+          table_number: t.table_number,
+          qr_token: t.qr_token || "",
+        }))}
+        defaultTableId={selectedQRTable?.id}
+      />
     </div>
   );
 }

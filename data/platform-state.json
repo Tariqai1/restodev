@@ -9,7 +9,17 @@
     "createdAt": "2026-09-13T04:53:00.908Z",
     "updatedAt": "2026-09-14T18:46:54.542Z"
   },
-  "activities": [],
+  "activities": [
+    {
+      "action": "IMPERSONATE",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "targetName": "Tauheed Resto",
+      "details": "Started Ghost Mode Impersonation of \"Tauheed Resto\" (tauheed@gmail.com)",
+      "id": "act-mumyovca-76vo",
+      "createdAt": "2026-09-29T17:40:03.370Z"
+    }
+  ],
   "archivedRestaurants": {},
   "staffPermissions": {},
   "waiterCalls": [],

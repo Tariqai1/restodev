@@ -14,7 +14,6 @@ export type AdminViewType =
   | "menu_items"
   | "menu_categories"
   | "stockout"
-  | "menu_ocr"
   | "staff"
   | "roles"
   | "activity"
@@ -25,7 +24,6 @@ export type AdminViewType =
   | "taxes"
   | "qr_studio"
   | "hardware"
-  | "ai_config"
   | "settings";
 
 interface NavSubItem {
@@ -48,32 +46,17 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Analytics",
-    items: [
-      {
-        id: "analytics_grp",
-        label: "Insights & Reports",
-        icon: "fa-chart-pie",
-        subItems: [
-          { id: "dashboard", label: "Executive Dashboard", icon: "fa-gauge-high" },
-          { id: "reports", label: "Sales & Tax Reports", icon: "fa-file-lines" },
-          { id: "analytics", label: "Dish Performance", icon: "fa-arrow-trend-up" },
-        ],
-      },
-    ],
-  },
-  {
-    title: "Floor & Live Operations",
+    title: "Operations & Floor",
     items: [
       {
         id: "operations_grp",
-        label: "Bookings & Service",
-        icon: "fa-bell-concierge",
+        label: "Live Floor & KDS",
+        icon: "fa-table-cells",
         subItems: [
-          { id: "floor", label: "Live Floor Plan", icon: "fa-table-cells" },
+          { id: "dashboard", label: "Overview & Metrics", icon: "fa-chart-pie" },
+          { id: "floor", label: "Tables & Live Floor", icon: "fa-table-cells" },
           { id: "kitchen", label: "Kitchen KDS", icon: "fa-fire-burner" },
-          { id: "orders", label: "Dine-In & Orders", icon: "fa-receipt" },
-          { id: "approvals", label: "Captain Approvals", icon: "fa-shield-halved" },
+          { id: "orders", label: "Live Dine-In Orders", icon: "fa-receipt" },
         ],
       },
     ],
@@ -86,10 +69,9 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Menu Management",
         icon: "fa-utensils",
         subItems: [
-          { id: "menu_items", label: "Dishes & Modifiers", icon: "fa-bowl-food" },
+          { id: "menu_items", label: "Dishes & Items", icon: "fa-bowl-food" },
           { id: "menu_categories", label: "Categories", icon: "fa-layer-group" },
           { id: "stockout", label: "86 / Stock Out List", icon: "fa-ban" },
-          { id: "menu_ocr", label: "AI Menu Digitizer", icon: "fa-wand-magic-sparkles" },
         ],
       },
     ],
@@ -102,23 +84,9 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Team & Permissions",
         icon: "fa-users-gear",
         subItems: [
-          { id: "staff", label: "Staff Roster", icon: "fa-user-tag" },
-          { id: "roles", label: "Roles & Access", icon: "fa-lock" },
+          { id: "staff", label: "Staff Roster & PINs", icon: "fa-user-tag" },
+          { id: "roles", label: "Roles & Access", icon: "fa-shield-halved" },
           { id: "activity", label: "Audit & Activity", icon: "fa-clock-rotate-left" },
-        ],
-      },
-    ],
-  },
-  {
-    title: "Customers & CRM",
-    items: [
-      {
-        id: "crm_grp",
-        label: "Guest Relations",
-        icon: "fa-user-group",
-        subItems: [
-          { id: "customers", label: "Customer Directory", icon: "fa-address-book" },
-          { id: "support", label: "Support & Cases", icon: "fa-headset" },
         ],
       },
     ],
@@ -139,17 +107,16 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: "Configuration & Controls",
+    title: "Configuration & Setup",
     items: [
       {
         id: "config_grp",
-        label: "System Controls",
+        label: "Store Configuration",
         icon: "fa-gears",
         subItems: [
           { id: "qr_studio", label: "Table QR Studio", icon: "fa-qrcode" },
           { id: "hardware", label: "Hardware & Printers", icon: "fa-print" },
-          { id: "ai_config", label: "AI Feature Controls", icon: "fa-microchip" },
-          { id: "settings", label: "Administration & Store", icon: "fa-sliders" },
+          { id: "settings", label: "Store Settings", icon: "fa-sliders" },
         ],
       },
     ],
@@ -177,11 +144,11 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   // Track open accordion groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    analytics_grp: true,
     operations_grp: true,
     catalog_grp: true,
     staff_grp: true,
     finance_grp: true,
+    config_grp: false,
   });
 
   const toggleGroup = (groupId: string) => {
@@ -370,15 +337,26 @@ export default function AdminSidebar({
 
         {/* Quick Floor Terminal Shortcut */}
         <div className="p-3 border-t border-slate-100 shrink-0">
-          <Link
-            href="/"
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-purple-700 hover:bg-purple-50 transition-colors ${
-              isCollapsed ? "justify-center px-0" : ""
-            }`}
+          <button
+            type="button"
+            onClick={() => {
+              onSelectView("floor");
+              onMobileClose();
+            }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+              currentView === "floor"
+                ? "bg-purple-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-purple-700 hover:bg-purple-50"
+            } ${isCollapsed ? "justify-center px-0" : ""}`}
+            title="Live Floor & Tables"
           >
-            <i className="fa-solid fa-display text-sm text-slate-400" />
-            {!isCollapsed && <span>Floor Workspace</span>}
-          </Link>
+            <i
+              className={`fa-solid fa-table-cells text-sm ${
+                currentView === "floor" ? "text-white" : "text-purple-600"
+              }`}
+            />
+            {!isCollapsed && <span>Live Floor & Tables</span>}
+          </button>
         </div>
       </aside>
     </>

@@ -16,6 +16,7 @@ interface AdminHeaderProps {
   activeTablesCount?: number;
   totalTablesCount?: number;
   onQuickAction?: () => void;
+  onSelectView?: (view: any) => void;
 }
 
 export default function AdminHeader({
@@ -28,6 +29,7 @@ export default function AdminHeader({
   activeTablesCount = 0,
   totalTablesCount = 0,
   onQuickAction,
+  onSelectView,
 }: AdminHeaderProps) {
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -102,13 +104,16 @@ export default function AdminHeader({
         </div>
 
         {/* Floor Workspace Quick Switch */}
-        <Link
-          href="/"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:text-purple-600 hover:border-purple-300 transition-colors shadow-2xs"
-        >
-          <i className="fa-solid fa-kitchen-set text-xs text-purple-600" />
-          <span>Floor View</span>
-        </Link>
+        {onSelectView && (
+          <button
+            type="button"
+            onClick={() => onSelectView("floor")}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:text-purple-600 hover:border-purple-300 transition-colors shadow-2xs cursor-pointer"
+          >
+            <i className="fa-solid fa-table-cells text-xs text-purple-600" />
+            <span>Floor View</span>
+          </button>
+        )}
 
         {/* Quick Action Button */}
         {onQuickAction && (
@@ -207,14 +212,17 @@ export default function AdminHeader({
                   </p>
                 </div>
 
-                <Link
-                  href="/"
-                  className="w-full px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                  onClick={() => setShowProfileMenu(false)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectView?.("floor");
+                    setShowProfileMenu(false);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer text-left"
                 >
                   <i className="fa-solid fa-table-cells text-slate-400 text-xs" />
                   <span>Floor View</span>
-                </Link>
+                </button>
 
                 <Link
                   href="/kitchen"
