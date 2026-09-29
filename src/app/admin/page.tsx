@@ -87,6 +87,12 @@ interface MenuItem {
   special_tag?: string;
 }
 
+interface CategoryRecord {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
 interface TableRecord {
   id: string;
   table_number: string;
@@ -166,7 +172,15 @@ export default function AdminPage() {
   const [uploadError, setUploadError] = useState("");
   const [customImageUrl, setCustomImageUrl] = useState("");
   const [isSavingDish, setIsSavingDish] = useState(false);
-  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([]);
+  const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>([]);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CategoryRecord | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryOrder, setNewCategoryOrder] = useState("0");
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [inlineCategoryMode, setInlineCategoryMode] = useState(false);
+  const [inlineCategoryName, setInlineCategoryName] = useState("");
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
 
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
@@ -232,8 +246,12 @@ export default function AdminPage() {
       const menuRes = await fetch("/api/menu");
       if (menuRes.ok) {
         const menuData = await menuRes.json();
-        const catsList: { id: string; name: string }[] = Array.isArray(menuData.categories)
-          ? menuData.categories.map((c: any) => ({ id: c.id, name: c.name }))
+        const catsList: CategoryRecord[] = Array.isArray(menuData.categories)
+          ? menuData.categories.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              sort_order: c.sort_order ?? 0,
+            }))
           : [];
         setCategoriesList(catsList);
         if (Array.isArray(menuData.categories)) {
@@ -612,6 +630,121 @@ export default function AdminPage() {
       });
     } catch (err) {
       console.warn("Failed to sync stock on server:", err);
+    }
+  };
+
+  // Category Actions
+  const handleSaveCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setIsSavingCategory(true);
+    try {
+      if (editingCategory) {
+        const res = await fetch("/api/menu/categories", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            categoryId: editingCategory.id,
+            name,
+            sortOrder: Number(newCategoryOrder) || 0,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const updated = data.category;
+          setCategoriesList((prev) =>
+            prev.map((c) =>
+              c.id === editingCategory.id
+                ? {
+                    ...c,
+                    name: updated?.name || name,
+                    sort_order: updated?.sort_order ?? Number(newCategoryOrder),
+                  }
+                : c
+            )
+          );
+          setCategories((prev) =>
+            prev.map((c) => (c === editingCategory.name ? name : c))
+          );
+        }
+      } else {
+        const res = await fetch("/api/menu/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            sortOrder: Number(newCategoryOrder) || categoriesList.length + 1,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const created = data.category;
+          const newRec: CategoryRecord = {
+            id: created?.id || `cat-${Date.now()}`,
+            name: created?.name || name,
+            sort_order: created?.sort_order ?? categoriesList.length + 1,
+          };
+          setCategoriesList((prev) => [...prev, newRec]);
+          setCategories((prev) => [...prev, name]);
+        }
+      }
+      setIsAddCategoryOpen(false);
+      setEditingCategory(null);
+      setNewCategoryName("");
+      setNewCategoryOrder("0");
+    } catch (err) {
+      console.error("Failed to save category:", err);
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string, catName: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete category "${catName}"? Dishes in this category will become uncategorized.`
+      )
+    )
+      return;
+    setCategoriesList((prev) => prev.filter((c) => c.id !== catId));
+    setCategories((prev) => prev.filter((c) => c !== catName));
+    try {
+      await fetch(`/api/menu/categories?id=${catId}`, { method: "DELETE" });
+    } catch (err) {
+      console.warn("Failed to delete category on server:", err);
+    }
+  };
+
+  const handleQuickCreateInlineCategory = async () => {
+    const name = inlineCategoryName.trim();
+    if (!name) return;
+    try {
+      const res = await fetch("/api/menu/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          sortOrder: categoriesList.length + 1,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const created = data.category;
+        const newRec: CategoryRecord = {
+          id: created?.id || `cat-${Date.now()}`,
+          name: created?.name || name,
+          sort_order: created?.sort_order ?? categoriesList.length + 1,
+        };
+        setCategoriesList((prev) => [...prev, newRec]);
+        setCategories((prev) => [...prev, name]);
+      } else {
+        setCategories((prev) => [...prev, name]);
+      }
+      setDishCategory(name);
+      setInlineCategoryName("");
+      setInlineCategoryMode(false);
+    } catch (err) {
+      console.error("Failed to quick create inline category:", err);
     }
   };
 
@@ -1075,6 +1208,104 @@ export default function AdminPage() {
                     icon: "fa-trash",
                     variant: "danger",
                     onClick: () => handleDeleteDish(r.id),
+                  },
+                ]}
+              />
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW: MENU CATEGORIES */}
+          {/* ======================================================== */}
+          {currentView === "menu_categories" && (
+            <div className="space-y-4">
+              <AdminTableFilters
+                searchQuery={categorySearchQuery}
+                onSearchChange={setCategorySearchQuery}
+                searchPlaceholder="Search categories by name..."
+                onReset={() => setCategorySearchQuery("")}
+                primaryActionLabel="Add Category"
+                onPrimaryAction={() => {
+                  setEditingCategory(null);
+                  setNewCategoryName("");
+                  setNewCategoryOrder(String(categoriesList.length + 1));
+                  setIsAddCategoryOpen(true);
+                }}
+              />
+
+              <AdminDataTable<CategoryRecord>
+                selectable
+                columns={[
+                  {
+                    key: "name",
+                    header: "Category Name",
+                    sortable: true,
+                    render: (r) => (
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 flex items-center justify-center shrink-0">
+                          <i className="fa-solid fa-layer-group text-sm" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-900 block text-sm">
+                            {r.name}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            ID: #{r.id.slice(0, 8)}
+                          </span>
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "sort_order",
+                    header: "Assigned Dishes",
+                    align: "center",
+                    render: (r) => {
+                      const count = menuItems.filter(
+                        (m) => m.category === r.name || m.category_id === r.id
+                      ).length;
+                      return (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                          <i className="fa-solid fa-bowl-food text-[10px]" />
+                          <span>
+                            {count} {count === 1 ? "Dish" : "Dishes"}
+                          </span>
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "sort_order",
+                    header: "Display Order",
+                    align: "center",
+                    sortable: true,
+                    render: (r) => (
+                      <span className="font-mono font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-xs">
+                        #{r.sort_order}
+                      </span>
+                    ),
+                  },
+                ]}
+                data={categoriesList.filter((c) =>
+                  c.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+                )}
+                isLoading={isLoading}
+                rowActions={(r) => [
+                  {
+                    label: "Edit Category",
+                    icon: "fa-pen-to-square",
+                    onClick: () => {
+                      setEditingCategory(r);
+                      setNewCategoryName(r.name);
+                      setNewCategoryOrder(String(r.sort_order));
+                      setIsAddCategoryOpen(true);
+                    },
+                  },
+                  {
+                    label: "Delete",
+                    icon: "fa-trash",
+                    variant: "danger",
+                    onClick: () => handleDeleteCategory(r.id, r.name),
                   },
                 ]}
               />
@@ -1682,9 +1913,51 @@ export default function AdminPage() {
           {/* Category & Price */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Category *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-semibold text-slate-700">
+                  Category *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setInlineCategoryMode(!inlineCategoryMode)}
+                  className="text-[10px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer flex items-center gap-1"
+                >
+                  <i
+                    className={`fa-solid ${
+                      inlineCategoryMode ? "fa-xmark" : "fa-plus"
+                    }`}
+                  />
+                  <span>{inlineCategoryMode ? "Cancel" : "+ New"}</span>
+                </button>
+              </div>
+
+              {inlineCategoryMode && (
+                <div className="flex items-center gap-1.5 mb-2 p-1.5 bg-purple-50/70 border border-purple-200 rounded-xl animate-in fade-in duration-150">
+                  <input
+                    type="text"
+                    placeholder="New category name..."
+                    value={inlineCategoryName}
+                    onChange={(e) => setInlineCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleQuickCreateInlineCategory();
+                      }
+                    }}
+                    className="flex-1 px-2.5 py-1 bg-white border border-purple-200 rounded-lg text-xs focus:outline-none focus:border-purple-500"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleQuickCreateInlineCategory}
+                    disabled={!inlineCategoryName.trim()}
+                    className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
+
               <select
                 value={dishCategory}
                 onChange={(e) => setDishCategory(e.target.value)}
@@ -1968,6 +2241,67 @@ export default function AdminPage() {
               placeholder="Fresh cottage cheese simmered in rich tomato butter gravy"
               className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 text-xs"
             />
+          </div>
+        </div>
+      </AdminModal>
+
+      {/* ======================================================== */}
+      {/* MODAL: ADD / EDIT MENU CATEGORY */}
+      {/* ======================================================== */}
+      <AdminModal
+        isOpen={isAddCategoryOpen}
+        onClose={() => {
+          setIsAddCategoryOpen(false);
+          setEditingCategory(null);
+        }}
+        title={editingCategory ? "Edit Category" : "Add Menu Category"}
+        subtitle={
+          editingCategory
+            ? "Update the category name and display order."
+            : "Create a new category for grouping your menu dishes (e.g. Starters, Main Course, Chinese, Beverages)."
+        }
+        icon="fa-layer-group"
+        maxWidth="md"
+        confirmText={
+          isSavingCategory
+            ? "Saving..."
+            : editingCategory
+            ? "Update Category"
+            : "Create Category"
+        }
+        isConfirmLoading={isSavingCategory}
+        onConfirm={handleSaveCategory}
+      >
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">
+              Category Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="e.g. Tandoori Special, Chinese, Mocktails"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 text-sm"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">
+              Display Sort Order
+            </label>
+            <input
+              type="number"
+              value={newCategoryOrder}
+              onChange={(e) => setNewCategoryOrder(e.target.value)}
+              placeholder="1"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 font-mono text-sm"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Lower numbers appear first on customer QR table menu.
+            </p>
           </div>
         </div>
       </AdminModal>
