@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { MenuItem, PortionType, CartMap } from "./TableTypes";
-import { triggerHaptic } from "./tableUtils";
+import { triggerHaptic, getFoodEmoji } from "./tableUtils";
 
 interface TableAiWaiterModalProps {
   isOpen: boolean;
@@ -14,27 +14,19 @@ interface TableAiWaiterModalProps {
   onRemoveFromCart?: (dishId: string, portion: PortionType) => void;
 }
 
-interface QuickPrompt {
+interface ChatMessage {
   id: string;
-  icon: string;
-  label: string;
-  query: string;
+  sender: "ai" | "user";
+  text: string;
+  dishes?: MenuItem[];
+  quickSuggestions?: string[];
+  time: string;
 }
 
-const QUICK_PROMPTS: QuickPrompt[] = [
-  { id: "spicy_veg", icon: "🌶️", label: "Spicy veg <₹200", query: "Kuch spicy veg batao under ₹200" },
-  { id: "family_starters", icon: "👨‍👩‍👧", label: "Family starters", query: "Best starters for family" },
-  { id: "naan_mains", icon: "🫓", label: "Mains with Naan", query: "Popular mains with Garlic Naan" },
-  { id: "light_meal", icon: "🥗", label: "Light meal <₹300", query: "Light meal under ₹300" },
-  { id: "chef_top", icon: "⭐", label: "Chef specials", query: "Restaurant ke top bestsellers aur chef specials batao" },
-  { id: "sweet_drinks", icon: "🍨", label: "Desserts & coolers", query: "Best desserts aur cool beverages recommend karo" },
-];
-
-const SEARCH_ANIMATION_STEPS = [
-  "Scanning fresh kitchen menu...",
-  "Matching flavours & budget...",
-  "Plating chef's best picks...",
-];
+function formatCurrentTime(): string {
+  const d = new Date();
+  return d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+}
 
 export default function TableAiWaiterModal({
   isOpen,
@@ -45,80 +37,59 @@ export default function TableAiWaiterModal({
   onAddToCart,
   onRemoveFromCart,
 }: TableAiWaiterModalProps) {
-  const [query, setQuery] = useState("");
-  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
+  const initialAiMessage: ChatMessage = {
+    id: "msg_welcome",
+    sender: "ai",
+    text: `Welcome to ${restaurantName || "our restaurant"}! 👋\nMain aapka Smart AI Food Assistant hoon. Aaj kya khane ka mood hai? Mujhe apna taste, budget ya group size bataiye!`,
+    quickSuggestions: [
+      "⭐ Top Bestsellers",
+      "🌶️ Spicy starters",
+      "👨‍👩‍👧 Family dinner combo",
+      "🥗 Light meal < ₹250",
+      "🍨 Desserts & Coolers",
+    ],
+    time: formatCurrentTime(),
+  };
+
+  const [messages, setMessages] = useState<ChatMessage[]>([initialAiMessage]);
+  const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
-  const [responseMsg, setResponseMsg] = useState<string>("");
-  const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const [localQtyMap, setLocalQtyMap] = useState<Record<string, number>>({});
 
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const contentBottomRef = useRef<HTMLDivElement | null>(null);
 
-  // Cycle loading step messages during search
+  const searchAnimationSteps = [
+    "Checking fresh kitchen menu...",
+    "Matching chef specialties & spices...",
+    "Selecting delicious recommendations...",
+  ];
+
+  // Auto-scroll chat to latest message
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 120);
+    }
+  }, [messages, loading, isOpen]);
+
+  // Loading animation step cycle
   useEffect(() => {
     if (!loading) {
       setLoadingStep(0);
       return;
     }
     const interval = setInterval(() => {
-      setLoadingStep((prev) => (prev + 1) % SEARCH_ANIMATION_STEPS.length);
+      setLoadingStep((prev) => (prev + 1) % searchAnimationSteps.length);
     }, 1200);
     return () => clearInterval(interval);
   }, [loading]);
 
-  // Auto-scroll to bottom of conversation when response arrives
-  useEffect(() => {
-    if (responseMsg || loading) {
-      setTimeout(() => {
-        contentBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    }
-  }, [responseMsg, loading]);
-
   if (!isOpen) return null;
 
-  const handleAsk = async (textToAsk: string) => {
-    const q = textToAsk.trim();
-    if (!q) return;
-
-    triggerHaptic(10);
-    setActiveQuestion(q);
-    setQuery("");
-    setLoading(true);
-    setResponseMsg("");
-    setRecommendedIds([]);
-
-    try {
-      const res = await fetch("/api/ai/recommend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: q,
-          menuItems,
-          restaurantName,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.ok) {
-        setResponseMsg(data.message || "Yeh rahi hamari best recommendations:");
-        setRecommendedIds(Array.isArray(data.recommendedDishIds) ? data.recommendedDishIds : []);
-      } else {
-        setResponseMsg(
-          data.message ||
-            "Maaf kijiye, abhi recommend nahi kar pa rahe. Kripya niche diye options mein se dekhein."
-        );
-      }
-    } catch {
-      setResponseMsg("Network thoda slow hai. Kripya thodi der baad dobara poochhein.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get current quantity in cart for a dish
+  // Real-time cart quantity for a dish
   const getDishQty = (dishId: string): number => {
     if (cart) {
       const fullQty = cart[`${dishId}__full`]?.qty || 0;
@@ -152,7 +123,103 @@ export default function TableAiWaiterModal({
     });
   };
 
-  const recommendedDishes = menuItems.filter((it) => recommendedIds.includes(it.id));
+  const handleSend = async (queryToSend: string) => {
+    const q = queryToSend.trim();
+    if (!q || loading) return;
+
+    triggerHaptic(10);
+    const userMsg: ChatMessage = {
+      id: `msg_user_${Date.now()}`,
+      sender: "user",
+      text: q,
+      time: formatCurrentTime(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInputText("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/ai/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: q,
+          menuItems,
+          restaurantName,
+        }),
+      });
+
+      const data = await res.json();
+      let matchedDishes: MenuItem[] = [];
+
+      if (data.ok && Array.isArray(data.recommendedDishIds)) {
+        matchedDishes = menuItems.filter((m) =>
+          data.recommendedDishIds.includes(m.id)
+        );
+      }
+
+      // Generate contextual follow-up quick reply suggestions
+      const qLower = q.toLowerCase();
+      let followUps = [
+        "Inke saath best breads ya rice? 🫓",
+        "Kuch meetha bhi dikhao 🍨",
+        "Thode aur options dikhaiye 🍲",
+      ];
+      if (qLower.includes("sweet") || qLower.includes("dessert") || qLower.includes("ice cream")) {
+        followUps = [
+          "Thandi cold coffee ya mojito? 🥤",
+          "Chef's top savoury starters ⭐",
+          "Table bill status kya hai? 🧾",
+        ];
+      } else if (qLower.includes("starter") || qLower.includes("spicy")) {
+        followUps = [
+          "Main course me kya best rahega? 🍛",
+          "Garlic Naan & Butter Roti 🫓",
+          "Kuch refreshing coolers 🥤",
+        ];
+      }
+
+      const aiMsg: ChatMessage = {
+        id: `msg_ai_${Date.now()}`,
+        sender: "ai",
+        text:
+          data.message ||
+          "Aapke taste aur mood ke hisaab se humne ye behtareen dishes chuni hain:",
+        dishes: matchedDishes.length > 0 ? matchedDishes : undefined,
+        quickSuggestions: followUps,
+        time: formatCurrentTime(),
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch {
+      const errorMsg: ChatMessage = {
+        id: `msg_err_${Date.now()}`,
+        sender: "ai",
+        text: "Thoda network issue lag raha hai. Aap dobara poochh sakte hain ya niche diye options select kar sakte hain.",
+        quickSuggestions: [
+          "⭐ Top Bestsellers",
+          "🌶️ Spicy starters",
+          "🍛 Popular Main Course",
+        ],
+        time: formatCurrentTime(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestartChat = () => {
+    triggerHaptic(12);
+    setMessages([
+      {
+        ...initialAiMessage,
+        id: `msg_welcome_${Date.now()}`,
+        time: formatCurrentTime(),
+      },
+    ]);
+  };
 
   return (
     <>
@@ -164,34 +231,27 @@ export default function TableAiWaiterModal({
 
       {/* Slide-up Bottom Sheet Modal */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 w-full max-w-lg mx-auto rounded-t-3xl border-t shadow-2xl flex flex-col max-h-[88vh] animate-in slide-in-from-bottom duration-300 overflow-hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 w-full max-w-lg mx-auto rounded-t-3xl border-t shadow-2xl flex flex-col h-[85vh] max-h-[750px] animate-in slide-in-from-bottom duration-300 overflow-hidden"
         style={{
           backgroundColor: "var(--paper)",
           borderColor: "var(--hairline)",
           color: "var(--ink)",
         }}
       >
-        {/* Grab bar for smooth sheet feeling */}
+        {/* Grab bar */}
         <div className="pt-2 pb-1 flex justify-center shrink-0">
           <div className="w-10 h-1 rounded-full bg-stone-300" />
         </div>
 
-        {/* Compact Header */}
+        {/* Chat Header */}
         <div
-          className="px-4 py-2.5 border-b flex items-center justify-between shrink-0"
+          className="px-4 py-2.5 border-b flex items-center justify-between shrink-0 bg-white/70 backdrop-blur-md"
           style={{ borderColor: "var(--hairline)" }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs shadow-xs font-bold shrink-0 relative overflow-hidden"
-              style={{
-                backgroundColor: "var(--brand-primary)",
-                color: "var(--rust-text)",
-              }}
-            >
-              <i className="fa-solid fa-wand-magic-sparkles text-amber-950" />
-              {/* Subtle shimmer ring */}
-              <span className="absolute inset-0 bg-white/20 animate-pulse" />
+            <div className="relative w-9 h-9 rounded-xl flex items-center justify-center bg-linear-to-br from-amber-400 via-orange-400 to-amber-500 text-stone-950 font-bold shadow-xs shrink-0">
+              <i className="fa-solid fa-wand-magic-sparkles text-sm text-stone-950 animate-ai-sparkle" />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
             </div>
             <div className="min-w-0">
               <h2
@@ -199,320 +259,253 @@ export default function TableAiWaiterModal({
                 style={{ color: "var(--ink)" }}
               >
                 <span>AI Waiter &amp; Recommendation</span>
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[9px] font-extrabold tracking-wider uppercase">
-                  Live
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-extrabold tracking-wider uppercase">
+                  Online
                 </span>
               </h2>
-              <p className="text-[10px] truncate" style={{ color: "var(--ink-soft)" }}>
-                Smart Menu Concierge · {restaurantName || "Our Restaurant"}
+              <p className="text-[10px] truncate text-stone-500">
+                Live Food Concierge · {restaurantName || "Our Restaurant"}
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-xs font-bold text-stone-600 transition-colors cursor-pointer shrink-0"
-            title="Close"
-          >
-            <i className="fa-solid fa-xmark text-xs" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleRestartChat}
+              className="px-2 py-1 rounded-lg text-[10px] font-bold text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors flex items-center gap-1 cursor-pointer"
+              title="Restart conversation"
+            >
+              <i className="fa-solid fa-rotate-right text-[10px]" />
+              <span>Reset</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-xs font-bold text-stone-600 transition-colors cursor-pointer"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        {/* Scrollable Main Conversation Area */}
-        <div className="p-4 overflow-y-auto space-y-3.5 flex-1 min-h-[160px]">
-          {/* STATE 1: Initial Empty / Welcome Greeting (Minimal & Clean) */}
-          {!activeQuestion && !loading && !responseMsg && (
-            <div className="py-4 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 mx-auto flex items-center justify-center text-xl shadow-2xs">
-                <span>👨‍🍳</span>
+        {/* Scrollable Chat Stream */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-stone-50/50">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex flex-col ${
+                msg.sender === "user" ? "items-end" : "items-start"
+              } space-y-1.5 animate-in fade-in duration-200`}
+            >
+              {/* Sender label and time */}
+              <div className="flex items-center gap-1.5 px-1 text-[10px] text-stone-400">
+                {msg.sender === "ai" ? (
+                  <span className="font-bold text-amber-800 flex items-center gap-1">
+                    <span>👨‍🍳</span> AI Captain
+                  </span>
+                ) : (
+                  <span className="font-semibold text-stone-600">You</span>
+                )}
+                <span>•</span>
+                <span>{msg.time}</span>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-xs font-bold text-stone-800">
-                  Namaste! Aaj kya khane ka mood hai?
-                </h3>
-                <p className="text-[11px] text-stone-500 max-w-xs mx-auto leading-relaxed">
-                  Budget, spice level, family ya cravings bataiye — hamara AI Captain best dishes dhoondh dega.
-                </p>
-              </div>
-            </div>
-          )}
 
-          {/* STATE 2: Active User Query Bubble */}
-          {activeQuestion && (
-            <div className="flex justify-end">
+              {/* Message Bubble */}
               <div
-                className="max-w-[85%] px-3.5 py-2 rounded-2xl rounded-tr-xs text-xs font-medium text-white shadow-xs leading-relaxed"
-                style={{ backgroundColor: "var(--brand-primary)" }}
+                className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-2xs ${
+                  msg.sender === "user"
+                    ? "bg-stone-900 text-white rounded-tr-xs"
+                    : "bg-white text-stone-800 border border-stone-200/80 rounded-tl-xs"
+                }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <span>{activeQuestion}</span>
-                </div>
-              </div>
-            </div>
-          )}
+                <p className="whitespace-pre-line font-medium">{msg.text}</p>
 
-          {/* STATE 3: DELIGHTFUL SEARCH ANIMATION */}
-          {loading && (
-            <div className="space-y-3 animate-in fade-in duration-300">
-              {/* Animated Chef Thinking Card */}
-              <div
-                className="p-3.5 rounded-2xl border bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 shadow-2xs space-y-2.5 relative overflow-hidden"
-                style={{ borderColor: "var(--hairline)" }}
-              >
-                {/* Shimmer light sweep animation */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full animate-[shimmer_1.8s_infinite]" />
-
-                <div className="flex items-center gap-2.5 relative z-10">
-                  <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm shadow-xs animate-pulse shrink-0">
-                    <i className="fa-solid fa-utensils text-xs" />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-amber-950">AI Waiter Thinking</span>
-                      {/* 3 Animated Bouncing Dots */}
-                      <span className="inline-flex items-center gap-1 ml-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-bounce [animation-delay:-0.3s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-bounce [animation-delay:-0.15s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-bounce" />
-                      </span>
-                    </div>
-                    {/* Rotating Status Step */}
-                    <p className="text-[11px] font-medium text-amber-800/90 mt-0.5 truncate animate-in fade-in">
-                      {SEARCH_ANIMATION_STEPS[loadingStep]}
+                {/* Attached Interactive Dish Cards */}
+                {msg.dishes && msg.dishes.length > 0 && (
+                  <div className="mt-3 space-y-2 pt-2 border-t border-stone-100">
+                    <p className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+                      <span>✨</span> Recommended Dishes ({msg.dishes.length}):
                     </p>
-                  </div>
-                </div>
-
-                {/* Progress bar wave */}
-                <div className="w-full bg-amber-200/50 h-1 rounded-full overflow-hidden">
-                  <div className="bg-amber-600 h-full rounded-full w-2/3 animate-[pulse_1s_infinite]" />
-                </div>
-              </div>
-
-              {/* Pulsing Dish Card Placeholders */}
-              <div className="space-y-2 opacity-60">
-                <div className="p-3 rounded-xl border border-stone-200 bg-white flex items-center justify-between animate-pulse">
-                  <div className="flex items-center gap-2 flex-1">
-                    <div className="w-3 h-3 rounded-xs bg-stone-300" />
-                    <div className="space-y-1.5 flex-1">
-                      <div className="h-3 bg-stone-300 rounded-sm w-36" />
-                      <div className="h-2 bg-stone-200 rounded-sm w-16" />
-                    </div>
-                  </div>
-                  <div className="w-14 h-7 bg-stone-200 rounded-lg" />
-                </div>
-
-                <div className="p-3 rounded-xl border border-stone-200 bg-white flex items-center justify-between animate-pulse">
-                  <div className="flex items-center gap-2 flex-1">
-                    <div className="w-3 h-3 rounded-xs bg-stone-300" />
-                    <div className="space-y-1.5 flex-1">
-                      <div className="h-3 bg-stone-300 rounded-sm w-44" />
-                      <div className="h-2 bg-stone-200 rounded-sm w-20" />
-                    </div>
-                  </div>
-                  <div className="w-14 h-7 bg-stone-200 rounded-lg" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STATE 4: AI RESPONSE & RECOMMENDED DISHES */}
-          {responseMsg && !loading && (
-            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {/* AI Recommendation Message Bubble */}
-              <div
-                className="p-3 rounded-2xl rounded-tl-xs border bg-gradient-to-br from-amber-50/60 via-white to-orange-50/40 space-y-1.5 shadow-2xs"
-                style={{ borderColor: "var(--hairline)" }}
-              >
-                <div className="flex items-center gap-1.5 text-amber-700 text-[10px] font-bold uppercase tracking-wider">
-                  <i className="fa-solid fa-sparkles text-[9px]" />
-                  <span>Chef Recommendation</span>
-                </div>
-                <p className="text-xs leading-relaxed text-stone-800 font-medium">
-                  {responseMsg}
-                </p>
-              </div>
-
-              {/* Recommended Dish Cards (1-Tap Add & Stepper) */}
-              {recommendedDishes.length > 0 && (
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between px-0.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                      Dishes For You ({recommendedDishes.length}):
-                    </span>
-                    <span className="text-[10px] text-amber-700 font-semibold">
-                      Live Cart Stepper
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {recommendedDishes.map((dish) => {
+                    {msg.dishes.map((dish) => {
                       const qty = getDishQty(dish.id);
+                      const foodEmoji = getFoodEmoji(dish.name, dish.is_veg);
                       return (
                         <div
                           key={dish.id}
-                          className="p-2.5 rounded-xl border bg-white flex items-center justify-between gap-2.5 shadow-2xs hover:shadow-xs transition-all"
-                          style={{ borderColor: "var(--hairline)" }}
+                          className="p-2.5 rounded-xl border border-stone-200/90 bg-stone-50/70 hover:bg-stone-50 transition-colors flex items-center justify-between gap-2.5 shadow-2xs"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            {/* Veg / Non-Veg Indicator */}
-                            <span
-                              className={`w-3.5 h-3.5 rounded-xs border shrink-0 flex items-center justify-center ${
-                                dish.is_veg
-                                  ? "border-emerald-600 bg-emerald-50"
-                                  : "border-rose-600 bg-rose-50"
-                              }`}
-                            >
+                          {/* Dish info */}
+                          <div className="flex items-start gap-2 min-w-0 flex-1">
+                            {/* Veg / Non-veg dot */}
+                            {dish.is_veg ? (
                               <span
-                                className={`w-2 h-2 rounded-full ${
-                                  dish.is_veg ? "bg-emerald-600" : "bg-rose-600"
-                                }`}
-                              />
-                            </span>
+                                className="w-3.5 h-3.5 mt-0.5 rounded-xs border-[1.5px] border-emerald-600 bg-white flex items-center justify-center shrink-0 shadow-2xs"
+                                title="Vegetarian"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                              </span>
+                            ) : (
+                              <span
+                                className="w-3.5 h-3.5 mt-0.5 rounded-xs border-[1.5px] border-rose-600 bg-white flex items-center justify-center shrink-0 shadow-2xs"
+                                title="Non-Vegetarian"
+                              >
+                                <span className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[6px] border-b-rose-600" />
+                              </span>
+                            )}
 
                             <div className="min-w-0 flex-1">
-                              <span className="text-xs font-bold text-stone-900 block truncate">
+                              <h4 className="text-xs font-bold text-stone-900 truncate">
                                 {dish.name}
-                              </span>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs font-mono font-bold text-stone-800">
-                                  ₹{dish.price}
-                                </span>
-                                {dish.description && (
-                                  <span className="text-[10px] text-stone-400 truncate max-w-[130px]">
-                                    {dish.description}
-                                  </span>
-                                )}
+                              </h4>
+                              <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
+                                {dish.description || `${dish.is_veg ? "Veg" : "Non-Veg"} chef preparation`}
+                              </p>
+                              <div className="text-xs font-extrabold text-stone-900 mt-0.5">
+                                ₹{dish.price}
                               </div>
                             </div>
                           </div>
 
-                          {/* Stepper / ADD Button (Persistent - never resets by itself!) */}
-                          {qty === 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => handleAddDish(dish)}
-                              className="h-8 px-3.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-stone-950 transition-all active:scale-95 cursor-pointer shrink-0 shadow-2xs flex items-center gap-1"
-                            >
-                              <i className="fa-solid fa-plus text-[10px]" />
-                              <span>ADD</span>
-                            </button>
-                          ) : (
-                            <div
-                              className="h-8 flex items-center rounded-lg border-2 shadow-xs overflow-hidden bg-white shrink-0"
-                              style={{ borderColor: "var(--rust)" }}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveDish(dish)}
-                                className="w-7 h-full flex items-center justify-center font-bold text-base cursor-pointer hover:bg-stone-50 transition-colors"
-                                style={{ color: "var(--rust)" }}
-                              >
-                                −
-                              </button>
-                              <span
-                                className="text-xs font-bold px-2 min-w-[20px] text-center"
-                                style={{ color: "var(--ink)" }}
-                              >
-                                {qty}
-                              </span>
+                          {/* Dish photo & Add Stepper */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {dish.photo_url ? (
+                              <img
+                                src={dish.photo_url}
+                                alt={dish.name}
+                                className="w-10 h-10 rounded-lg object-cover border border-stone-200"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-amber-100/70 border border-amber-200/50 flex items-center justify-center text-lg">
+                                {foodEmoji}
+                              </div>
+                            )}
+
+                            {qty === 0 ? (
                               <button
                                 type="button"
                                 onClick={() => handleAddDish(dish)}
-                                className="w-7 h-full flex items-center justify-center font-bold text-base cursor-pointer hover:bg-stone-50 transition-colors"
-                                style={{ color: "var(--rust)" }}
+                                className="h-7 px-3 rounded-lg text-[11px] font-extrabold uppercase tracking-wider border-2 border-emerald-600 text-emerald-700 bg-white hover:bg-emerald-50 active:scale-95 transition-all cursor-pointer shadow-2xs flex items-center gap-1"
                               >
-                                +
+                                <span>ADD</span>
+                                <span className="text-sm font-bold leading-none">+</span>
                               </button>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="h-7 flex items-center rounded-lg border-2 border-emerald-600 bg-emerald-600 text-white shadow-2xs overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDish(dish)}
+                                  className="w-6 h-full flex items-center justify-center font-bold text-sm hover:bg-emerald-700 cursor-pointer transition-colors"
+                                >
+                                  −
+                                </button>
+                                <span className="text-[11px] font-black px-1 min-w-[16px] text-center">
+                                  {qty}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddDish(dish)}
+                                  className="w-6 h-full flex items-center justify-center font-bold text-sm hover:bg-emerald-700 cursor-pointer transition-colors"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
+                )}
+              </div>
+
+              {/* Quick suggestion follow-up pills */}
+              {msg.quickSuggestions && msg.quickSuggestions.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 pl-1 max-w-[95%]">
+                  {msg.quickSuggestions.map((sug, sIdx) => (
+                    <button
+                      key={sIdx}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleSend(sug)}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-semibold border border-amber-300/80 bg-amber-50/90 hover:bg-amber-100 text-amber-950 transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1 text-left"
+                    >
+                      <span>{sug}</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
+          ))}
+
+          {/* AI Typing Indicator */}
+          {loading && (
+            <div className="flex flex-col items-start space-y-1.5 animate-in fade-in duration-200">
+              <div className="flex items-center gap-1.5 px-1 text-[10px] text-amber-800 font-bold">
+                <span>👨‍🍳</span>
+                <span>AI Captain is thinking...</span>
+              </div>
+              <div className="rounded-2xl rounded-tl-xs px-4 py-3 bg-white border border-stone-200 shadow-2xs flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" />
+                </div>
+                <span className="text-xs font-medium text-stone-600 italic">
+                  {searchAnimationSteps[loadingStep]}
+                </span>
+              </div>
+            </div>
           )}
 
-          <div ref={contentBottomRef} />
+          <div ref={chatBottomRef} className="h-2" />
         </div>
 
-        {/* COMPACT 1-LINE HORIZONTAL SUGGESTION PILLS (Takes only ~34px height) */}
+        {/* Input Bar (Sticky at Bottom) */}
         <div
-          className="px-3 py-1.5 border-t bg-stone-50/70 shrink-0"
-          style={{ borderColor: "var(--hairline)" }}
-        >
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-stone-400 shrink-0 mr-0.5">
-              Quick:
-            </span>
-            {QUICK_PROMPTS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => handleAsk(p.query)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white hover:bg-amber-50 border border-stone-200 hover:border-amber-300 text-stone-700 hover:text-amber-900 transition-colors shrink-0 shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
-              >
-                <span className="text-xs">{p.icon}</span>
-                <span>{p.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Input Bar */}
-        <div
-          className="p-3 border-t bg-white shrink-0"
+          className="p-3 border-t bg-white shrink-0 space-y-2"
           style={{ borderColor: "var(--hairline)" }}
         >
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleAsk(query);
+              handleSend(inputText);
             }}
             className="flex items-center gap-2"
           >
             <div className="relative flex-1">
-              <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs" />
               <input
                 ref={inputRef}
                 type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="2 logon ke liye best thali ya starters..."
-                className="w-full pl-9 pr-8 py-2.5 text-xs rounded-xl border bg-stone-50/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all font-medium"
-                style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
+                value={inputText}
+                disabled={loading}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Ask craving or budget (e.g. Biryani for 2)..."
+                className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all bg-stone-50"
               />
-              {query && (
+              {inputText && (
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs"
+                  onClick={() => setInputText("")}
+                  className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600 text-xs"
                 >
-                  <i className="fa-solid fa-circle-xmark" />
+                  ✕
                 </button>
               )}
             </div>
 
             <button
               type="submit"
-              disabled={loading || !query.trim()}
-              className="px-4 py-2.5 rounded-xl font-bold text-xs bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white transition-all active:scale-95 cursor-pointer shrink-0 flex items-center gap-1.5 shadow-xs"
+              disabled={!inputText.trim() || loading}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs transition-all active:scale-95 shrink-0 cursor-pointer ${
+                inputText.trim() && !loading
+                  ? "bg-linear-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-amber-200"
+                  : "bg-stone-100 text-stone-400 cursor-not-allowed"
+              }`}
+              title="Send message"
             >
-              {loading ? (
-                <>
-                  <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  <span>Searching</span>
-                </>
-              ) : (
-                <>
-                  <span>Ask</span>
-                  <i className="fa-solid fa-arrow-up text-[10px]" />
-                </>
-              )}
+              <i className="fa-solid fa-arrow-up" />
             </button>
           </form>
         </div>
