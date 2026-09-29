@@ -76,11 +76,15 @@ interface MenuItem {
   id: string;
   name: string;
   category: string;
+  category_id?: string;
   price: number;
   is_veg: boolean;
   is_available: boolean;
   description?: string;
   has_half_portion?: boolean;
+  photo_url?: string | null;
+  photo_urls?: string[];
+  special_tag?: string;
 }
 
 interface TableRecord {
@@ -148,13 +152,21 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  // Modals
+  // Modals & Dish Management States
   const [isAddDishOpen, setIsAddDishOpen] = useState(false);
-  const [newDishName, setNewDishName] = useState("");
-  const [newDishCategory, setNewDishCategory] = useState("Main Course");
-  const [newDishPrice, setNewDishPrice] = useState("");
-  const [newDishIsVeg, setNewDishIsVeg] = useState(true);
-  const [newDishDesc, setNewDishDesc] = useState("");
+  const [editingDish, setEditingDish] = useState<MenuItem | null>(null);
+  const [dishName, setDishName] = useState("");
+  const [dishCategory, setDishCategory] = useState("Main Course");
+  const [dishPrice, setDishPrice] = useState("");
+  const [dishIsVeg, setDishIsVeg] = useState(true);
+  const [dishDesc, setDishDesc] = useState("");
+  const [dishHasHalf, setDishHasHalf] = useState(false);
+  const [dishImages, setDishImages] = useState<string[]>([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [customImageUrl, setCustomImageUrl] = useState("");
+  const [isSavingDish, setIsSavingDish] = useState(false);
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([]);
 
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
@@ -220,21 +232,33 @@ export default function AdminPage() {
       const menuRes = await fetch("/api/menu");
       if (menuRes.ok) {
         const menuData = await menuRes.json();
+        const catsList: { id: string; name: string }[] = Array.isArray(menuData.categories)
+          ? menuData.categories.map((c: any) => ({ id: c.id, name: c.name }))
+          : [];
+        setCategoriesList(catsList);
+        if (Array.isArray(menuData.categories)) {
+          setCategories(menuData.categories.map((c: any) => c.name));
+        }
         if (Array.isArray(menuData.items)) {
           setMenuItems(
             menuData.items.map((m: any) => ({
               id: m.id,
               name: m.name,
-              category: m.menu_categories?.name || m.category || "General",
+              category:
+                m.menu_categories?.name ||
+                m.category ||
+                catsList.find((c) => c.id === m.category_id)?.name ||
+                "General",
+              category_id: m.category_id,
               price: Number(m.price) || 0,
               is_veg: Boolean(m.is_veg),
               is_available: m.is_available !== false,
               description: m.description,
+              photo_url: m.photo_url || null,
+              has_half_portion: Boolean(m.has_half_portion),
+              special_tag: m.special_tag,
             }))
           );
-        }
-        if (Array.isArray(menuData.categories)) {
-          setCategories(menuData.categories.map((c: any) => c.name));
         }
       }
 
@@ -352,23 +376,243 @@ export default function AdminPage() {
     });
   }, [orders, searchQuery, statusFilter]);
 
-  // Add Dish Action
-  const handleCreateDish = () => {
-    if (!newDishName.trim() || !newDishPrice) return;
-    const newDish: MenuItem = {
-      id: `dish-${Date.now()}`,
-      name: newDishName.trim(),
-      category: newDishCategory,
-      price: Number(newDishPrice),
-      is_veg: newDishIsVeg,
-      is_available: true,
-      description: newDishDesc.trim(),
-    };
-    setMenuItems((prev) => [newDish, ...prev]);
-    setIsAddDishOpen(false);
-    setNewDishName("");
-    setNewDishPrice("");
-    setNewDishDesc("");
+  // Open Add Dish Modal
+  const openAddDishModal = () => {
+    setEditingDish(null);
+    setDishName("");
+    setDishCategory(categories[0] || "Main Course");
+    setDishPrice("");
+    setDishIsVeg(true);
+    setDishDesc("");
+    setDishHasHalf(false);
+    setDishImages([]);
+    setUploadError("");
+    setCustomImageUrl("");
+    setIsAddDishOpen(true);
+  };
+
+  // Open Edit Dish Modal
+  const openEditDishModal = (dish: MenuItem) => {
+    setEditingDish(dish);
+    setDishName(dish.name);
+    setDishCategory(dish.category || "Main Course");
+    setDishPrice(String(dish.price));
+    setDishIsVeg(dish.is_veg);
+    setDishDesc(dish.description || "");
+    setDishHasHalf(Boolean(dish.has_half_portion));
+    const imgs: string[] = [];
+    if (dish.photo_url) imgs.push(dish.photo_url);
+    if (Array.isArray(dish.photo_urls)) {
+      dish.photo_urls.forEach((u) => {
+        if (u && !imgs.includes(u)) imgs.push(u);
+      });
+    }
+    setDishImages(imgs);
+    setUploadError("");
+    setCustomImageUrl("");
+    setIsAddDishOpen(true);
+  };
+
+  // Multi-Image Upload Handler
+  const handleUploadImages = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    setIsUploadingImages(true);
+    setUploadError("");
+    const newUrls: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          newUrls.push(data.url);
+        } else {
+          setUploadError(data.message || "Failed to upload one or more images");
+        }
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : "Network error during upload");
+      }
+    }
+
+    if (newUrls.length > 0) {
+      setDishImages((prev) => [...prev, ...newUrls]);
+    }
+    setIsUploadingImages(false);
+  };
+
+  const handleAddImageUrl = () => {
+    const url = customImageUrl.trim();
+    if (!url) return;
+    if (!dishImages.includes(url)) {
+      setDishImages((prev) => [...prev, url]);
+    }
+    setCustomImageUrl("");
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setDishImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSetPrimaryImage = (indexToPrimary: number) => {
+    setDishImages((prev) => {
+      const selected = prev[indexToPrimary];
+      const rest = prev.filter((_, idx) => idx !== indexToPrimary);
+      return [selected, ...rest];
+    });
+  };
+
+  // Save Dish Action (Supports both Add New and Edit Existing)
+  const handleSaveDish = async () => {
+    if (!dishName.trim() || !dishPrice) return;
+    setIsSavingDish(true);
+    try {
+      const matchedCat = categoriesList.find((c) => c.name === dishCategory);
+      const catId = matchedCat?.id || editingDish?.category_id;
+      const primaryPhoto = dishImages[0] || "";
+
+      if (editingDish) {
+        const res = await fetch("/api/menu", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            itemId: editingDish.id,
+            name: dishName.trim(),
+            categoryId: catId,
+            price: Number(dishPrice),
+            isVeg: dishIsVeg,
+            description: dishDesc.trim() || null,
+            hasHalfPortion: dishHasHalf,
+            photoUrl: primaryPhoto || null,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const updatedItem = data.item;
+          setMenuItems((prev) =>
+            prev.map((d) =>
+              d.id === editingDish.id
+                ? {
+                    ...d,
+                    name: updatedItem?.name || dishName.trim(),
+                    category: dishCategory,
+                    category_id: catId,
+                    price: Number(dishPrice),
+                    is_veg: dishIsVeg,
+                    description: dishDesc.trim(),
+                    has_half_portion: dishHasHalf,
+                    photo_url: primaryPhoto || null,
+                  }
+                : d
+            )
+          );
+        } else {
+          setMenuItems((prev) =>
+            prev.map((d) =>
+              d.id === editingDish.id
+                ? {
+                    ...d,
+                    name: dishName.trim(),
+                    category: dishCategory,
+                    price: Number(dishPrice),
+                    is_veg: dishIsVeg,
+                    description: dishDesc.trim(),
+                    has_half_portion: dishHasHalf,
+                    photo_url: primaryPhoto || null,
+                  }
+                : d
+            )
+          );
+        }
+      } else {
+        const res = await fetch("/api/menu", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: dishName.trim(),
+            categoryId: catId,
+            price: Number(dishPrice),
+            isVeg: dishIsVeg,
+            description: dishDesc.trim() || null,
+            hasHalfPortion: dishHasHalf,
+            photoUrl: primaryPhoto || null,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const createdItem = data.item;
+          const newDish: MenuItem = {
+            id: createdItem?.id || `dish-${Date.now()}`,
+            name: createdItem?.name || dishName.trim(),
+            category: dishCategory,
+            category_id: catId,
+            price: Number(dishPrice),
+            is_veg: dishIsVeg,
+            is_available: true,
+            description: dishDesc.trim(),
+            has_half_portion: dishHasHalf,
+            photo_url: primaryPhoto || null,
+          };
+          setMenuItems((prev) => [newDish, ...prev]);
+        } else {
+          const newDish: MenuItem = {
+            id: `dish-${Date.now()}`,
+            name: dishName.trim(),
+            category: dishCategory,
+            price: Number(dishPrice),
+            is_veg: dishIsVeg,
+            is_available: true,
+            description: dishDesc.trim(),
+            has_half_portion: dishHasHalf,
+            photo_url: primaryPhoto || null,
+          };
+          setMenuItems((prev) => [newDish, ...prev]);
+        }
+      }
+
+      setIsAddDishOpen(false);
+      setEditingDish(null);
+    } catch (err) {
+      console.error("Failed to save dish:", err);
+    } finally {
+      setIsSavingDish(false);
+    }
+  };
+
+  // Delete Dish Action
+  const handleDeleteDish = async (dishId: string) => {
+    setMenuItems((prev) => prev.filter((d) => d.id !== dishId));
+    try {
+      await fetch(`/api/menu?id=${dishId}`, { method: "DELETE" });
+    } catch (err) {
+      console.warn("Failed to delete dish on server:", err);
+    }
+  };
+
+  // Toggle Dish Availability (86-List)
+  const handleToggleStock = async (dishId: string) => {
+    const dish = menuItems.find((d) => d.id === dishId);
+    if (!dish) return;
+    const newStock = !dish.is_available;
+    setMenuItems((prev) =>
+      prev.map((d) => (d.id === dishId ? { ...d, is_available: newStock } : d))
+    );
+    try {
+      await fetch("/api/menu", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: dishId, isAvailable: newStock }),
+      });
+    } catch (err) {
+      console.warn("Failed to sync stock on server:", err);
+    }
   };
 
   // Add Staff Action
@@ -385,13 +629,6 @@ export default function AdminPage() {
     setIsAddStaffOpen(false);
     setNewStaffName("");
     setNewStaffPin("");
-  };
-
-  // Toggle Dish Availability (86-List)
-  const handleToggleStock = (dishId: string) => {
-    setMenuItems((prev) =>
-      prev.map((d) => (d.id === dishId ? { ...d, is_available: !d.is_available } : d))
-    );
   };
 
   // Page titles mapping
@@ -720,7 +957,7 @@ export default function AdminPage() {
                   setCategoryFilter("all");
                 }}
                 primaryActionLabel="Add Dish"
-                onPrimaryAction={() => setIsAddDishOpen(true)}
+                onPrimaryAction={openAddDishModal}
               />
 
               <AdminDataTable<MenuItem>
@@ -728,27 +965,40 @@ export default function AdminPage() {
                 columns={[
                   {
                     key: "name",
-                    header: "Dish Name",
+                    header: "Dish Details",
                     sortable: true,
                     render: (r) => (
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className={`w-3 h-3 rounded-xs border flex items-center justify-center shrink-0 ${
-                            r.is_veg ? "border-green-600" : "border-red-600"
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              r.is_veg ? "bg-green-600" : "bg-red-600"
-                            }`}
+                      <div className="flex items-center gap-3">
+                        {r.photo_url ? (
+                          <img
+                            src={r.photo_url}
+                            alt={r.name}
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
                           />
-                        </span>
-                        <div>
-                          <span className="font-semibold text-slate-900 block">
-                            {r.name}
-                          </span>
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                            <i className="fa-solid fa-utensils text-xs" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`w-2.5 h-2.5 rounded-xs border flex items-center justify-center shrink-0 ${
+                                r.is_veg ? "border-green-600" : "border-red-600"
+                              }`}
+                            >
+                              <span
+                                className={`w-1 h-1 rounded-full ${
+                                  r.is_veg ? "bg-green-600" : "bg-red-600"
+                                }`}
+                              />
+                            </span>
+                            <span className="font-semibold text-slate-900 truncate">
+                              {r.name}
+                            </span>
+                          </div>
                           {r.description && (
-                            <span className="text-[11px] text-slate-400 line-clamp-1">
+                            <span className="text-[11px] text-slate-400 line-clamp-1 block">
                               {r.description}
                             </span>
                           )}
@@ -772,9 +1022,16 @@ export default function AdminPage() {
                     align: "right",
                     sortable: true,
                     render: (r) => (
-                      <span className="font-mono font-bold text-slate-900">
-                        ₹{r.price}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-slate-900 block">
+                          ₹{r.price}
+                        </span>
+                        {r.has_half_portion && (
+                          <span className="inline-block text-[10px] font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 mt-0.5">
+                            Half ₹{Math.round(r.price * 0.6)}
+                          </span>
+                        )}
+                      </div>
                     ),
                   },
                   {
@@ -804,6 +1061,11 @@ export default function AdminPage() {
                 isLoading={isLoading}
                 rowActions={(r) => [
                   {
+                    label: "Edit Dish",
+                    icon: "fa-pen-to-square",
+                    onClick: () => openEditDishModal(r),
+                  },
+                  {
                     label: r.is_available ? "Mark Out of Stock" : "Mark In Stock",
                     icon: r.is_available ? "fa-ban" : "fa-check",
                     onClick: () => handleToggleStock(r.id),
@@ -812,9 +1074,7 @@ export default function AdminPage() {
                     label: "Delete",
                     icon: "fa-trash",
                     variant: "danger",
-                    onClick: () => {
-                      setMenuItems((prev) => prev.filter((d) => d.id !== r.id));
-                    },
+                    onClick: () => handleDeleteDish(r.id),
                   },
                 ]}
               />
@@ -1383,18 +1643,28 @@ export default function AdminPage() {
       </div>
 
       {/* ======================================================== */}
-      {/* MODAL: ADD NEW DISH */}
+      {/* MODAL: ADD / EDIT DISH WITH MULTI-IMAGE & HALF-PORTION */}
       {/* ======================================================== */}
       <AdminModal
         isOpen={isAddDishOpen}
-        onClose={() => setIsAddDishOpen(false)}
-        title="Add New Dish"
-        subtitle="Create a new catalog item for your restaurant menu."
+        onClose={() => {
+          setIsAddDishOpen(false);
+          setEditingDish(null);
+        }}
+        title={editingDish ? "Edit Dish Details" : "Add New Dish"}
+        subtitle={
+          editingDish
+            ? "Update dish pricing, half portion settings, photos and details."
+            : "Create a new catalog item with photos, half/full pricing for your menu."
+        }
         icon="fa-bowl-food"
-        confirmText="Save Dish"
-        onConfirm={handleCreateDish}
+        maxWidth="lg"
+        confirmText={isSavingDish ? "Saving..." : editingDish ? "Update Dish" : "Save Dish"}
+        isConfirmLoading={isSavingDish}
+        onConfirm={handleSaveDish}
       >
         <div className="space-y-4 text-xs">
+          {/* Dish Name */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
               Dish Name *
@@ -1402,21 +1672,22 @@ export default function AdminPage() {
             <input
               type="text"
               required
-              value={newDishName}
-              onChange={(e) => setNewDishName(e.target.value)}
+              value={dishName}
+              onChange={(e) => setDishName(e.target.value)}
               placeholder="e.g. Paneer Butter Masala"
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 text-sm"
             />
           </div>
 
+          {/* Category & Price */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
                 Category *
               </label>
               <select
-                value={newDishCategory}
-                onChange={(e) => setNewDishCategory(e.target.value)}
+                value={dishCategory}
+                onChange={(e) => setDishCategory(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 bg-white"
               >
                 {categories.length > 0 ? (
@@ -1439,19 +1710,20 @@ export default function AdminPage() {
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Price (₹) *
+                Full Price (₹) *
               </label>
               <input
                 type="number"
                 required
-                value={newDishPrice}
-                onChange={(e) => setNewDishPrice(e.target.value)}
+                value={dishPrice}
+                onChange={(e) => setDishPrice(e.target.value)}
                 placeholder="280"
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 font-mono font-bold"
               />
             </div>
           </div>
 
+          {/* Dietary Type */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
               Dietary Type
@@ -1460,36 +1732,241 @@ export default function AdminPage() {
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="diet"
-                  checked={newDishIsVeg}
-                  onChange={() => setNewDishIsVeg(true)}
+                  name="dishDiet"
+                  checked={dishIsVeg}
+                  onChange={() => setDishIsVeg(true)}
                   className="text-purple-600 focus:ring-purple-500"
                 />
-                <span className="font-semibold text-emerald-700">Vegetarian</span>
+                <span className="font-semibold text-emerald-700 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs border border-green-600 flex items-center justify-center">
+                    <span className="w-1 h-1 rounded-full bg-green-600" />
+                  </span>
+                  Vegetarian
+                </span>
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name="diet"
-                  checked={!newDishIsVeg}
-                  onChange={() => setNewDishIsVeg(false)}
+                  name="dishDiet"
+                  checked={!dishIsVeg}
+                  onChange={() => setDishIsVeg(false)}
                   className="text-purple-600 focus:ring-purple-500"
                 />
-                <span className="font-semibold text-rose-700">Non-Vegetarian</span>
+                <span className="font-semibold text-rose-700 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs border border-red-600 flex items-center justify-center">
+                    <span className="w-1 h-1 rounded-full bg-red-600" />
+                  </span>
+                  Non-Vegetarian
+                </span>
               </label>
             </div>
           </div>
 
+          {/* FULL / HALF PORTION OPTION */}
+          <div className="border border-slate-200 bg-slate-50/80 rounded-xl p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs">
+                  <i className="fa-solid fa-scale-balanced" />
+                </div>
+                <div>
+                  <span className="font-bold text-slate-800 text-xs block">
+                    Offer Half Portion (Full & Half Sizing)
+                  </span>
+                  <span className="text-[11px] text-slate-500 block">
+                    Allow diners to order Half or Full portion on QR menu
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDishHasHalf(!dishHasHalf)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer shrink-0 ${
+                  dishHasHalf ? "bg-purple-600" : "bg-slate-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    dishHasHalf ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {dishHasHalf ? (
+              <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-600 font-medium">Pricing Preview:</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-800 font-bold font-mono text-xs shadow-xs">
+                    <span>Half: ₹{Math.round(Number(dishPrice || 0) * 0.6 || 0)}</span>
+                    <span className="text-slate-300">|</span>
+                    <span>Full: ₹{dishPrice || 0}</span>
+                  </span>
+                </div>
+                <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
+                  <i className="fa-solid fa-check text-[9px]" /> Half (60%) & Full Active
+                </span>
+              </div>
+            ) : (
+              <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-400">
+                Full portion only will be available on the customer menu.
+              </div>
+            )}
+          </div>
+
+          {/* MULTIPLE IMAGE UPLOAD GALLERY */}
+          <div className="border border-slate-200 bg-slate-50/80 rounded-xl p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs">
+                  <i className="fa-solid fa-images" />
+                </div>
+                <div>
+                  <span className="font-bold text-slate-800 text-xs block">
+                    Dish Images (Multiple Upload Supported)
+                  </span>
+                  <span className="text-[11px] text-slate-500 block">
+                    Upload multiple high-res photos. The first photo is the primary cover.
+                  </span>
+                </div>
+              </div>
+              {dishImages.length > 0 && (
+                <span className="text-[11px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                  {dishImages.length} {dishImages.length === 1 ? "Photo" : "Photos"}
+                </span>
+              )}
+            </div>
+
+            {/* Gallery Thumbnails */}
+            {dishImages.length > 0 && (
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5 pt-1">
+                {dishImages.map((imgUrl, idx) => (
+                  <div
+                    key={`${imgUrl}-${idx}`}
+                    className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white shadow-xs"
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Dish ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+
+                    {/* Primary / Cover Badge */}
+                    {idx === 0 ? (
+                      <span className="absolute top-1 left-1 bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1 z-10">
+                        <i className="fa-solid fa-star text-[8px]" /> Cover
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimaryImage(idx)}
+                        className="absolute bottom-1 left-1 right-1 text-[9px] font-semibold bg-slate-900/80 hover:bg-slate-900 text-white py-0.5 rounded text-center cursor-pointer opacity-90 transition-opacity z-10"
+                        title="Set as Cover Photo"
+                      >
+                        Set Cover
+                      </button>
+                    )}
+
+                    {/* Delete Image Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(idx)}
+                      className="absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white w-4 h-4 rounded-full flex items-center justify-center text-[9px] cursor-pointer shadow-xs transition-colors z-10"
+                      title="Remove image"
+                    >
+                      <i className="fa-solid fa-xmark" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload Controls */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={isUploadingImages}
+                  onChange={(e) => {
+                    if (e.target.files) handleUploadImages(e.target.files);
+                  }}
+                  className="hidden"
+                  id="dish-images-upload"
+                />
+                <label
+                  htmlFor="dish-images-upload"
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-purple-400 bg-purple-50/70 hover:bg-purple-100/70 text-purple-700 font-bold text-xs cursor-pointer transition-colors shadow-2xs ${
+                    isUploadingImages ? "opacity-50 pointer-events-none" : ""
+                  }`}
+                >
+                  <i
+                    className={`fa-solid ${
+                      isUploadingImages
+                        ? "fa-spinner fa-spin"
+                        : "fa-cloud-arrow-up"
+                    }`}
+                  />
+                  <span>
+                    {isUploadingImages
+                      ? "Uploading to Cloud..."
+                      : dishImages.length > 0
+                      ? "Upload More Photos"
+                      : "Choose Photos (Multiple)"}
+                  </span>
+                </label>
+
+                <span className="text-[11px] text-slate-400">
+                  JPG, PNG, WebP up to 5MB each
+                </span>
+              </div>
+
+              {/* Paste Direct URL */}
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="Or paste direct image URL (https://...)"
+                  value={customImageUrl}
+                  onChange={(e) => setCustomImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddImageUrl();
+                    }
+                  }}
+                  className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-purple-500 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  disabled={!customImageUrl.trim()}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Add URL
+                </button>
+              </div>
+
+              {uploadError && (
+                <p className="text-[11px] text-rose-600 font-semibold flex items-center gap-1">
+                  <i className="fa-solid fa-circle-exclamation" /> {uploadError}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Short Description */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
               Short Description
             </label>
             <textarea
               rows={2}
-              value={newDishDesc}
-              onChange={(e) => setNewDishDesc(e.target.value)}
+              value={dishDesc}
+              onChange={(e) => setDishDesc(e.target.value)}
               placeholder="Fresh cottage cheese simmered in rich tomato butter gravy"
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 text-xs"
             />
           </div>
         </div>
