@@ -1667,7 +1667,9 @@ export default function CustomerTableOrderingPage({
         onClose={() => setIsAiWaiterOpen(false)}
         menuItems={items}
         restaurantName={restaurantName}
+        cart={cart}
         onAddToCart={(dishId, portion) => addToCart(dishId, portion)}
+        onRemoveFromCart={(dishId, portion) => removeFromCart(dishId, portion)}
       />
 
       {/* 10. Voice Ordering Modal */}

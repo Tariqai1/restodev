@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { MenuItem, PortionType } from "./TableTypes";
+import { MenuItem, PortionType, CartMap } from "./TableTypes";
 import { triggerHaptic } from "./tableUtils";
 
 interface TableAiWaiterModalProps {
@@ -9,7 +9,9 @@ interface TableAiWaiterModalProps {
   onClose: () => void;
   menuItems: MenuItem[];
   restaurantName: string;
+  cart?: CartMap;
   onAddToCart: (dishId: string, portion: PortionType) => void;
+  onRemoveFromCart?: (dishId: string, portion: PortionType) => void;
 }
 
 interface QuickPrompt {
@@ -39,7 +41,9 @@ export default function TableAiWaiterModal({
   onClose,
   menuItems,
   restaurantName,
+  cart,
   onAddToCart,
+  onRemoveFromCart,
 }: TableAiWaiterModalProps) {
   const [query, setQuery] = useState("");
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
@@ -47,7 +51,7 @@ export default function TableAiWaiterModal({
   const [loadingStep, setLoadingStep] = useState(0);
   const [responseMsg, setResponseMsg] = useState<string>("");
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
-  const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
+  const [localQtyMap, setLocalQtyMap] = useState<Record<string, number>>({});
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const contentBottomRef = useRef<HTMLDivElement | null>(null);
@@ -114,13 +118,38 @@ export default function TableAiWaiterModal({
     }
   };
 
+  // Get current quantity in cart for a dish
+  const getDishQty = (dishId: string): number => {
+    if (cart) {
+      const fullQty = cart[`${dishId}__full`]?.qty || 0;
+      const halfQty = cart[`${dishId}__half`]?.qty || 0;
+      const directQty = cart[dishId]?.qty || 0;
+      return fullQty + halfQty + directQty;
+    }
+    return localQtyMap[dishId] || 0;
+  };
+
   const handleAddDish = (dish: MenuItem) => {
-    triggerHaptic(12);
+    triggerHaptic(14);
     onAddToCart(dish.id, "full");
-    setAddedIds((prev) => ({ ...prev, [dish.id]: true }));
-    setTimeout(() => {
-      setAddedIds((prev) => ({ ...prev, [dish.id]: false }));
-    }, 2500);
+    setLocalQtyMap((prev) => ({
+      ...prev,
+      [dish.id]: (prev[dish.id] || 0) + 1,
+    }));
+  };
+
+  const handleRemoveDish = (dish: MenuItem) => {
+    triggerHaptic(8);
+    onRemoveFromCart?.(dish.id, "full");
+    setLocalQtyMap((prev) => {
+      const current = prev[dish.id] || 0;
+      if (current <= 1) {
+        const copy = { ...prev };
+        delete copy[dish.id];
+        return copy;
+      }
+      return { ...prev, [dish.id]: current - 1 };
+    });
   };
 
   const recommendedDishes = menuItems.filter((it) => recommendedIds.includes(it.id));
@@ -306,7 +335,7 @@ export default function TableAiWaiterModal({
                 </p>
               </div>
 
-              {/* Recommended Dish Cards (1-Tap Add) */}
+              {/* Recommended Dish Cards (1-Tap Add & Stepper) */}
               {recommendedDishes.length > 0 && (
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between px-0.5">
@@ -314,13 +343,13 @@ export default function TableAiWaiterModal({
                       Dishes For You ({recommendedDishes.length}):
                     </span>
                     <span className="text-[10px] text-amber-700 font-semibold">
-                      1-Tap Add to Table
+                      Live Cart Stepper
                     </span>
                   </div>
 
                   <div className="space-y-2">
                     {recommendedDishes.map((dish) => {
-                      const isAdded = Boolean(addedIds[dish.id]);
+                      const qty = getDishQty(dish.id);
                       return (
                         <div
                           key={dish.id}
@@ -360,28 +389,45 @@ export default function TableAiWaiterModal({
                             </div>
                           </div>
 
-                          {/* 1-Tap Add Button with Feedback */}
-                          <button
-                            type="button"
-                            onClick={() => handleAddDish(dish)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shrink-0 shadow-2xs flex items-center gap-1 ${
-                              isAdded
-                                ? "bg-emerald-600 text-white font-bold"
-                                : "bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold"
-                            }`}
-                          >
-                            {isAdded ? (
-                              <>
-                                <i className="fa-solid fa-check text-[10px]" />
-                                <span>Added</span>
-                              </>
-                            ) : (
-                              <>
-                                <i className="fa-solid fa-plus text-[10px]" />
-                                <span>ADD</span>
-                              </>
-                            )}
-                          </button>
+                          {/* Stepper / ADD Button (Persistent - never resets by itself!) */}
+                          {qty === 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => handleAddDish(dish)}
+                              className="h-8 px-3.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-stone-950 transition-all active:scale-95 cursor-pointer shrink-0 shadow-2xs flex items-center gap-1"
+                            >
+                              <i className="fa-solid fa-plus text-[10px]" />
+                              <span>ADD</span>
+                            </button>
+                          ) : (
+                            <div
+                              className="h-8 flex items-center rounded-lg border-2 shadow-xs overflow-hidden bg-white shrink-0"
+                              style={{ borderColor: "var(--rust)" }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDish(dish)}
+                                className="w-7 h-full flex items-center justify-center font-bold text-base cursor-pointer hover:bg-stone-50 transition-colors"
+                                style={{ color: "var(--rust)" }}
+                              >
+                                −
+                              </button>
+                              <span
+                                className="text-xs font-bold px-2 min-w-[20px] text-center"
+                                style={{ color: "var(--ink)" }}
+                              >
+                                {qty}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleAddDish(dish)}
+                                className="w-7 h-full flex items-center justify-center font-bold text-base cursor-pointer hover:bg-stone-50 transition-colors"
+                                style={{ color: "var(--rust)" }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -437,7 +483,7 @@ export default function TableAiWaiterModal({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="2 logon ke liye best thali ya starters..."
-                className="w-full pl-8 pr-8 py-2.5 text-xs rounded-xl border bg-stone-50/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all font-medium"
+                className="w-full pl-9 pr-8 py-2.5 text-xs rounded-xl border bg-stone-50/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all font-medium"
                 style={{ borderColor: "var(--hairline)", color: "var(--ink)" }}
               />
               {query && (
