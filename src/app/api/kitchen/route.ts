@@ -48,11 +48,6 @@ export async function GET() {
         status,
         opened_at,
         table_session_id,
-        order_type,
-        customer_name,
-        customer_phone,
-        delivery_address,
-        scheduled_for,
         restaurant_tables (
           table_number
         ),
@@ -206,7 +201,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       restaurantName: staffContext.restaurantName,
-      orders: filteredOrders.map((ord) => {
+      orders: filteredOrders.map((ord: any) => {
         const tableData = ord.restaurant_tables as unknown as { table_number: string } | null;
         let displayTable = tableData?.table_number || "T--";
         if (ord.table_session_id?.startsWith("joined:")) {
@@ -219,8 +214,35 @@ export async function GET() {
             displayTable = `${displayTable} (+${extra.join("+")})`;
           }
         }
+
+        const tableNum = displayTable.toUpperCase();
+        const isDelivery = tableNum.startsWith("DEL-") || !ord.table_id;
+        const isPickup = tableNum.startsWith("PU-");
+        const orderType = isDelivery ? "delivery" : isPickup ? "pickup" : "dine_in";
+
+        let custName: string | null = null;
+        let custPhone: string | null = null;
+        let delivAddress: string | null = null;
+
+        const firstItem = ord.order_items?.[0];
+        if (firstItem?.customer_name) {
+          custName = firstItem.customer_name;
+        }
+
+        const notes = firstItem?.notes || "";
+        const tagMatch = notes.match(/\[(?:🛵 Delivery|🛍️ Pickup):\s*([^(]+?)(?:\s*\(([^)]+)\))?(?:\s*-\s*([^\]]+))?\]/);
+        if (tagMatch) {
+          if (!custName && tagMatch[1]) custName = tagMatch[1].trim();
+          if (tagMatch[2]) custPhone = tagMatch[2].trim();
+          if (tagMatch[3]) delivAddress = tagMatch[3].trim();
+        }
+
         return {
           ...ord,
+          order_type: orderType,
+          customer_name: custName,
+          customer_phone: custPhone,
+          delivery_address: delivAddress,
           restaurant_tables: { table_number: displayTable },
           prepEstimate: getOrderPrepTime(ord.id),
         };
