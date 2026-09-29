@@ -1339,10 +1339,13 @@ export default function CustomerTableOrderingPage({
                 triggerHaptic(10);
                 setIsAiWaiterOpen(true);
               }}
-              className="px-3 py-1 rounded-full text-xs font-bold border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all active:scale-95"
+              className="relative group px-3.5 py-1.5 rounded-full text-xs font-bold border border-amber-300 bg-linear-to-r from-amber-50 via-orange-50 to-amber-100 hover:from-amber-100 hover:to-orange-100 text-amber-950 flex items-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer transition-all active:scale-95"
             >
-              <span>🤖</span>
-              <span>Ask AI Waiter</span>
+              <span className="relative flex items-center justify-center w-4 h-4 text-amber-600 animate-ai-sparkle">
+                <i className="fa-solid fa-wand-magic-sparkles text-xs" />
+              </span>
+              <span className="font-bold tracking-tight">Ask AI Waiter</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping ml-0.5" />
             </button>
           )}
         </div>
@@ -1397,10 +1400,10 @@ export default function CustomerTableOrderingPage({
           <button
             type="button"
             onClick={() => { setSelectedCat("all"); setDietFilter("all"); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 cursor-pointer transition-all border ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0 cursor-pointer transition-all border ${
               selectedCat === "all" && dietFilter === "all"
-                ? "bg-stone-900 text-white border-stone-900"
-                : "bg-white border-stone-200 text-stone-600"
+                ? "bg-linear-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-xs"
+                : "bg-white border-stone-200 text-stone-700 hover:border-amber-400 hover:text-amber-800"
             }`}
           >
             All
@@ -1408,24 +1411,24 @@ export default function CustomerTableOrderingPage({
           <button
             type="button"
             onClick={() => { setDietFilter(dietFilter === "veg" ? "all" : "veg"); setSelectedCat("all"); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 cursor-pointer transition-all border flex items-center gap-1 ${
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0 cursor-pointer transition-all border flex items-center gap-1.5 ${
               dietFilter === "veg"
-                ? "bg-emerald-600 text-white border-emerald-600"
-                : "bg-white border-stone-200 text-stone-600"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100"
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${dietFilter === "veg" ? "bg-white" : "bg-emerald-500"}`} />
-            Veg
+            <span className={`w-2 h-2 rounded-full ${dietFilter === "veg" ? "bg-white" : "bg-emerald-600"}`} />
+            Veg Only
           </button>
           {categories.map((cat) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => { setSelectedCat(cat.id); setDietFilter("all"); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 cursor-pointer transition-all border ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0 cursor-pointer transition-all border ${
                 selectedCat === cat.id
-                  ? "bg-stone-900 text-white border-stone-900"
-                  : "bg-white border-stone-200 text-stone-600"
+                  ? "bg-linear-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-xs"
+                  : "bg-white border-stone-200 text-stone-700 hover:border-amber-400 hover:text-amber-800"
               }`}
             >
               {cat.name}

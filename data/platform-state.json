@@ -629,6 +629,22 @@
       "id": "batch-1790715668395-oas8t",
       "status": "awaiting_approval",
       "createdAt": "2026-09-29T21:01:08.395Z"
+    },
+    "batch-1790717393725-slwth": {
+      "orderId": "21bb2eb9-10b5-4665-9016-e364b400ee68",
+      "restaurantId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "tableId": "df148ec9-c8ff-472c-9aa5-924e63e796b0",
+      "tableNumber": "T05",
+      "customerName": "Dine-in Guest",
+      "itemIds": [
+        "9cafabea-ab32-43d5-a095-46fe736aee27",
+        "c3604dcd-96c7-4767-8a82-9025a9bff11b"
+      ],
+      "totalAmount": 320,
+      "totalItems": 2,
+      "id": "batch-1790717393725-slwth",
+      "status": "awaiting_approval",
+      "createdAt": "2026-09-29T21:29:53.725Z"
     }
   }
 }
