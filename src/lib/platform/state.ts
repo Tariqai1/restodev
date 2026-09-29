@@ -154,6 +154,7 @@ export type PlatformState = {
   pendingOrderApprovals?: Record<string, PendingOrderApprovalBatch>;
   rolePermissions?: Record<string, RolePermissionsConfig>;
   cashRegisters?: Record<string, CashRegisterState>;
+  gstFilingStatuses?: Record<string, Record<string, "filed" | "due" | "upcoming" | "no_liability">>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -923,5 +924,30 @@ export function setCashRegisterState(
   state.cashRegisters[restaurantId] = updated;
   savePlatformState(state);
   return updated;
+}
+
+export type GstFilingStatusValue = "filed" | "due" | "upcoming" | "no_liability";
+
+export function getGstFilingStatuses(restaurantId?: string): Record<string, GstFilingStatusValue> {
+  if (!restaurantId) return {};
+  const state = getPlatformState();
+  return state.gstFilingStatuses?.[restaurantId] || {};
+}
+
+export function setGstFilingStatus(
+  restaurantId: string,
+  monthKey: string,
+  status: GstFilingStatusValue
+): Record<string, GstFilingStatusValue> {
+  const state = getPlatformState();
+  if (!state.gstFilingStatuses) {
+    state.gstFilingStatuses = {};
+  }
+  if (!state.gstFilingStatuses[restaurantId]) {
+    state.gstFilingStatuses[restaurantId] = {};
+  }
+  state.gstFilingStatuses[restaurantId][monthKey] = status;
+  savePlatformState(state);
+  return state.gstFilingStatuses[restaurantId];
 }
 

@@ -47,5 +47,22 @@
       "status": "awaiting_approval",
       "createdAt": "2026-09-28T17:55:21.031Z"
     }
+  },
+  "cashRegisters": {
+    "ebde73c4-c316-4101-9469-062c83319d7b": {
+      "isClosed": false,
+      "closedAt": null,
+      "closedBy": "Tauheed Ansari",
+      "denominations": {
+        "d500": 0,
+        "d200": 0,
+        "d100": 0,
+        "d50": 0,
+        "d20": 0,
+        "d10": 0,
+        "coins": 0
+      },
+      "updatedAt": "2026-09-29T19:59:26.283Z"
+    }
   }
 }
