@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     // 1. Verify Restaurant & Online Ordering Status
     const { data: restaurant } = await admin
       .from("restaurants")
-      .select("id, name, online_ordering_enabled")
+      .select("id, name")
       .eq("id", restaurantId)
       .maybeSingle();
 
@@ -83,9 +83,9 @@ export async function POST(req: NextRequest) {
 
     const fallbackSettings = getDeliverySettings(restaurantId);
     const isOnlineEnabled =
-      typeof restaurant.online_ordering_enabled === "boolean"
-        ? restaurant.online_ordering_enabled
-        : fallbackSettings.onlineOrderingEnabled;
+      typeof fallbackSettings.onlineOrderingEnabled === "boolean"
+        ? fallbackSettings.onlineOrderingEnabled
+        : true;
 
     if (!isOnlineEnabled) {
       return NextResponse.json(
@@ -207,8 +207,12 @@ export async function POST(req: NextRequest) {
     const taxAmount = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST
     const totalAmount = Math.round((subtotal + taxAmount + deliveryFee) * 100) / 100;
 
-    // 5. Create Order in Database (table_id MUST be null for delivery/pickup per trigger)
-    const { data: newOrder, error: orderErr } = await admin
+    // 5. Create Order in Database (with graceful virtual table fallback)
+    let newOrder = null;
+    let orderCreationError: any = null;
+
+    // Try primary insert (with new online columns & table_id: null)
+    const { data: ord1, error: err1 } = await admin
       .from("orders")
       .insert({
         restaurant_id: restaurantId,
@@ -223,21 +227,66 @@ export async function POST(req: NextRequest) {
       .select("id, opened_at")
       .single();
 
-    if (orderErr || !newOrder) {
-      console.error("Failed to create online order:", orderErr);
+    if (!err1 && ord1) {
+      newOrder = ord1;
+    } else {
+      // Fallback: If DB enforces check_order_table_restaurant_match or one_open_order_per_table,
+      // create a unique session virtual slot for this takeaway/delivery order
+      const prefix = orderType === "delivery" ? "DEL" : "PU";
+      const slotCode = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const { data: vTable, error: vTableErr } = await admin
+        .from("restaurant_tables")
+        .insert({
+          restaurant_id: restaurantId,
+          table_number: slotCode,
+          qr_token: `online_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        })
+        .select("id")
+        .single();
+
+      if (vTable) {
+        const { data: ord2, error: err2 } = await admin
+          .from("orders")
+          .insert({
+            restaurant_id: restaurantId,
+            table_id: vTable.id,
+            status: "open",
+            opened_at: new Date().toISOString(),
+          })
+          .select("id, opened_at")
+          .single();
+
+        if (err2 || !ord2) {
+          orderCreationError = err2 || err1;
+        } else {
+          newOrder = ord2;
+        }
+      } else {
+        orderCreationError = vTableErr || err1;
+      }
+    }
+
+    if (!newOrder) {
+      console.error("Failed to create online order:", orderCreationError);
       return NextResponse.json(
-        { message: orderErr?.message || "Failed to place order." },
+        { message: orderCreationError?.message || "Failed to place order." },
         { status: 500 }
       );
     }
 
-    // 6. Insert Order Items
-    const itemsToInsert = preparedItems.map((pi) => ({
+    // 6. Insert Order Items (with clear delivery / pickup banner on notes)
+    const channelTag =
+      orderType === "delivery"
+        ? `[🛵 Delivery: ${customerName.trim()} (${customerPhone.trim()}) - ${deliveryAddress?.trim() || ""}]`
+        : `[🛍️ Pickup: ${customerName.trim()} (${customerPhone.trim()})]`;
+
+    const itemsToInsert = preparedItems.map((pi, idx) => ({
       order_id: newOrder.id,
       menu_item_id: pi.menu_item_id,
       qty: pi.qty,
       unit_price: pi.unit_price,
-      notes: pi.notes,
+      notes: idx === 0 ? [channelTag, pi.notes].filter(Boolean).join(" | ") : pi.notes,
       item_status: "pending",
       customer_name: pi.customer_name,
     }));
