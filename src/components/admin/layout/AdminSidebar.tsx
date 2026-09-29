@@ -131,6 +131,8 @@ interface AdminSidebarProps {
   isMobileOpen: boolean;
   onMobileClose: () => void;
   restaurantName?: string;
+  userRole?: string;
+  rolePermissions?: Record<string, any>;
 }
 
 export default function AdminSidebar({
@@ -141,6 +143,8 @@ export default function AdminSidebar({
   isMobileOpen,
   onMobileClose,
   restaurantName = "Order Desk",
+  userRole = "owner",
+  rolePermissions,
 }: AdminSidebarProps) {
   // Track open accordion groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -150,6 +154,52 @@ export default function AdminSidebar({
     finance_grp: true,
     config_grp: false,
   });
+
+  // Role-based visibility filtering
+  const visibleNavSections = React.useMemo(() => {
+    const role = (userRole || "owner").toLowerCase();
+    if (role === "owner" || role === "super_admin" || role === "admin") {
+      return NAV_SECTIONS;
+    }
+
+    const perms = rolePermissions?.[role];
+
+    const canAccessView = (viewId: AdminViewType): boolean => {
+      if (!perms) {
+        if (role === "kitchen") return viewId === "kitchen";
+        if (role === "waiter") return viewId === "floor" || viewId === "orders";
+        if (role === "captain") return viewId === "floor" || viewId === "orders" || viewId === "kitchen";
+        if (role === "cashier") return viewId === "invoices" || viewId === "cash_register" || viewId === "orders";
+        if (role === "manager") return viewId !== "settings";
+        return true;
+      }
+
+      if (viewId === "floor" || viewId === "dashboard") return perms.canAccessFloor ?? true;
+      if (viewId === "orders" || viewId === "approvals") return perms.canAccessOrders ?? true;
+      if (viewId === "kitchen") return perms.canAccessKitchen ?? false;
+      if (viewId === "menu_items" || viewId === "menu_categories" || viewId === "stockout") return perms.canAccessMenu ?? false;
+      if (viewId === "invoices" || viewId === "cash_register" || viewId === "taxes") return perms.canAccessInvoices ?? false;
+      if (viewId === "staff" || viewId === "roles" || viewId === "activity") return perms.canAccessStaff ?? false;
+      if (viewId === "qr_studio" || viewId === "hardware" || viewId === "settings") return perms.canAccessSettings ?? false;
+      return true;
+    };
+
+    return NAV_SECTIONS.map((sec) => {
+      const items = sec.items
+        .map((item) => {
+          if (item.subItems) {
+            const filteredSubs = item.subItems.filter((sub) => canAccessView(sub.id));
+            if (filteredSubs.length === 0) return null;
+            return { ...item, subItems: filteredSubs };
+          }
+          if (item.view && !canAccessView(item.view)) return null;
+          return item;
+        })
+        .filter(Boolean) as typeof sec.items;
+
+      return { ...sec, items };
+    }).filter((sec) => sec.items.length > 0);
+  }, [userRole, rolePermissions]);
 
   const toggleGroup = (groupId: string) => {
     if (isCollapsed) {
@@ -208,7 +258,7 @@ export default function AdminSidebar({
 
         {/* Scrollable Navigation List */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
-          {NAV_SECTIONS.map((section, secIdx) => (
+          {visibleNavSections.map((section, secIdx) => (
             <div key={secIdx} className="space-y-1">
               {!isCollapsed && (
                 <h3 className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">

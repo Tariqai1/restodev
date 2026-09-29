@@ -76,9 +76,13 @@ export default function KitchenDisplayPage() {
   const unlockAudioContext = useCallback(() => {
     if (typeof window === "undefined") return;
     try {
-      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       if (audioCtx.state === "suspended") {
-        audioCtx.resume().then(() => setIsAudioUnlocked(true)).catch(() => setIsAudioUnlocked(true));
+        audioCtx
+          .resume()
+          .then(() => setIsAudioUnlocked(true))
+          .catch(() => setIsAudioUnlocked(true));
       } else {
         setIsAudioUnlocked(true);
       }
@@ -102,11 +106,12 @@ export default function KitchenDisplayPage() {
     };
   }, [unlockAudioContext]);
 
-  // Web Audio Synthesizer: Alert Chime for New Orders
+  // Audio Synthesizer: Chime on New Order
   const playChime = useCallback(() => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
-      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
 
@@ -131,7 +136,8 @@ export default function KitchenDisplayPage() {
   const playSuccessChime = useCallback(() => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
-      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       [523.25, 659.25, 783.99].forEach((freq, idx) => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -145,7 +151,7 @@ export default function KitchenDisplayPage() {
         osc.stop(audioCtx.currentTime + idx * 0.06 + 0.38);
       });
     } catch {
-      // Audio context might be restricted
+      // ignore
     }
   }, [soundEnabled]);
 
@@ -153,7 +159,8 @@ export default function KitchenDisplayPage() {
   const playCookChime = useCallback(() => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
-      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sine";
@@ -165,167 +172,128 @@ export default function KitchenDisplayPage() {
       osc.start();
       osc.stop(audioCtx.currentTime + 0.16);
     } catch {
-      // Audio context might be restricted
+      // ignore
     }
   }, [soundEnabled]);
 
-  const fetchKitchenTickets = useCallback(async (isInitial = false) => {
-    if (kitchenRequestInFlightRef.current) return;
-    kitchenRequestInFlightRef.current = true;
-    try {
-      const res = await fetch("/api/kitchen");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to fetch kitchen orders");
+  const fetchKitchenTickets = useCallback(
+    async (isInitial = false) => {
+      if (kitchenRequestInFlightRef.current) return;
+      kitchenRequestInFlightRef.current = true;
+      try {
+        const res = await fetch("/api/kitchen");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to fetch kitchen orders");
 
-      const fetchedOrders: KitchenOrder[] = data.orders || [];
-      // Sort oldest first (highest elapsed time on floor)
-      fetchedOrders.sort((a, b) => new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime());
+        const fetchedOrders: KitchenOrder[] = data.orders || [];
+        fetchedOrders.sort(
+          (a, b) => new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime()
+        );
 
-      if (!isInitial && fetchedOrders.length > previousOrderCountRef.current) {
-        playChime();
-      }
-      previousOrderCountRef.current = fetchedOrders.length;
-      setOrders(fetchedOrders);
+        if (!isInitial && fetchedOrders.length > previousOrderCountRef.current) {
+          playChime();
+        }
+        previousOrderCountRef.current = fetchedOrders.length;
+        setOrders(fetchedOrders);
 
-      if (data.todayStats) {
-        setTodayStats(data.todayStats);
+        if (data.todayStats) {
+          setTodayStats(data.todayStats);
+        }
+        if (data.dayWiseStats) {
+          setDayWiseStats(data.dayWiseStats);
+        }
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : "Error loading tickets");
+      } finally {
+        kitchenRequestInFlightRef.current = false;
+        setIsLoading(false);
       }
-      if (data.dayWiseStats) {
-        setDayWiseStats(data.dayWiseStats);
-      }
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Error loading tickets");
-    } finally {
-      kitchenRequestInFlightRef.current = false;
-      setIsLoading(false);
-    }
-  }, [playChime]);
+    },
+    [playChime]
+  );
 
   useEffect(() => {
-    let isMounted = true;
     fetchKitchenTickets(true);
-
-    fetch("/api/dashboard")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (isMounted && data?.user) {
-          setCurrentUser(data.user);
-        }
-      })
-      .catch(() => undefined);
-
-    let kitchenInterval: NodeJS.Timeout | null = null;
-
-    const startPolling = () => {
-      if (kitchenInterval) clearInterval(kitchenInterval);
-      kitchenInterval = setInterval(() => {
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-          return;
-        }
-        fetchKitchenTickets();
-        setCurrentTime(Date.now());
-      }, 3000);
-    };
-
-    const handleVisibilityChange = () => {
-      if (typeof document !== "undefined") {
-        if (document.visibilityState === "visible") {
-          fetchKitchenTickets();
-          setCurrentTime(Date.now());
-          startPolling();
-        } else if (kitchenInterval) {
-          clearInterval(kitchenInterval);
-          kitchenInterval = null;
-        }
-      }
-    };
-
-    startPolling();
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-    }
-
-    return () => {
-      isMounted = false;
-      if (kitchenInterval) clearInterval(kitchenInterval);
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
-      }
-    };
+    const interval = setInterval(() => {
+      fetchKitchenTickets(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [fetchKitchenTickets]);
 
-  const toggleFullscreen = () => {
-    if (typeof document === "undefined") return;
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+  // Realtime live clock
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch active staff identity
+  useEffect(() => {
+    async function loadIdentity() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setCurrentUser({
+              name: data.user.name || data.user.email || "Chef Station",
+              role: data.user.role || "kitchen",
+            });
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
-  };
+    loadIdentity();
+  }, []);
 
-  const handleSetPrepTime = async (orderId: string, minutes: number) => {
-    playCookChime();
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              prepEstimate: {
-                orderId,
-                minutes,
-                setAt: new Date().toISOString(),
-                setBy: "chef",
-              },
-            }
-          : o
-      )
-    );
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    }
+  }
 
+  // Set manual cooking duration target
+  async function handleSetPrepTime(orderId: string, minutes: number) {
     try {
-      await fetch("/api/kitchen", {
-        method: "PATCH",
+      const res = await fetch("/api/orders/prep-time", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, prepMinutes: minutes, setBy: "chef" }),
+        body: JSON.stringify({ orderId, prepMinutes: minutes, setBy: currentUser?.name || "kitchen" }),
       });
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId
+              ? {
+                  ...o,
+                  prepEstimate: {
+                    orderId,
+                    minutes,
+                    setAt: new Date().toISOString(),
+                    setBy: currentUser?.name || "kitchen",
+                  },
+                }
+              : o
+          )
+        );
+      }
     } catch {
       // ignore
     }
-  };
+  }
 
-  const [estimatingOrderId, setEstimatingOrderId] = useState<string | null>(null);
-
-  const handleAiAutoEstimate = async (order: KitchenOrder) => {
-    playCookChime();
-    setEstimatingOrderId(order.id);
-    try {
-      const orderItems = order.order_items.map((it: KitchenOrderItem) => ({
-        name: it.menu_items?.name || "Dish",
-        qty: it.qty,
-      }));
-      const res = await fetch("/api/ai/prep-time", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderItems,
-          activeKitchenOrdersCount: orders.length,
-        }),
-      });
-      const data = await res.json();
-      if (data.ok && typeof data.estimatedMinutes === "number") {
-        await handleSetPrepTime(order.id, data.estimatedMinutes);
-      }
-    } catch (err) {
-      console.error("[AI Auto Estimate Error]", err);
-    } finally {
-      setEstimatingOrderId(null);
-    }
-  };
-
-  // Advance single item status
+  // Bump individual dish status
   async function bumpItem(itemId: string, currentStatus: "pending" | "preparing" | "served") {
-    if (currentStatus === "served") return;
     const nextStatus = currentStatus === "pending" ? "preparing" : "served";
-
     if (nextStatus === "preparing") {
       playCookChime();
     } else {
@@ -403,8 +371,10 @@ export default function KitchenDisplayPage() {
     if (unservedItems.length === 0) return false;
 
     // Status filter
-    if (filter === "pending" && !unservedItems.some((it) => it.item_status === "pending")) return false;
-    if (filter === "preparing" && !unservedItems.some((it) => it.item_status === "preparing")) return false;
+    if (filter === "pending" && !unservedItems.some((it) => it.item_status === "pending"))
+      return false;
+    if (filter === "preparing" && !unservedItems.some((it) => it.item_status === "preparing"))
+      return false;
 
     // Search query filter
     if (searchQuery.trim()) {
@@ -420,7 +390,8 @@ export default function KitchenDisplayPage() {
   });
 
   // Calculate Consolidated Pending Dishes (Batch Cooking Aggregator)
-  const pendingDishMap: { [name: string]: { count: number; isVeg: boolean; tables: string[] } } = {};
+  const pendingDishMap: { [name: string]: { count: number; isVeg: boolean; tables: string[] } } =
+    {};
   activeOrders.forEach((order) => {
     const tableNum = order.restaurant_tables?.table_number || "T--";
     order.order_items.forEach((item) => {
@@ -437,151 +408,133 @@ export default function KitchenDisplayPage() {
       }
     });
   });
-  const consolidatedDishes = Object.entries(pendingDishMap).sort((a, b) => b[1].count - a[1].count);
+  const consolidatedDishes = Object.entries(pendingDishMap).sort(
+    (a, b) => b[1].count - a[1].count
+  );
 
   const isKitchenRole = currentUser?.role === "kitchen";
 
   return (
-    <div
-      className="min-h-screen flex flex-col select-none"
-      style={{
-        backgroundColor: "var(--dark-surface, #14110D)",
-        color: "#FAF6EC",
-      }}
-    >
-      {/* Wall-Display Top Bar: High contrast, large type for distance glanceability */}
-      <header
-        className="px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-xl border-b"
-        style={{
-          backgroundColor: "#191510",
-          borderColor: "rgba(220, 209, 183, 0.15)",
-        }}
-      >
+    <div className="min-h-screen flex flex-col select-none bg-slate-950 text-slate-100 font-sans">
+      {/* Top Modern Navigation Header */}
+      <header className="px-4 sm:px-6 py-3 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-lg">
         <div className="flex items-center gap-3 sm:gap-4">
           {!isKitchenRole && (
             <Link
               href="/"
-              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-white/10"
-              style={{
-                backgroundColor: "rgba(220, 209, 183, 0.08)",
-                color: "var(--paper, #FAF8F2)",
-                border: "1px solid rgba(220, 209, 183, 0.2)",
-              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5 shadow-2xs"
             >
-              ← Floor Desk
+              <i className="fa-solid fa-chevron-left text-[10px]" />
+              <span>Admin Panel</span>
             </Link>
           )}
 
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase tracking-wider text-amber-500">
-                Kitchen Display System
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 font-mono">
+                Kitchen KDS Station
               </span>
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
-              <span className="text-[10px] text-emerald-400 font-mono hidden sm:inline">0-Lag Synced</span>
+              <span className="text-[10px] text-emerald-400 font-mono hidden sm:inline">
+                Live Synced
+              </span>
             </div>
-            <h1 className="font-heading text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2.5">
               <span>Live Order Rail</span>
-              <span className="text-amber-400 text-sm font-sans font-bold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30">
+              <span className="text-purple-300 text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-900/50 border border-purple-500/30 font-mono">
                 {activeOrders.length} active slips
               </span>
             </h1>
           </div>
         </div>
 
-        {/* Filters, Search, Sound, Fullscreen, and Controls */}
+        {/* Controls: Search, Filters, Sound, Fullscreen, Profile */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {/* Quick Search Input */}
+          {/* Search Box */}
           <div className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search table or dish..."
-              className="px-3 py-1.5 pl-8 rounded-lg text-xs bg-black/40 border border-stone-800 text-white placeholder-stone-500 focus:outline-hidden focus:border-amber-500 w-36 sm:w-44 transition-all"
+              className="px-3 py-1.5 pl-8 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 w-36 sm:w-44 transition-all"
             />
-            <span className="absolute left-2.5 top-2 text-stone-500 text-xs">🔍</span>
+            <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-slate-500 text-xs" />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1.5 text-stone-400 hover:text-white text-xs cursor-pointer"
+                className="absolute right-2 top-1.5 text-slate-400 hover:text-white text-xs cursor-pointer"
               >
-                ✕
+                <i className="fa-solid fa-xmark" />
               </button>
             )}
           </div>
 
-          {/* Rail Filter Tabs */}
-          <div
-            className="flex p-0.5 rounded-lg border text-xs font-bold"
-            style={{
-              backgroundColor: "#100D0A",
-              borderColor: "rgba(220, 209, 183, 0.15)",
-            }}
-          >
+          {/* Filter Tabs */}
+          <div className="flex p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold">
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className="px-3 py-1 rounded-md cursor-pointer transition-colors"
-              style={{
-                backgroundColor: filter === "all" ? "var(--rust, #FFBE0B)" : "transparent",
-                color: filter === "all" ? "#191510" : "#A89D8C",
-              }}
+              className={`px-3 py-1 rounded-lg cursor-pointer transition-colors ${
+                filter === "all"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
             >
               All ({orders.length})
             </button>
             <button
               type="button"
               onClick={() => setFilter("pending")}
-              className="px-2.5 py-1 rounded-md cursor-pointer transition-colors"
-              style={{
-                backgroundColor: filter === "pending" ? "var(--rust, #FFBE0B)" : "transparent",
-                color: filter === "pending" ? "#191510" : "#A89D8C",
-              }}
+              className={`px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${
+                filter === "pending"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
             >
               New
             </button>
             <button
               type="button"
               onClick={() => setFilter("preparing")}
-              className="px-2.5 py-1 rounded-md cursor-pointer transition-colors"
-              style={{
-                backgroundColor: filter === "preparing" ? "var(--rust, #FFBE0B)" : "transparent",
-                color: filter === "preparing" ? "#191510" : "#A89D8C",
-              }}
+              className={`px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${
+                filter === "preparing"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
             >
               Cooking
             </button>
           </div>
 
-          {/* Sound Toggle */}
+          {/* Sound Chime Toggle */}
           <button
             type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer border transition-colors"
-            style={{
-              backgroundColor: "rgba(220, 209, 183, 0.08)",
-              borderColor: "rgba(220, 209, 183, 0.2)",
-              color: soundEnabled ? "var(--sage, #2E7D32)" : "#786E5E",
-            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer border transition-colors flex items-center gap-1.5 ${
+              soundEnabled
+                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-400"
+                : "bg-slate-800 border-slate-700 text-slate-400"
+            }`}
             title={soundEnabled ? "Mute bell chime" : "Enable bell chime"}
           >
-            {soundEnabled ? "🔔 Chime ON" : "🔕 Muted"}
+            <i className={`fa-solid ${soundEnabled ? "fa-bell" : "fa-bell-slash"} text-xs`} />
+            <span className="hidden sm:inline">{soundEnabled ? "Chime ON" : "Muted"}</span>
           </button>
 
-          {/* iOS Safari WebAudio Unlock Indicator */}
+          {/* iOS Safari WebAudio Unlock */}
           {soundEnabled && !isAudioUnlocked && (
             <button
               type="button"
               onClick={unlockAudioContext}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer border border-amber-500/60 bg-amber-500/20 text-amber-300 animate-pulse flex items-center gap-1 shadow-sm"
-              title="Tap to allow iPad/Safari to play incoming order chimes"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer border border-amber-500/60 bg-amber-500/20 text-amber-300 animate-pulse flex items-center gap-1.5 shadow-sm"
+              title="Tap to allow tablet/browser to play incoming order chimes"
             >
-              <span>🔊</span>
+              <i className="fa-solid fa-volume-high text-xs" />
               <span>Tap to activate audio</span>
             </button>
           )}
@@ -590,93 +543,90 @@ export default function KitchenDisplayPage() {
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer border transition-colors hover:bg-white/10 hidden sm:inline-flex"
-            style={{
-              backgroundColor: "rgba(220, 209, 183, 0.08)",
-              borderColor: "rgba(220, 209, 183, 0.2)",
-              color: "#FAF6EC",
-            }}
-            title="Toggle TV / Monitor Fullscreen"
+            className="px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors hidden sm:flex items-center gap-1.5 shadow-2xs"
+            title="Toggle TV / Display Fullscreen"
           >
-            {isFullscreen ? "🗗 Exit" : "⛶ Fullscreen"}
+            <i className={`fa-solid ${isFullscreen ? "fa-compress" : "fa-expand"} text-xs`} />
+            <span>{isFullscreen ? "Exit" : "Fullscreen"}</span>
           </button>
 
-          {/* Chef Profile & Sign Out */}
-          <div className="flex items-center gap-2 pl-2 border-l border-stone-800">
-            <span className="text-xs font-bold text-stone-300">
-              {currentUser?.name || "Chef"}
+          {/* Staff Badge & Sign Out */}
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+            <div className="w-7 h-7 rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/30 flex items-center justify-center font-bold text-xs">
+              {(currentUser?.name || "CH").slice(0, 2).toUpperCase()}
+            </div>
+            <span className="text-xs font-bold text-slate-300 hidden md:inline">
+              {currentUser?.name || "Kitchen Chef"}
             </span>
             <button
               type="button"
               onClick={handleSignOut}
-              className="px-2 py-1 rounded text-xs cursor-pointer hover:bg-stone-800 text-stone-400 hover:text-white"
+              className="px-2.5 py-1 rounded-lg text-xs cursor-pointer hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1"
+              title="Sign Out"
             >
-              Sign out
+              <i className="fa-solid fa-arrow-right-from-bracket text-[11px]" />
+              <span className="hidden sm:inline">Exit</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Day-Wise Metrics & Kitchen Performance Bar */}
-      <section
-        className="px-4 sm:px-6 py-2.5 border-b flex flex-wrap items-center justify-between gap-3 text-xs"
-        style={{
-          backgroundColor: "#16120D",
-          borderColor: "rgba(220, 209, 183, 0.12)",
-        }}
-      >
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-          <div className="flex items-center gap-1.5 font-bold text-stone-300">
-            <span className="text-base">📅</span>
-            <span>Today&apos;s Velocity:</span>
+      {/* Metrics Velocity Bar */}
+      <section className="px-4 sm:px-6 py-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 font-bold text-slate-400 font-mono text-[11px] uppercase tracking-wider">
+            <i className="fa-solid fa-chart-line text-purple-400 text-xs" />
+            <span>Shift Velocity:</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="px-2.5 py-1 rounded-md bg-stone-900/90 border border-stone-800 flex items-center gap-1.5">
-              <span className="text-amber-400 font-black text-sm">{todayStats.totalOrders}</span>
-              <span className="text-[11px] text-stone-400">Total Orders</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2 shadow-2xs">
+              <span className="text-purple-400 font-black text-sm font-mono">
+                {todayStats.totalOrders}
+              </span>
+              <span className="text-[11px] text-slate-400">Total Orders</span>
             </div>
 
-            <div className="px-2.5 py-1 rounded-md bg-blue-950/40 border border-blue-800/40 flex items-center gap-1.5">
-              <span className="text-blue-400 font-black text-sm">{activeOrders.length}</span>
+            <div className="px-3 py-1 rounded-xl bg-blue-950/40 border border-blue-800/40 flex items-center gap-2 shadow-2xs">
+              <span className="text-blue-400 font-black text-sm font-mono">
+                {activeOrders.length}
+              </span>
               <span className="text-[11px] text-blue-200">Active Cooking</span>
             </div>
 
-            <div className="px-2.5 py-1 rounded-md bg-emerald-950/40 border border-emerald-800/40 flex items-center gap-1.5">
-              <span className="text-emerald-400 font-black text-sm">{todayStats.completedOrders}</span>
+            <div className="px-3 py-1 rounded-xl bg-emerald-950/40 border border-emerald-800/40 flex items-center gap-2 shadow-2xs">
+              <span className="text-emerald-400 font-black text-sm font-mono">
+                {todayStats.completedOrders}
+              </span>
               <span className="text-[11px] text-emerald-200">Served Today</span>
             </div>
 
-            <div className="px-2.5 py-1 rounded-md bg-amber-950/30 border border-amber-800/40 flex items-center gap-1.5">
-              <span className="text-amber-300 font-black text-sm">{todayStats.dishesCooked}</span>
-              <span className="text-[11px] text-amber-200">Dishes Prepared</span>
+            <div className="px-3 py-1 rounded-xl bg-amber-950/30 border border-amber-800/40 flex items-center gap-2 shadow-2xs">
+              <span className="text-amber-300 font-black text-sm font-mono">
+                {todayStats.dishesCooked}
+              </span>
+              <span className="text-[11px] text-amber-200">Dishes Cooked</span>
             </div>
           </div>
         </div>
 
-        {/* Day-Wise Breakdown Modal Trigger */}
+        {/* Day-Wise Report Button */}
         <button
           type="button"
           onClick={() => setIsDayWiseModalOpen(true)}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-purple-300 bg-purple-900/30 border border-purple-500/30 hover:bg-purple-900/50 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
         >
-          <span>📊</span>
-          <span>Day-Wise Orders Report ({dayWiseStats.length} Days)</span>
+          <i className="fa-solid fa-calendar-days text-xs" />
+          <span>7-Day Orders Velocity Report</span>
         </button>
       </section>
 
-      {/* Batch Cooking Fire Counter (Consolidated Kitchen Prep Summary) */}
+      {/* Batch Cooking Fire Counter (Consolidated Prep Summary) */}
       {consolidatedDishes.length > 0 && (
-        <section
-          className="px-4 sm:px-6 py-2.5 border-b flex items-center gap-3 overflow-x-auto select-none"
-          style={{
-            backgroundColor: "#1E1710",
-            borderColor: "rgba(245, 158, 11, 0.2)",
-          }}
-        >
-          <div className="flex items-center gap-1.5 shrink-0 text-xs font-black text-amber-400 uppercase tracking-wider">
-            <span>🔥</span>
-            <span>Batch Fire Summary:</span>
+        <section className="px-4 sm:px-6 py-2.5 bg-slate-900/70 border-b border-slate-800/80 flex items-center gap-3 overflow-x-auto select-none">
+          <div className="flex items-center gap-1.5 shrink-0 text-xs font-bold text-amber-400 uppercase tracking-wider font-mono">
+            <i className="fa-solid fa-fire text-amber-500 text-xs" />
+            <span>Batch Cooking:</span>
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
@@ -687,17 +637,23 @@ export default function KitchenDisplayPage() {
                   key={name}
                   type="button"
                   onClick={() => setHighlightDish(isSelected ? null : name)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border ${
+                  className={`px-3 py-1 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 border ${
                     isSelected
-                      ? "bg-amber-500 text-stone-950 border-amber-400 shadow-md ring-2 ring-amber-300 scale-105"
-                      : "bg-black/50 text-stone-200 border-stone-700/80 hover:border-amber-500/60"
+                      ? "bg-purple-600 text-white border-purple-400 shadow-md ring-2 ring-purple-300 scale-105"
+                      : "bg-slate-950 text-slate-200 border-slate-800 hover:border-purple-500/60"
                   }`}
                   title={`Click to highlight tickets with ${name} (${data.tables.join(", ")})`}
                 >
-                  <span className={data.isVeg ? "veg-indicator" : "nonveg-indicator"} />
-                  <span className="font-extrabold text-amber-300">{data.count}×</span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      data.isVeg ? "bg-emerald-500" : "bg-rose-500"
+                    }`}
+                  />
+                  <span className="font-mono text-purple-400 font-extrabold">{data.count}×</span>
                   <span>{name}</span>
-                  <span className="text-[10px] opacity-70 font-mono">[{data.tables.join(",")}]</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    [{data.tables.join(",")}]
+                  </span>
                 </button>
               );
             })}
@@ -706,54 +662,57 @@ export default function KitchenDisplayPage() {
               <button
                 type="button"
                 onClick={() => setHighlightDish(null)}
-                className="px-2 py-1 rounded-md text-[11px] font-bold text-amber-400 hover:text-white bg-black/40 border border-stone-700 shrink-0 cursor-pointer"
+                className="px-2.5 py-1 rounded-xl text-xs font-bold text-purple-300 hover:text-white bg-slate-800 border border-slate-700 shrink-0 cursor-pointer flex items-center gap-1"
               >
-                Clear Filter ✕
+                <i className="fa-solid fa-xmark text-xs" />
+                <span>Clear Filter</span>
               </button>
             )}
           </div>
         </section>
       )}
 
-      {/* Main Order Rail: Large Cards Read Easily from 4 Feet Away */}
+      {/* Main Order Rail Content */}
       <main className="flex-1 p-4 sm:p-6 overflow-x-auto space-y-6">
         {isLoading && (
-          <div className="p-16 text-center text-xs font-bold text-stone-400 flex flex-col items-center justify-center space-y-3">
-            <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+          <div className="p-16 text-center text-xs font-bold text-slate-400 flex flex-col items-center justify-center space-y-3">
+            <div className="w-8 h-8 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
             <span>Connecting to live kitchen rail...</span>
           </div>
         )}
 
         {errorMessage && (
-          <div className="p-3.5 rounded-lg text-xs font-bold bg-red-950/70 text-red-200 border border-red-700 shadow-lg">
-            ⚠️ {errorMessage}
+          <div className="p-3.5 rounded-xl text-xs font-bold bg-rose-950/70 text-rose-200 border border-rose-700 shadow-lg">
+            <i className="fa-solid fa-triangle-exclamation mr-1.5" />
+            {errorMessage}
           </div>
         )}
 
+        {/* Empty State */}
         {!isLoading && activeOrders.length === 0 && (
           <div className="text-center py-24 space-y-3 max-w-md mx-auto">
-            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-950/60 border border-emerald-500/40 flex items-center justify-center text-3xl shadow-xl">
-              ✓
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl shadow-xl">
+              <i className="fa-solid fa-check" />
             </div>
-            <h2 className="font-heading text-3xl font-bold text-white tracking-tight">
+            <h2 className="text-2xl font-black text-white tracking-tight">
               Kitchen Rail Clear
             </h2>
-            <p className="text-xs text-stone-400 leading-relaxed">
+            <p className="text-xs text-slate-400 leading-relaxed">
               All tickets cooked and dispatched to floor. Standing by for incoming table orders.
             </p>
             <div className="pt-2">
-              <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-stone-900 border border-stone-800 text-stone-400">
+              <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
                 Today&apos;s Dispatched: {todayStats.completedOrders} orders • {todayStats.dishesCooked} dishes
               </span>
             </div>
           </div>
         )}
 
-        {/* Grid of Authentic Kitchen Paper Slip Tickets (Oldest first) */}
+        {/* Grid of Modern High-Contrast Order Slips */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
           {activeOrders.map((order) => {
             const elapsed = getElapsedMinutes(order.opened_at);
-            const isCritical = elapsed >= 25; // 25+ min is critically overdue
+            const isCritical = elapsed >= 25; // 25+ min critically overdue
             const isLate = elapsed >= 12 && !isCritical;
             const isAttention = elapsed >= 8 && !isLate && !isCritical;
             const isAllPreparing = order.order_items.every((it) => it.item_status === "preparing");
@@ -764,145 +723,118 @@ export default function KitchenDisplayPage() {
                 (it) => it.menu_items?.name === highlightDish && it.item_status !== "served"
               );
 
-            // Urgency color coding & animated priority glow
-            const urgencyBorder = isCritical
-              ? "border-t-4 border-t-red-600 ring-2 ring-red-500/50 shadow-xl shadow-red-950/50"
+            // Urgency border & header styling
+            const cardBorder = isCritical
+              ? "border-rose-500/80 ring-2 ring-rose-500/40 shadow-xl shadow-rose-950/40"
               : isLate
-              ? "border-t-4 border-t-[#A8412F] shadow-lg"
+              ? "border-amber-500/70 shadow-lg"
               : isAttention
-              ? "border-t-4 border-t-[#C1652C]"
-              : "border-t-4 border-t-[#5B7A55]";
+              ? "border-purple-500/60"
+              : "border-slate-800";
 
-            const timerColor = isCritical
-              ? "text-red-600 animate-pulse font-black"
+            const timerBadge = isCritical
+              ? "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse font-black"
               : isLate
-              ? "text-[#A8412F] font-bold"
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold"
               : isAttention
-              ? "text-[#C1652C] font-bold"
-              : "text-[#5B7A55] font-bold";
+              ? "bg-purple-500/20 text-purple-300 border-purple-500/40 font-bold"
+              : "bg-slate-800 text-slate-300 border-slate-700 font-medium";
 
             return (
               <div
                 key={order.id}
-                className={`rounded-lg flex flex-col justify-between shadow-xl overflow-hidden transition-all duration-200 ${urgencyBorder} ${
+                className={`rounded-2xl flex flex-col justify-between shadow-xl overflow-hidden transition-all duration-200 border bg-slate-900 ${cardBorder} ${
                   containsHighlightedDish
-                    ? "ring-4 ring-amber-400 scale-[1.02] shadow-amber-500/20"
+                    ? "ring-4 ring-purple-400 scale-[1.02] shadow-purple-500/20"
                     : highlightDish
-                    ? "opacity-60"
+                    ? "opacity-50"
                     : ""
                 }`}
-                style={{
-                  backgroundColor: "var(--paper, #FAF8F2)",
-                  borderRight: "1px solid var(--hairline, #E8DECA)",
-                  borderBottom: "1px solid var(--hairline, #E8DECA)",
-                  borderLeft: "1px solid var(--hairline, #E8DECA)",
-                  color: "var(--ink, #2A2312)",
-                }}
               >
                 <div>
-                  {/* Ticket Header: Large Table Number & Item Ready Counter */}
-                  <div
-                    className="p-3.5 border-b border-dashed flex items-baseline justify-between"
-                    style={{
-                      backgroundColor: isCritical ? "#FEE2E2" : "var(--paper-dim, #F4EFE2)",
-                      borderColor: "var(--hairline, #E8DECA)",
-                    }}
-                  >
+                  {/* Ticket Header */}
+                  <div className="p-3.5 border-b border-slate-800 bg-slate-950/60 flex items-baseline justify-between">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-semibold text-stone-600">
-                          Order slip
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 font-mono tracking-wider">
+                          Ticket #{order.id.slice(-4).toUpperCase()}
                         </span>
                         {(() => {
-                          const readyCount = order.order_items.filter((it) => it.item_status === "served").length;
+                          const readyCount = order.order_items.filter(
+                            (it) => it.item_status === "served"
+                          ).length;
                           const totalCount = order.order_items.length;
                           const isFullyReady = readyCount === totalCount && totalCount > 0;
                           return (
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                 isFullyReady
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse"
+                                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 animate-pulse"
                                   : readyCount > 0
-                                  ? "bg-amber-100 text-amber-900 border border-amber-300"
-                                  : "bg-stone-200 text-stone-700"
+                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                  : "bg-slate-800 text-slate-400 border-slate-700"
                               }`}
                             >
-                              {isFullyReady ? "✓ All Ready" : `${readyCount}/${totalCount} Ready`}
+                              {isFullyReady
+                                ? "✓ All Ready"
+                                : `${readyCount}/${totalCount} Ready`}
                             </span>
                           );
                         })()}
                       </div>
-                      <strong
-                        className="font-heading text-3xl font-extrabold tracking-tight block mt-0.5"
-                        style={{ color: "var(--ink, #2A2312)" }}
-                      >
+                      <strong className="text-2xl font-black tracking-tight text-white block">
                         Table {order.restaurant_tables?.table_number || "T--"}
                       </strong>
                     </div>
 
-                    <div className="text-right font-receipt">
-                      <span className={`text-sm ${timerColor}`}>
+                    <div className="text-right">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-md border font-mono ${timerBadge}`}
+                      >
                         {elapsed >= 1440
                           ? `${Math.floor(elapsed / 1440)}d ${Math.floor((elapsed % 1440) / 60)}h`
                           : elapsed >= 60
                           ? `${Math.floor(elapsed / 60)}h ${elapsed % 60}m`
-                          : `${elapsed} min`}
+                          : `${elapsed}m ago`}
                       </span>
-                      <div className="text-[10px] text-stone-600 font-bold mt-0.5">
-                        {isCritical ? "🚨 OVERDUE" : isLate ? "Overdue" : isAttention ? "Priority" : "Fresh"}
+                      <div className="text-[10px] font-bold mt-1 text-slate-400 uppercase tracking-wider">
+                        {isCritical
+                          ? "Critically Late"
+                          : isLate
+                          ? "Late"
+                          : isAttention
+                          ? "Priority"
+                          : "Normal"}
                       </div>
                     </div>
                   </div>
 
-                  {/* Kitchen Master 1-Tap Prep Time Countdown Setter */}
-                  <div
-                    className="px-3 py-2 border-b border-dashed flex items-center justify-between gap-1 text-[11px]"
-                    style={{ backgroundColor: "var(--paper-dim, #F4EFE2)", borderColor: "var(--hairline, #E8DECA)" }}
-                  >
-                    <div className="flex items-center gap-1 font-semibold text-stone-700">
-                      <span>⏳</span>
+                  {/* Target Duration Setter Strip */}
+                  <div className="px-3.5 py-2 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 font-medium text-slate-400">
+                      <i className="fa-regular fa-clock text-[11px]" />
                       <span>Target:</span>
                       {order.prepEstimate ? (
-                        <span
-                          className="font-bold px-1.5 py-0.5 rounded font-mono text-[10px]"
-                          style={{ backgroundColor: "var(--rust, #FFBE0B)", color: "var(--rust-text, #2A2312)" }}
-                        >
+                        <span className="font-bold px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 border border-purple-500/40 font-mono text-[10px]">
                           {order.prepEstimate.minutes}m
                         </span>
                       ) : (
-                        <span className="text-stone-400 text-[10px]">Unset</span>
+                        <span className="text-slate-500 text-[10px]">Unset</span>
                       )}
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        disabled={estimatingOrderId === order.id}
-                        onClick={() => handleAiAutoEstimate(order)}
-                        className="px-2 py-0.5 rounded font-bold text-[10px] bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 shadow-2xs hover:from-amber-600 hover:to-yellow-500 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                        title="Smart AI Prep Time Estimation (Nemotron)"
-                      >
-                        {estimatingOrderId === order.id ? (
-                          <span className="animate-pulse">AI...</span>
-                        ) : (
-                          <>
-                            <span>✨</span>
-                            <span>AI</span>
-                          </>
-                        )}
-                      </button>
-
                       {[10, 15, 20, 30].map((mins) => (
                         <button
                           key={mins}
                           type="button"
                           onClick={() => handleSetPrepTime(order.id, mins)}
-                          className={`px-1.5 py-0.5 rounded font-bold font-mono text-[10px] transition-all cursor-pointer ${
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
                             order.prepEstimate?.minutes === mins
-                              ? "shadow-xs ring-1 ring-amber-600 bg-amber-400 text-stone-950"
-                              : "bg-white hover:bg-stone-100 text-stone-700 border border-stone-300"
+                              ? "bg-purple-600 text-white shadow-xs"
+                              : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
                           }`}
-                          title={`Set estimated prep time to ${mins} minutes`}
+                          title={`Set target cook time to ${mins} minutes`}
                         >
                           {mins}m
                         </button>
@@ -910,8 +842,8 @@ export default function KitchenDisplayPage() {
                     </div>
                   </div>
 
-                  {/* Ticket Items: Individual Dish-by-Dish Action Bumping */}
-                  <div className="p-3.5 space-y-2 font-receipt text-xs">
+                  {/* Dish List */}
+                  <div className="p-3.5 space-y-2 text-xs">
                     {order.order_items.map((item) => {
                       const isItemServed = item.item_status === "served";
                       const isItemCooking = item.item_status === "preparing";
@@ -920,56 +852,54 @@ export default function KitchenDisplayPage() {
                       return (
                         <div
                           key={item.id}
-                          className={`p-2.5 rounded-lg flex items-center justify-between gap-2 transition-all border ${
-                            isItemHighlighted ? "ring-2 ring-amber-500 bg-amber-50" : ""
+                          className={`p-2.5 rounded-xl flex items-center justify-between gap-2 transition-all border ${
+                            isItemHighlighted
+                              ? "ring-2 ring-purple-400 bg-purple-950/50 border-purple-500"
+                              : isItemServed
+                              ? "bg-slate-950/40 border-slate-800/60 opacity-60"
+                              : isItemCooking
+                              ? "bg-amber-950/30 border-amber-500/40 shadow-xs"
+                              : "bg-slate-950 border-slate-800"
                           }`}
-                          style={{
-                            backgroundColor: isItemServed
-                              ? "#F4F7F4"
-                              : isItemCooking
-                              ? "#EFF6FF"
-                              : isItemHighlighted
-                              ? "#FEF3C7"
-                              : "var(--paper, #FAF8F2)",
-                            borderColor: isItemServed
-                              ? "#A3CFBB"
-                              : isItemCooking
-                              ? "#93C5FD"
-                              : isItemHighlighted
-                              ? "#F59E0B"
-                              : "var(--hairline, #E8DECA)",
-                            opacity: isItemServed ? 0.6 : 1,
-                          }}
                         >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className={item.menu_items?.is_veg ? "veg-indicator" : "nonveg-indicator"} />
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                item.menu_items?.is_veg ? "bg-emerald-500" : "bg-rose-500"
+                              }`}
+                            />
                             <div className="min-w-0">
                               <div
                                 className={`font-bold text-sm truncate ${
-                                  isItemServed ? "line-through text-stone-500" : ""
+                                  isItemServed
+                                    ? "line-through text-slate-500"
+                                    : "text-slate-100"
                                 }`}
-                                style={{ color: isItemServed ? "#78716C" : "var(--ink, #2A2312)" }}
                               >
-                                {item.qty}× {item.menu_items?.name || "Dish"}
+                                <span className="text-purple-400 font-mono font-black mr-1">
+                                  {item.qty}×
+                                </span>
+                                {item.menu_items?.name || "Dish"}
                               </div>
                               {item.notes && (
-                                <div className="text-[11px] font-sans font-bold mt-0.5 text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200 inline-block">
-                                  ⚠️ Note: {item.notes}
+                                <div className="text-[10px] font-bold mt-0.5 text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-600/40 inline-flex items-center gap-1">
+                                  <i className="fa-solid fa-circle-exclamation text-[9px]" />
+                                  <span>Note: {item.notes}</span>
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          {/* Individual Dish Touch Button for Chef */}
+                          {/* 1-Tap Cook / Ready Button */}
                           <div className="shrink-0 flex items-center gap-1.5">
                             {item.item_status === "pending" && (
                               <button
                                 type="button"
                                 onClick={() => bumpItem(item.id, "pending")}
-                                className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-transform cursor-pointer shadow-xs flex items-center gap-1"
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all cursor-pointer shadow-xs flex items-center gap-1"
                                 title="Start cooking this dish"
                               >
-                                <span>🍳</span>
+                                <i className="fa-solid fa-fire text-xs" />
                                 <span>Cook</span>
                               </button>
                             )}
@@ -978,18 +908,18 @@ export default function KitchenDisplayPage() {
                               <button
                                 type="button"
                                 onClick={() => bumpItem(item.id, "preparing")}
-                                className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-transform cursor-pointer shadow-xs flex items-center gap-1 animate-pulse"
-                                title="Click when dish is ready for waiter pickup"
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer shadow-xs flex items-center gap-1 animate-pulse"
+                                title="Mark dish ready for pickup"
                               >
-                                <span>🍽️</span>
-                                <span>Mark Ready</span>
+                                <i className="fa-solid fa-check text-xs" />
+                                <span>Ready</span>
                               </button>
                             )}
 
                             {item.item_status === "served" && (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 flex items-center gap-1">
-                                <span>✓</span>
-                                <span>Ready</span>
+                              <span className="px-2.5 py-1 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 flex items-center gap-1">
+                                <i className="fa-solid fa-check text-xs" />
+                                <span>Done</span>
                               </span>
                             )}
                           </div>
@@ -999,37 +929,25 @@ export default function KitchenDisplayPage() {
                   </div>
                 </div>
 
-                {/* Direct Action Bumper (Min 44px target) */}
-                <div
-                  className="p-3 border-t border-dashed flex items-center gap-2"
-                  style={{
-                    backgroundColor: "var(--paper-dim, #F4EFE2)",
-                    borderColor: "var(--hairline, #E8DECA)",
-                  }}
-                >
+                {/* Direct Action Bump Bar */}
+                <div className="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center gap-2">
                   {!isAllPreparing && (
                     <button
                       type="button"
                       onClick={() => bumpOrder(order.id, "preparing")}
-                      className="flex-1 h-11 rounded-md text-xs font-bold text-white cursor-pointer transition-transform active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
-                      style={{
-                        backgroundColor: "var(--ink-blue, #1976D2)",
-                      }}
+                      className="flex-1 h-10 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
                     >
-                      <span>🍳</span>
-                      <span>Start all cooking</span>
+                      <i className="fa-solid fa-fire text-xs" />
+                      <span>Start All</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => bumpOrder(order.id, "served")}
-                    className="flex-1 h-11 rounded-md text-xs font-bold text-white cursor-pointer transition-transform active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
-                    style={{
-                      backgroundColor: "var(--sage, #2E7D32)",
-                    }}
+                    className="flex-1 h-10 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
                   >
-                    <span>✓</span>
-                    <span>Serve entire ticket</span>
+                    <i className="fa-solid fa-check-double text-xs" />
+                    <span>Complete Order</span>
                   </button>
                 </div>
               </div>
@@ -1038,62 +956,64 @@ export default function KitchenDisplayPage() {
         </div>
       </main>
 
-      {/* Day-Wise Analytics & Performance Modal */}
+      {/* Day-Wise Analytics Modal */}
       {isDayWiseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div
-            className="w-full max-w-2xl rounded-2xl border shadow-2xl p-6 space-y-5 overflow-hidden flex flex-col max-h-[90vh]"
-            style={{
-              backgroundColor: "#1C1712",
-              borderColor: "rgba(220, 209, 183, 0.2)",
-              color: "#FAF6EC",
-            }}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-stone-800">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📊</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-900 text-slate-100 shadow-2xl p-6 space-y-5 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/20">
+                  <i className="fa-solid fa-chart-line text-sm" />
+                </div>
                 <div>
-                  <h3 className="font-heading text-xl font-black tracking-tight text-white">
-                    Day-Wise Kitchen Order Analytics
+                  <h3 className="text-base font-bold text-white tracking-tight">
+                    Day-Wise Kitchen Velocity Analytics
                   </h3>
-                  <p className="text-xs text-stone-400">
-                    Shift order velocity & dish cooking volume for the last 7 days
+                  <p className="text-xs text-slate-400">
+                    Shift cooking speed &amp; order volume across the last 7 days
                   </p>
                 </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setIsDayWiseModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center justify-center font-bold cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
               >
-                ✕
+                <i className="fa-solid fa-xmark text-sm" />
               </button>
             </div>
 
-            {/* Quick 7-Day Summary Cards */}
+            {/* 7-Day Velocity KPIs */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-stone-900 border border-stone-800 text-center">
-                <span className="text-[10px] uppercase font-bold text-stone-400 block">7-Day Total Orders</span>
-                <span className="font-heading text-2xl font-black text-amber-400">
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-center shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
+                  7-Day Total
+                </span>
+                <span className="text-2xl font-black text-purple-400 font-mono mt-0.5 block">
                   {dayWiseStats.reduce((sum, d) => sum + d.totalOrders, 0)}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-stone-900 border border-stone-800 text-center">
-                <span className="text-[10px] uppercase font-bold text-stone-400 block">Total Served</span>
-                <span className="font-heading text-2xl font-black text-emerald-400">
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-center shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
+                  Total Served
+                </span>
+                <span className="text-2xl font-black text-emerald-400 font-mono mt-0.5 block">
                   {dayWiseStats.reduce((sum, d) => sum + d.completedOrders, 0)}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-stone-900 border border-stone-800 text-center">
-                <span className="text-[10px] uppercase font-bold text-stone-400 block">Dishes Cooked</span>
-                <span className="font-heading text-2xl font-black text-blue-400">
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-center shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
+                  Dishes Cooked
+                </span>
+                <span className="text-2xl font-black text-blue-400 font-mono mt-0.5 block">
                   {dayWiseStats.reduce((sum, d) => sum + d.totalDishes, 0)}
                 </span>
               </div>
             </div>
 
-            {/* Day-Wise Breakdown List */}
+            {/* Day Breakdown List */}
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {dayWiseStats.map((item) => {
                 const completionRate =
@@ -1104,26 +1024,32 @@ export default function KitchenDisplayPage() {
                 return (
                   <div
                     key={item.date}
-                    className="p-3.5 rounded-xl border bg-black/40 border-stone-800/80 flex items-center justify-between gap-4"
+                    className="p-3.5 rounded-2xl border border-slate-800 bg-slate-950 flex items-center justify-between gap-4"
                   >
                     <div>
                       <div className="flex items-center gap-2">
                         <strong className="text-sm font-bold text-white">{item.label}</strong>
-                        <span className="text-[10px] text-stone-500 font-mono">({item.date})</span>
+                        <span className="text-[10px] text-slate-500 font-mono">({item.date})</span>
                       </div>
-                      <div className="text-xs text-stone-400 mt-1 flex items-center gap-3">
-                        <span>Dishes cooked: <strong className="text-stone-200">{item.totalDishes}</strong></span>
+                      <div className="text-xs text-slate-400 mt-1 flex items-center gap-2.5">
+                        <span>
+                          Cooked: <strong className="text-slate-200">{item.totalDishes}</strong> dishes
+                        </span>
                         <span>•</span>
-                        <span>Dispatched: <strong className="text-emerald-400">{item.completedOrders}</strong> / {item.totalOrders}</span>
+                        <span>
+                          Completed:{" "}
+                          <strong className="text-emerald-400">{item.completedOrders}</strong> /{" "}
+                          {item.totalOrders}
+                        </span>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="font-heading text-xl font-black text-amber-400">
-                        {item.totalOrders} <span className="text-xs font-sans font-normal text-stone-400">Orders</span>
+                      <div className="text-lg font-black text-purple-400 font-mono">
+                        {item.totalOrders} <span className="text-xs font-normal text-slate-400">Orders</span>
                       </div>
-                      <div className="text-[10px] text-stone-400 font-mono mt-0.5">
-                        {completionRate}% Completed
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        {completionRate}% Dispatched
                       </div>
                     </div>
                   </div>
@@ -1131,12 +1057,12 @@ export default function KitchenDisplayPage() {
               })}
             </div>
 
-            {/* Modal Footer */}
-            <div className="pt-2 border-t border-stone-800 flex justify-end">
+            {/* Footer */}
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
               <button
                 type="button"
                 onClick={() => setIsDayWiseModalOpen(false)}
-                className="px-4 py-2 rounded-lg text-xs font-bold bg-amber-500 text-stone-950 hover:bg-amber-400 cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer transition-colors"
               >
                 Close Report
               </button>

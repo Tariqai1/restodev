@@ -10,10 +10,67 @@ import AdminButton from "@/components/admin/ui/AdminButton";
 import AdminModal from "@/components/admin/ui/AdminModal";
 import AdminTableFilters from "@/components/admin/ui/AdminTableFilters";
 import dynamic from "next/dynamic";
+import {
+  RolePermissionsConfig,
+  DEFAULT_ROLE_PERMISSIONS,
+  RolePermissionModules,
+} from "@/lib/platform/state";
 
 const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), {
   ssr: false,
 });
+
+const MODULE_DEFS: {
+  key: keyof RolePermissionModules;
+  label: string;
+  description: string;
+  icon: string;
+}[] = [
+  {
+    key: "canAccessFloor",
+    label: "Live Floor & Tables",
+    description: "View real-time table occupancy, assign tables, check table status",
+    icon: "fa-table-cells",
+  },
+  {
+    key: "canAccessOrders",
+    label: "Live Dine-In Orders",
+    description: "Punch items, edit running orders, captain approval verification",
+    icon: "fa-receipt",
+  },
+  {
+    key: "canAccessKitchen",
+    label: "Kitchen KDS Display",
+    description: "View kitchen station rail, cook tickets, mark dishes ready",
+    icon: "fa-fire-burner",
+  },
+  {
+    key: "canAccessMenu",
+    label: "Menu & Dish Catalog",
+    description: "Modify dish prices, add new items, 86 / mark dishes stock out",
+    icon: "fa-utensils",
+  },
+  {
+    key: "canAccessInvoices",
+    label: "Billing & Invoices",
+    description: "Generate bills, collect payments, day-end cash register, GST",
+    icon: "fa-file-invoice-dollar",
+  },
+  {
+    key: "canAccessStaff",
+    label: "Staff Roster & PINs",
+    description: "View team roster, assign fast 4-digit PINs, manage shift roles",
+    icon: "fa-users-gear",
+  },
+  {
+    key: "canAccessSettings",
+    label: "Store Configuration",
+    description: "Table QR studio, thermal printer dispatch, restaurant settings",
+    icon: "fa-sliders",
+  },
+];
+
+const ROLES_LIST = ["manager", "captain", "waiter", "kitchen", "cashier"] as const;
 
 interface MenuItem {
   id: string;
@@ -106,6 +163,12 @@ export default function AdminPage() {
 
   const [selectedQRTable, setSelectedQRTable] = useState<TableRecord | null>(null);
 
+  // Role-Based Access Control State
+  const [rolePermissions, setRolePermissions] = useState<RolePermissionsConfig>(DEFAULT_ROLE_PERMISSIONS);
+  const [isSavingRoles, setIsSavingRoles] = useState(false);
+  const [rolesSaveMessage, setRolesSaveMessage] = useState("");
+  const [currentUserRole, setCurrentUserRole] = useState("owner");
+
   // Fetch initial restaurant data
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -191,12 +254,66 @@ export default function AdminPage() {
           );
         }
       }
+
+      // Fetch Role Access Permissions
+      try {
+        const rolesRes = await fetch("/api/restaurant/roles");
+        if (rolesRes.ok) {
+          const rolesData = await rolesRes.json();
+          if (rolesData.permissions) {
+            setRolePermissions(rolesData.permissions);
+          }
+        }
+      } catch {
+        // ignore
+      }
     } catch {
       // Gracefully fall back to local starter data if fresh
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const handleToggleRoleModule = (
+    roleKey: string,
+    moduleKey: keyof RolePermissionModules,
+    value: boolean
+  ) => {
+    setRolePermissions((prev) => ({
+      ...prev,
+      [roleKey]: {
+        ...(prev[roleKey] || DEFAULT_ROLE_PERMISSIONS[roleKey] || {}),
+        [moduleKey]: value,
+      },
+    }));
+  };
+
+  const handleSaveRolePermissions = async () => {
+    setIsSavingRoles(true);
+    setRolesSaveMessage("");
+    try {
+      const res = await fetch("/api/restaurant/roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ permissions: rolePermissions }),
+      });
+      if (res.ok) {
+        setRolesSaveMessage("Role access permissions saved and active across all staff terminals!");
+        setTimeout(() => setRolesSaveMessage(""), 4000);
+      } else {
+        setRolesSaveMessage("Failed to save permissions. Verify owner authorization.");
+      }
+    } catch {
+      setRolesSaveMessage("Network error saving permissions.");
+    } finally {
+      setIsSavingRoles(false);
+    }
+  };
+
+  const handleResetRoleDefaults = () => {
+    setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+    setRolesSaveMessage("Reset to recommended operational defaults. Click 'Save Access Matrix' to apply.");
+  };
 
   useEffect(() => {
     fetchData();
@@ -315,6 +432,8 @@ export default function AdminPage() {
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
         restaurantName={restaurantName}
+        userRole={currentUserRole}
+        rolePermissions={rolePermissions}
       />
 
       {/* Main Content Area */}
@@ -924,7 +1043,7 @@ export default function AdminPage() {
           {/* ======================================================== */}
           {/* VIEW: STAFF ROSTER */}
           {/* ======================================================== */}
-          {(currentView === "staff" || currentView === "roles") && (
+          {currentView === "staff" && (
             <div className="space-y-4">
               <AdminTableFilters
                 searchQuery={searchQuery}
@@ -991,6 +1110,112 @@ export default function AdminPage() {
                   },
                 ]}
               />
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW: ROLE-BASED ACCESS CONTROL (RBAC) SWITCHBOARD */}
+          {/* ======================================================== */}
+          {currentView === "roles" && (
+            <div className="space-y-6">
+              {/* Header Card */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xs shadow-xs">
+                      <i className="fa-solid fa-shield-halved" />
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Restaurant Role &amp; Entitlement Switchboard
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Restaurant owner controls which operational modules each staff role is entitled to access.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <AdminButton
+                    variant="outline"
+                    size="sm"
+                    leftIcon="fa-rotate-left"
+                    onClick={handleResetRoleDefaults}
+                  >
+                    Reset Defaults
+                  </AdminButton>
+                  <AdminButton
+                    variant="primary"
+                    size="sm"
+                    leftIcon={isSavingRoles ? "fa-spinner fa-spin" : "fa-check"}
+                    onClick={handleSaveRolePermissions}
+                    disabled={isSavingRoles}
+                  >
+                    {isSavingRoles ? "Saving..." : "Save Access Matrix"}
+                  </AdminButton>
+                </div>
+              </div>
+
+              {rolesSaveMessage && (
+                <div className="p-3.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 animate-in fade-in flex items-center gap-2">
+                  <i className="fa-solid fa-circle-check text-emerald-600" />
+                  <span>{rolesSaveMessage}</span>
+                </div>
+              )}
+
+              {/* Permission Matrix Table */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+                        <th className="p-4 min-w-[220px]">System Module</th>
+                        <th className="p-4 text-center">Owner (Full)</th>
+                        <th className="p-4 text-center capitalize">Manager</th>
+                        <th className="p-4 text-center capitalize">Captain</th>
+                        <th className="p-4 text-center capitalize">Waiter</th>
+                        <th className="p-4 text-center capitalize">Kitchen Chef</th>
+                        <th className="p-4 text-center capitalize">Cashier</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {MODULE_DEFS.map((mod) => (
+                        <tr key={mod.key} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 text-xs">
+                                <i className={`fa-solid ${mod.icon}`} />
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 block">{mod.label}</span>
+                                <span className="text-[11px] text-slate-500 block leading-tight">{mod.description}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                              <i className="fa-solid fa-lock text-[9px]" />
+                              <span>Always Full</span>
+                            </span>
+                          </td>
+                          {ROLES_LIST.map((roleKey) => {
+                            const isAllowed = rolePermissions[roleKey]?.[mod.key] ?? false;
+                            return (
+                              <td key={roleKey} className="p-4 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isAllowed}
+                                  onChange={(e) => handleToggleRoleModule(roleKey, mod.key, e.target.checked)}
+                                  className="w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 

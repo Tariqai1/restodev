@@ -50,6 +50,75 @@ export type StaffOrderPermissions = {
   phone?: string;
 };
 
+export type RolePermissionModules = {
+  canAccessFloor: boolean;
+  canAccessOrders: boolean;
+  canAccessKitchen: boolean;
+  canAccessMenu: boolean;
+  canAccessInvoices: boolean;
+  canAccessStaff: boolean;
+  canAccessSettings: boolean;
+};
+
+export type RolePermissionsConfig = Record<string, RolePermissionModules>;
+
+export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsConfig = {
+  owner: {
+    canAccessFloor: true,
+    canAccessOrders: true,
+    canAccessKitchen: true,
+    canAccessMenu: true,
+    canAccessInvoices: true,
+    canAccessStaff: true,
+    canAccessSettings: true,
+  },
+  manager: {
+    canAccessFloor: true,
+    canAccessOrders: true,
+    canAccessKitchen: true,
+    canAccessMenu: true,
+    canAccessInvoices: true,
+    canAccessStaff: true,
+    canAccessSettings: false,
+  },
+  captain: {
+    canAccessFloor: true,
+    canAccessOrders: true,
+    canAccessKitchen: true,
+    canAccessMenu: false,
+    canAccessInvoices: false,
+    canAccessStaff: false,
+    canAccessSettings: false,
+  },
+  waiter: {
+    canAccessFloor: true,
+    canAccessOrders: true,
+    canAccessKitchen: false,
+    canAccessMenu: false,
+    canAccessInvoices: false,
+    canAccessStaff: false,
+    canAccessSettings: false,
+  },
+  kitchen: {
+    canAccessFloor: false,
+    canAccessOrders: false,
+    canAccessKitchen: true,
+    canAccessMenu: false,
+    canAccessInvoices: false,
+    canAccessStaff: false,
+    canAccessSettings: false,
+  },
+  cashier: {
+    canAccessFloor: false,
+    canAccessOrders: true,
+    canAccessKitchen: false,
+    canAccessMenu: false,
+    canAccessInvoices: true,
+    canAccessStaff: false,
+    canAccessSettings: false,
+  },
+};
+
 export type WaiterCallType = "waiter" | "water" | "bill" | "clean" | "cutlery" | "condiments" | "chair" | "ac" | "custom";
 
 export type WaiterCallRequest = {
@@ -142,6 +211,7 @@ export type PlatformState = {
   dishSpecialTags?: Record<string, string>;
   dishHalfPortions?: Record<string, boolean>;
   pendingOrderApprovals?: Record<string, PendingOrderApprovalBatch>;
+  rolePermissions?: Record<string, RolePermissionsConfig>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -403,6 +473,31 @@ export function setStaffPermissions(
   };
   savePlatformState(state);
   return state.staffPermissions[staffId];
+}
+
+export function getRolePermissions(restaurantId?: string): RolePermissionsConfig {
+  const state = getPlatformState();
+  const restoId = restaurantId || "default";
+  if (state.rolePermissions && state.rolePermissions[restoId]) {
+    return {
+      ...DEFAULT_ROLE_PERMISSIONS,
+      ...state.rolePermissions[restoId],
+    };
+  }
+  return DEFAULT_ROLE_PERMISSIONS;
+}
+
+export function saveAllRolePermissions(
+  restaurantId: string,
+  config: RolePermissionsConfig
+): RolePermissionsConfig {
+  const state = getPlatformState();
+  if (!state.rolePermissions) {
+    state.rolePermissions = {};
+  }
+  state.rolePermissions[restaurantId || "default"] = config;
+  savePlatformState(state);
+  return config;
 }
 
 export function getActiveWaiterCalls(restaurantId?: string): WaiterCallRequest[] {
