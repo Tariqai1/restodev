@@ -51,6 +51,7 @@ import TableDispatchModal from "@/components/table/TableDispatchModal";
 import TableOrderHistory from "@/components/table/TableOrderHistory";
 import TableAiWaiterModal from "@/components/table/TableAiWaiterModal";
 import TableVoiceOrderModal from "@/components/table/TableVoiceOrderModal";
+import TableOnlineOrderBanner from "@/components/table/TableOnlineOrderBanner";
 
 const ScratchCardModal = dynamic(
   () => import("@/components/table/ScratchCardModal"),
@@ -77,6 +78,7 @@ export default function CustomerTableOrderingPage({
   const [branding, setBranding] = useState<RestaurantBrandingConfig>(
     DEFAULT_BRANDING_CONFIG
   );
+  const [restaurantSlug, setRestaurantSlug] = useState<string>("");
 
   // Feature Entitlements controlled by Super Admin
   const [features, setFeatures] = useState<RestaurantFeatures>({
@@ -92,6 +94,7 @@ export default function CustomerTableOrderingPage({
     quickAdds: false,
     showTableFooter: false,
     halfFullPortions: true,
+    onlineOrdering: true,
   });
 
   const [isApprovalPending, setIsApprovalPending] = useState<boolean>(false);
@@ -229,6 +232,7 @@ export default function CustomerTableOrderingPage({
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed.restaurant?.name) setRestaurantName(parsed.restaurant.name);
+          if (parsed.restaurant?.slug) setRestaurantSlug(parsed.restaurant.slug);
           if (parsed.table?.table_number)
             setTableNumber(parsed.table.table_number);
           if (parsed.categories?.length) setCategories(parsed.categories);
@@ -275,6 +279,7 @@ export default function CustomerTableOrderingPage({
         }
 
         setRestaurantName(data.restaurant?.name || "Order Desk");
+        if (data.restaurant?.slug) setRestaurantSlug(data.restaurant.slug);
         setTableNumber(data.table?.table_number || "T--");
         setCategories(data.categories || []);
         setItems(data.items || []);
@@ -324,6 +329,7 @@ export default function CustomerTableOrderingPage({
       .then((data) => {
         if (!isMounted || !data) return;
         setRestaurantName(data.restaurant?.name || "Order Desk");
+        if (data.restaurant?.slug) setRestaurantSlug(data.restaurant.slug);
         setTableNumber(data.table?.table_number || "T--");
         setCategories(data.categories || []);
         setItems(data.items || []);
@@ -1474,6 +1480,15 @@ export default function CustomerTableOrderingPage({
           ))
         )}
       </div>
+
+      {/* Online Ordering QR & Delivery / Pickup Banner */}
+      {Boolean(features.onlineOrdering) && (
+        <TableOnlineOrderBanner
+          restaurantName={restaurantName}
+          slug={restaurantSlug}
+          enabled={Boolean(features.onlineOrdering)}
+        />
+      )}
 
       {/* Footer Legal & Info (Admin configurable) */}
       {features.showTableFooter === true && (

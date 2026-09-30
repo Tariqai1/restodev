@@ -146,7 +146,7 @@ export async function GET(
     const [restaurantRes, categoriesRes, itemsRes, openOrderRes] = await Promise.all([
       admin
         .from("restaurants")
-        .select("id, name, gstin")
+        .select("id, name, gstin, slug, online_ordering_enabled")
         .eq("id", table.restaurant_id)
         .maybeSingle(),
       admin

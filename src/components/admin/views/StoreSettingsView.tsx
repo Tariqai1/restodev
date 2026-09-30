@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import AdminButton from "../ui/AdminButton";
+import QRCode from "qrcode";
 
 interface StoreSettingsViewProps {
   initialName?: string;
@@ -87,6 +88,7 @@ export default function StoreSettingsView({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [onlineQrUrl, setOnlineQrUrl] = useState("");
 
   // Load all settings: delivery, theme, branding, and features
   useEffect(() => {
@@ -229,6 +231,34 @@ export default function StoreSettingsView({
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
     }
+  };
+
+  useEffect(() => {
+    if (!onlineOrderingEnabled) return;
+    const url = getOnlineOrderUrl();
+    QRCode.toDataURL(url, {
+      width: 400,
+      margin: 1.5,
+      color: { dark: "#1e1b4b", light: "#ffffff" },
+    })
+      .then(setOnlineQrUrl)
+      .catch((err) => console.warn("QR gen err:", err));
+  }, [slug, restaurantId, onlineOrderingEnabled]);
+
+  const handleDownloadQr = () => {
+    if (!onlineQrUrl) return;
+    const link = document.createElement("a");
+    link.href = onlineQrUrl;
+    link.download = `${slug || "restaurant"}-online-order-qr.png`;
+    link.click();
+  };
+
+  const handleWhatsAppShare = () => {
+    const url = getOnlineOrderUrl();
+    const msg = encodeURIComponent(
+      `*${storeName}* ka Online Menu dekhein aur ghar baithe order karein:\n${url}\n\nFast Delivery & Counter Pickup available!`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${msg}`, "_blank");
   };
 
   return (
@@ -554,39 +584,70 @@ export default function StoreSettingsView({
         {/* Detailed Controls when Online Ordering is Active */}
         {onlineOrderingEnabled ? (
           <div className="space-y-4 pt-1 animate-in fade-in duration-200">
-            {/* Generic Shareable Link Box */}
-            <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-purple-800 block">
-                  Your Direct Customer Storefront Link
-                </span>
-                <div className="text-xs font-mono font-bold text-purple-950 mt-1 truncate">
-                  {getOnlineOrderUrl()}
+            {/* Online Ordering QR & Storefront Link Box */}
+            <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-200 flex flex-col md:flex-row items-center gap-4">
+              {/* QR Preview & Download */}
+              {onlineQrUrl && (
+                <div className="p-2.5 bg-white rounded-xl border border-purple-200 shadow-2xs shrink-0 flex flex-col items-center">
+                  <img
+                    src={onlineQrUrl}
+                    alt="Online Store QR"
+                    className="w-28 h-28 rounded-lg object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleDownloadQr}
+                    className="mt-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-100 hover:bg-purple-200 text-purple-900 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-download text-[9px]" />
+                    <span>Download QR</span>
+                  </button>
                 </div>
-                <p className="text-[11px] text-purple-700 mt-0.5">
-                  Customers can browse your menu and order for Delivery or Pickup directly.
-                </p>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-purple-100 text-purple-900 border border-purple-300 shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <i className={`fa-solid ${copiedLink ? "fa-check text-emerald-600" : "fa-copy"}`} />
-                  <span>{copiedLink ? "Copied!" : "Copy Link"}</span>
-                </button>
+              {/* URL & Actions */}
+              <div className="min-w-0 flex-1 space-y-2">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-purple-800 block">
+                    Direct Customer Storefront &amp; Packaging QR
+                  </span>
+                  <div className="text-xs font-mono font-bold text-purple-950 mt-0.5 truncate">
+                    {getOnlineOrderUrl()}
+                  </div>
+                  <p className="text-[11px] text-purple-700 mt-1 leading-relaxed">
+                    Download this QR and print it on your <strong>takeaway packaging, parcel carry bags, and bill receipts</strong>. Diners can scan from home to reorder directly without Swiggy/Zomato commission!
+                  </p>
+                </div>
 
-                <a
-                  href={getOnlineOrderUrl()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <i className="fa-solid fa-arrow-up-right-from-square text-[10px]" />
-                  <span>Open Store</span>
-                </a>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleWhatsAppShare}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <i className="fa-brands fa-whatsapp text-sm" />
+                    <span>WhatsApp Share</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-purple-100 text-purple-900 border border-purple-300 shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <i className={`fa-solid ${copiedLink ? "fa-check text-emerald-600" : "fa-copy"}`} />
+                    <span>{copiedLink ? "Copied!" : "Copy Link"}</span>
+                  </button>
+
+                  <a
+                    href={getOnlineOrderUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-arrow-up-right-from-square text-[10px]" />
+                    <span>Open Store</span>
+                  </a>
+                </div>
               </div>
             </div>
 
