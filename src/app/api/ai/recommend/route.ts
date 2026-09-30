@@ -177,8 +177,9 @@ You MUST respond with a JSON object in this exact schema:
   "message": "Enthusiastic, mouthwatering 2-3 sentence recommendation explaining the flavor profile and why these dishes are the perfect choice.",
   "recommendedDishIds": ["<id1>", "<id2>", "<id3>"],
   "pairingTip": "Pro-tip about how to best enjoy these dishes (e.g. 'Butter Chicken ke saath crisp Garlic Naan ya Jeera Rice ka combination lajawab lagta hai!')",
-  "followUpSuggestions": ["<quick reply 1>", "<quick reply 2>", "<quick reply 3>"]
+  "followUpSuggestions": ["<clean text reply 1>", "<clean text reply 2>", "<clean text reply 3>"]
 }
+CRITICAL: In followUpSuggestions, DO NOT use any emojis or icons. Use clean plain text only (e.g. 'Inke saath best roti ya naan', 'Kuch meetha bhi dikhao', 'Mera bill status').
 Recommend 2 to 4 dishes maximum.`;
 
     const messagesToSend: any[] = [{ role: "system", content: systemPrompt }];
@@ -211,12 +212,22 @@ Recommend 2 to 4 dishes maximum.`;
     }>(text);
 
     if (parsed && parsed.message) {
+      const cleanSuggestions = Array.isArray(parsed.followUpSuggestions)
+        ? parsed.followUpSuggestions
+            .map((s: string) =>
+              typeof s === "string"
+                ? s.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim()
+                : ""
+            )
+            .filter(Boolean)
+        : undefined;
+
       return NextResponse.json({
         ok: true,
         message: parsed.message,
         recommendedDishIds: Array.isArray(parsed.recommendedDishIds) ? parsed.recommendedDishIds : [],
         pairingTip: parsed.pairingTip || null,
-        followUpSuggestions: Array.isArray(parsed.followUpSuggestions) ? parsed.followUpSuggestions : undefined,
+        followUpSuggestions: cleanSuggestions,
       });
     }
 
@@ -310,9 +321,9 @@ Recommend 2 to 4 dishes maximum.`;
         ? "Pro-tip: Rich gravies ke saath Butter Naan ya Garlic Naan ka combination zabardast lagta hai!"
         : null,
       followUpSuggestions: [
-        "Inke saath best roti ya naan? 🫓",
-        "Kuch meetha bhi dikhao 🍨",
-        "Thode aur budget-friendly options 💰",
+        "Inke saath best roti ya naan",
+        "Kuch meetha bhi dikhao",
+        "Thode aur budget-friendly options",
       ],
     });
   }

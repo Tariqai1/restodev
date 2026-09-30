@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { MenuItem, PortionType, CartMap } from "./TableTypes";
+import { MenuItem, PortionType, CartMap, RestaurantFeatures, ActiveOrder } from "./TableTypes";
 import { triggerHaptic, getFoodEmoji } from "./tableUtils";
 
 interface TableAiWaiterModalProps {
@@ -9,9 +9,32 @@ interface TableAiWaiterModalProps {
   onClose: () => void;
   menuItems: MenuItem[];
   restaurantName: string;
+  tableNumber?: string;
+  features?: RestaurantFeatures;
+  activeOrder?: ActiveOrder | null;
   cart?: CartMap;
   onAddToCart: (dishId: string, portion: PortionType) => void;
   onRemoveFromCart?: (dishId: string, portion: PortionType) => void;
+}
+
+interface BillItemDetail {
+  id: string;
+  name: string;
+  qty: number;
+  price: number;
+  status: string;
+  isVeg: boolean;
+}
+
+interface BillSummaryData {
+  tableNumber: string;
+  status: string;
+  totalItems: number;
+  subtotal: number;
+  gst: number;
+  grandTotal: number;
+  prepMinutes: number | null;
+  items: BillItemDetail[];
 }
 
 interface ChatMessage {
@@ -20,6 +43,7 @@ interface ChatMessage {
   text: string;
   dishes?: MenuItem[];
   pairingTip?: string | null;
+  billSummary?: BillSummaryData | null;
   quickSuggestions?: string[];
   time: string;
 }
@@ -34,21 +58,28 @@ export default function TableAiWaiterModal({
   onClose,
   menuItems,
   restaurantName,
+  tableNumber = "T--",
+  features,
+  activeOrder,
   cart,
   onAddToCart,
   onRemoveFromCart,
 }: TableAiWaiterModalProps) {
+  // Initial suggestions without ANY emojis
+  const initialSuggestions = [
+    "Top bestsellers",
+    "Spicy starters",
+    "Family dinner combo",
+    "Light meal under 250",
+    "Desserts and coolers",
+    "Mera bill kitna hua",
+  ];
+
   const initialAiMessage: ChatMessage = {
     id: "msg_welcome",
     sender: "ai",
     text: `Welcome to ${restaurantName || "our restaurant"}! 👋\nMain aapka Smart AI Food Assistant hoon. Aaj kya khane ka mood hai? Mujhe apna taste, budget ya group size bataiye!`,
-    quickSuggestions: [
-      "⭐ Top Bestsellers",
-      "🌶️ Spicy starters",
-      "👨‍👩‍👧 Family dinner combo",
-      "🥗 Light meal < ₹250",
-      "🍨 Desserts & Coolers",
-    ],
+    quickSuggestions: initialSuggestions,
     time: formatCurrentTime(),
   };
 
@@ -57,9 +88,12 @@ export default function TableAiWaiterModal({
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [localQtyMap, setLocalQtyMap] = useState<Record<string, number>>({});
+  const [isListening, setIsListening] = useState(false);
+  const [addedComboBatchId, setAddedComboBatchId] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   const searchAnimationSteps = [
     "Checking fresh kitchen menu...",
@@ -87,6 +121,19 @@ export default function TableAiWaiterModal({
     }, 1200);
     return () => clearInterval(interval);
   }, [loading]);
+
+  // Clean up Web Speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -124,6 +171,78 @@ export default function TableAiWaiterModal({
     });
   };
 
+  // Add All to Cart (1-Click Meal Combo)
+  const handleAddAllDishes = (dishes: MenuItem[], batchKey: string) => {
+    triggerHaptic(20);
+    dishes.forEach((d) => {
+      onAddToCart(d.id, "full");
+      setLocalQtyMap((prev) => ({
+        ...prev,
+        [d.id]: (prev[d.id] || 0) + 1,
+      }));
+    });
+    setAddedComboBatchId(batchKey);
+    setTimeout(() => setAddedComboBatchId(null), 3000);
+  };
+
+  // 1-Tap Mic Voice Chat (Speech to Text)
+  const handleToggleMic = () => {
+    if (typeof window === "undefined") return;
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Voice speech recognition is not supported in this browser. Please type your query.");
+      return;
+    }
+
+    try {
+      triggerHaptic(14);
+      const recognition = new SpeechRecognition();
+      recognition.lang = "hi-IN"; // Handles Hindi, Indian English, and Hinglish seamlessly
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join("");
+        setInputText(transcript);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        triggerHaptic(10);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.warn("Mic launch error:", e);
+      setIsListening(false);
+    }
+  };
+
   const handleSend = async (queryToSend: string) => {
     const q = queryToSend.trim();
     if (!q || loading) return;
@@ -138,6 +257,78 @@ export default function TableAiWaiterModal({
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText("");
+
+    // Check if query is asking for bill or live cooking status
+    const qLower = q.toLowerCase();
+    const isBillRequest =
+      qLower.includes("bill") ||
+      qLower.includes("kitna hua") ||
+      qLower.includes("hisaab") ||
+      qLower.includes("hisab") ||
+      qLower.includes("order status") ||
+      qLower.includes("khana kab") ||
+      qLower.includes("kitna time") ||
+      qLower.includes("running bill");
+
+    if (isBillRequest && features?.aiBillStatusCheck !== false) {
+      if (activeOrder && activeOrder.order_items && activeOrder.order_items.length > 0) {
+        const totalItemsCount = activeOrder.order_items.reduce((s, it) => s + (it.qty || 1), 0);
+        const subtotal = activeOrder.order_items.reduce(
+          (s, it) => s + Number(it.unit_price || 0) * (it.qty || 1),
+          0
+        );
+        const gst = Math.round(subtotal * 0.05 * 100) / 100;
+        const grandTotal = Math.round(subtotal + gst);
+        const prepTime = activeOrder.prepEstimate?.minutes;
+
+        const billMsg: ChatMessage = {
+          id: `msg_bill_${Date.now()}`,
+          sender: "ai",
+          text: `Aapki Table ${tableNumber} ka live bill aur cooking status yahan hai:`,
+          billSummary: {
+            tableNumber,
+            status: activeOrder.status,
+            totalItems: totalItemsCount,
+            subtotal,
+            gst,
+            grandTotal,
+            prepMinutes: prepTime || null,
+            items: activeOrder.order_items.map((it) => ({
+              id: it.id,
+              name: it.menu_items?.name || "Dish",
+              qty: it.qty,
+              price: Number(it.unit_price || 0) * (it.qty || 1),
+              status: it.item_status || "preparing",
+              isVeg: Boolean(it.menu_items?.is_veg),
+            })),
+          },
+          quickSuggestions: [
+            "Inke saath best roti ya naan",
+            "Kuch meetha bhi dikhao",
+            "Top bestsellers",
+          ],
+          time: formatCurrentTime(),
+        };
+
+        setMessages((prev) => [...prev, billMsg]);
+        return;
+      } else {
+        const emptyBillMsg: ChatMessage = {
+          id: `msg_nobill_${Date.now()}`,
+          sender: "ai",
+          text: `Table ${tableNumber} par abhi koi active order nahi hai. Niche diye options me se khana select kijiye!`,
+          quickSuggestions: [
+            "Top bestsellers",
+            "Spicy starters",
+            "Family dinner combo",
+          ],
+          time: formatCurrentTime(),
+        };
+        setMessages((prev) => [...prev, emptyBillMsg]);
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -161,14 +352,14 @@ export default function TableAiWaiterModal({
         );
       }
 
-      // Contextual follow-up quick reply suggestions from AI or smart defaults
+      // Contextual follow-up suggestions with NO emojis
       const followUps =
         Array.isArray(data.followUpSuggestions) && data.followUpSuggestions.length > 0
           ? data.followUpSuggestions
           : [
-              "Inke saath best roti ya rice? 🫓",
-              "Kuch meetha bhi dikhao 🍨",
-              "Thode aur options dikhaiye 🍲",
+              "Inke saath best roti ya rice",
+              "Kuch meetha bhi dikhao",
+              "Thode aur options dikhaiye",
             ];
 
       const aiMsg: ChatMessage = {
@@ -190,9 +381,9 @@ export default function TableAiWaiterModal({
         sender: "ai",
         text: "Thoda network issue lag raha hai. Aap dobara poochh sakte hain ya niche diye options select kar sakte hain.",
         quickSuggestions: [
-          "⭐ Top Bestsellers",
-          "🌶️ Spicy starters",
-          "🍛 Popular Main Course",
+          "Top bestsellers",
+          "Spicy starters",
+          "Family dinner combo",
         ],
         time: formatCurrentTime(),
       };
@@ -252,7 +443,7 @@ export default function TableAiWaiterModal({
               >
                 <span>AI Waiter &amp; Recommendation</span>
                 <span className="inline-flex items-center px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-extrabold tracking-wider uppercase">
-                  Online
+                  Table {tableNumber}
                 </span>
               </h2>
               <p className="text-[10px] truncate text-stone-500">
@@ -323,6 +514,57 @@ export default function TableAiWaiterModal({
                         Chef's Pairing Tip
                       </span>
                       {msg.pairingTip}
+                    </div>
+                  </div>
+                )}
+
+                {/* Live In-Chat Bill & Status Card */}
+                {msg.billSummary && (
+                  <div className="mt-3 p-3 rounded-xl bg-stone-50 border border-stone-200 space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-stone-200 pb-2">
+                      <div className="flex items-center gap-1.5">
+                        <i className="fa-solid fa-receipt text-amber-600 text-xs" />
+                        <span className="font-bold text-xs text-stone-900">
+                          Table {msg.billSummary.tableNumber} Receipt
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase">
+                        {msg.billSummary.status}
+                      </span>
+                    </div>
+
+                    {msg.billSummary.prepMinutes && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-amber-800 font-semibold bg-amber-50 px-2 py-1 rounded-lg">
+                        <i className="fa-solid fa-hourglass-half text-[10px]" />
+                        <span>Estimated cooking time: ~{msg.billSummary.prepMinutes} mins</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5 text-[11px]">
+                      {msg.billSummary.items.map((it) => (
+                        <div key={it.id} className="flex items-center justify-between text-stone-700">
+                          <span className="truncate pr-2">
+                            {it.qty}× {it.name}
+                            <span className="text-[10px] text-stone-400 ml-1">({it.status})</span>
+                          </span>
+                          <span className="font-mono font-bold shrink-0">₹{it.price}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-stone-200 pt-2 space-y-1 text-[11px]">
+                      <div className="flex justify-between text-stone-500">
+                        <span>Items Total ({msg.billSummary.totalItems})</span>
+                        <span>₹{msg.billSummary.subtotal}</span>
+                      </div>
+                      <div className="flex justify-between text-stone-500">
+                        <span>GST (5%)</span>
+                        <span>₹{msg.billSummary.gst}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-black text-stone-900 border-t border-dashed border-stone-300 pt-1.5">
+                        <span>Total Payable</span>
+                        <span>₹{msg.billSummary.grandTotal}</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -421,11 +663,38 @@ export default function TableAiWaiterModal({
                         </div>
                       );
                     })}
+
+                    {/* 1-Click "Add All to Cart" Meal Combo Button */}
+                    {features?.aiAddAllCombo !== false && msg.dishes.length >= 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleAddAllDishes(msg.dishes!, msg.id)}
+                        className={`w-full mt-2.5 py-2 px-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-[0.98] cursor-pointer ${
+                          addedComboBatchId === msg.id
+                            ? "bg-emerald-600 text-white border-emerald-600"
+                            : "border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-900"
+                        }`}
+                      >
+                        <i
+                          className={`fa-solid ${
+                            addedComboBatchId === msg.id ? "fa-check" : "fa-cart-plus"
+                          } text-sm`}
+                        />
+                        <span>
+                          {addedComboBatchId === msg.id
+                            ? "Added All Items to Cart!"
+                            : `Add All ${msg.dishes.length} Items to Cart (₹${msg.dishes.reduce(
+                                (s, d) => s + Number(d.price || 0),
+                                0
+                              )})`}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Quick suggestion follow-up pills */}
+              {/* Quick suggestion follow-up pills (NO EMOJIS) */}
               {msg.quickSuggestions && msg.quickSuggestions.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap pt-1 pl-1 max-w-[95%]">
                   {msg.quickSuggestions.map((sug, sIdx) => (
@@ -434,9 +703,9 @@ export default function TableAiWaiterModal({
                       type="button"
                       disabled={loading}
                       onClick={() => handleSend(sug)}
-                      className="px-2.5 py-1 rounded-full text-[11px] font-semibold border border-amber-300/80 bg-amber-50/90 hover:bg-amber-100 text-amber-950 transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1 text-left"
+                      className="px-3 py-1 rounded-full text-[11px] font-semibold border border-amber-300/80 bg-amber-50/90 hover:bg-amber-100 text-amber-950 transition-all active:scale-95 cursor-pointer shadow-2xs text-left"
                     >
-                      <span>{sug}</span>
+                      {sug}
                     </button>
                   ))}
                 </div>
@@ -467,7 +736,32 @@ export default function TableAiWaiterModal({
           <div ref={chatBottomRef} className="h-2" />
         </div>
 
-        {/* Input Bar (Sticky at Bottom) */}
+        {/* Party Size Quick Selector (NO EMOJIS) */}
+        {features?.aiPartySizeCalc !== false && (
+          <div className="px-3 py-1.5 bg-amber-50/60 border-t border-amber-100/70 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
+            <span className="text-[10px] font-bold text-amber-900 shrink-0 uppercase tracking-wide">
+              Party Size:
+            </span>
+            {[
+              { label: "1 Person", prompt: "1 person ke liye quick meal suggest karo" },
+              { label: "2 People", prompt: "2 logon ke liye balanced dinner combo under 700" },
+              { label: "3-4 People", prompt: "3 se 4 logon ke liye complete family dinner meal combo" },
+              { label: "5+ Group", prompt: "5 ya us se zyada logon ke liye grand group feast" },
+            ].map((p, idx) => (
+              <button
+                key={idx}
+                type="button"
+                disabled={loading}
+                onClick={() => handleSend(p.prompt)}
+                className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-white hover:bg-amber-100 text-stone-700 hover:text-stone-900 border border-amber-200 shrink-0 transition-colors shadow-2xs cursor-pointer"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input Bar (Sticky at Bottom with 1-Tap Mic Voice Chat) */}
         <div
           className="p-3 border-t bg-white shrink-0 space-y-2"
           style={{ borderColor: "var(--hairline)" }}
@@ -479,6 +773,22 @@ export default function TableAiWaiterModal({
             }}
             className="flex items-center gap-2"
           >
+            {/* 1-Tap Mic Voice Chat Button */}
+            {features?.aiVoiceChat !== false && (
+              <button
+                type="button"
+                onClick={handleToggleMic}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm transition-all active:scale-95 shrink-0 cursor-pointer border shadow-2xs ${
+                  isListening
+                    ? "bg-rose-500 border-rose-600 text-white animate-pulse"
+                    : "bg-stone-50 border-stone-200 text-stone-700 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-800"
+                }`}
+                title={isListening ? "Listening... Tap to stop" : "1-Tap Mic Voice Chat"}
+              >
+                <i className={`fa-solid ${isListening ? "fa-microphone-lines" : "fa-microphone"}`} />
+              </button>
+            )}
+
             <div className="relative flex-1">
               <input
                 ref={inputRef}
@@ -486,8 +796,12 @@ export default function TableAiWaiterModal({
                 value={inputText}
                 disabled={loading}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Ask craving or budget (e.g. Biryani for 2)..."
-                className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-stone-300 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all bg-stone-50"
+                placeholder={isListening ? "Listening... bolo aap kya khayenge..." : "Type craving, budget or ask 'Mera bill'..."}
+                className={`w-full pl-3.5 pr-8 py-2.5 rounded-xl border text-xs focus:outline-none transition-all ${
+                  isListening
+                    ? "border-rose-400 bg-rose-50/50 text-rose-950 font-medium"
+                    : "border-stone-300 bg-stone-50 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-stone-900"
+                }`}
               />
               {inputText && (
                 <button

@@ -69,6 +69,10 @@ export type RestaurantFeatures = {
   aiKitchenPrep?: boolean;
   aiVoiceOrder?: boolean;
   aiMenuDigitizer?: boolean;
+  aiVoiceChat?: boolean;
+  aiAddAllCombo?: boolean;
+  aiPartySizeCalc?: boolean;
+  aiBillStatusCheck?: boolean;
 };
 
 export type PortionType = "full" | "half";

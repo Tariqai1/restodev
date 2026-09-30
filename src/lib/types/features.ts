@@ -21,11 +21,14 @@ export type RestaurantFeatures = {
   autoMobileCards?: boolean;  // 🖼️ Auto-switch from dense tables to touch cards on mobile (Default: true)
   orderJourneyLayout?: "floating_capsule" | "split_card" | "slim_accordion"; // 🗺️ Customer live order journey UX layout
   onlineOrdering?: boolean; // 🛵 Online Ordering (Delivery & Pickup without table QR)
-  // 🤖 NVIDIA NIM AI Powered Capabilities
   aiWaiter?: boolean;        // 🤖 Smart AI Waiter / Dish Recommendation (Llama-3.3-70B)
   aiKitchenPrep?: boolean;   // ⏱️ Smart AI Kitchen Prep Time Estimation (Nemotron)
   aiVoiceOrder?: boolean;    // 🎙️ Voice Ordering (Mic tap to auto-fill cart)
   aiMenuDigitizer?: boolean; // 📸 Menu Digitization (Upload menu photo to auto-create categories & dishes)
+  aiVoiceChat?: boolean;     // 🎙️ 1-Tap Mic Voice Chat in AI Waiter
+  aiAddAllCombo?: boolean;   // 🛒 1-Tap "Add All to Cart" Meal Combo Button
+  aiPartySizeCalc?: boolean; // 👥 Party Size Auto-Calculator (1, 2, 4, Group)
+  aiBillStatusCheck?: boolean; // 🧾 In-Chat Bill & Cooking Status Check
 };
 
 export const DEFAULT_RESTAURANT_FEATURES: RestaurantFeatures = {
@@ -55,4 +58,8 @@ export const DEFAULT_RESTAURANT_FEATURES: RestaurantFeatures = {
   aiKitchenPrep: true,
   aiVoiceOrder: true,
   aiMenuDigitizer: true,
+  aiVoiceChat: true,
+  aiAddAllCombo: true,
+  aiPartySizeCalc: true,
+  aiBillStatusCheck: true,
 };
