@@ -70,6 +70,7 @@ interface TableDishCardProps {
   halfQty: number;
   fullQty: number;
   showPortions?: boolean;
+  showDescription?: boolean;
   onPreviewDish: (dish: MenuItem) => void;
   onAddToCart: (
     dishId: string,
@@ -84,6 +85,7 @@ export default function TableDishCard({
   halfQty,
   fullQty,
   showPortions = true,
+  showDescription = false,
   onPreviewDish,
   onAddToCart,
   onRemoveFromCart,
@@ -191,8 +193,8 @@ export default function TableDishCard({
           )}
         </div>
 
-        {/* Description */}
-        {item.description && (
+        {/* Description (Admin controllable, default hidden) */}
+        {showDescription && item.description && (
           <p
             className="text-[12px] leading-relaxed line-clamp-2 mt-1 text-stone-600"
           >

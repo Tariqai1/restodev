@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
-import { getRestaurantTheme, setRestaurantTheme, RestaurantThemeType } from "@/lib/platform/state";
+import {
+  getRestaurantTheme,
+  setRestaurantTheme,
+  getRestaurantBranding,
+  setRestaurantBranding,
+  RestaurantThemeType,
+  RestaurantBrandingConfig,
+  DEFAULT_BRANDING_CONFIG,
+} from "@/lib/platform/state";
 
 export async function GET() {
   try {
@@ -23,19 +31,25 @@ export async function GET() {
     const admin = createAdminClient();
     const { data: resto } = await admin
       .from("restaurants")
-      .select("gstin")
+      .select("gstin, name")
       .eq("id", staffContext.restaurantId)
       .maybeSingle();
+
+    let metaTheme: RestaurantThemeType | null = null;
+    let metaBranding: RestaurantBrandingConfig | null = null;
 
     if (resto?.gstin?.startsWith("{")) {
       try {
         const meta = JSON.parse(resto.gstin);
-        if (meta.theme) return NextResponse.json({ ok: true, theme: meta.theme });
+        if (meta.theme) metaTheme = meta.theme;
+        if (meta.branding) metaBranding = meta.branding;
       } catch {}
     }
 
-    const theme = getRestaurantTheme(staffContext.restaurantId);
-    return NextResponse.json({ ok: true, theme });
+    const theme = metaTheme || getRestaurantTheme(staffContext.restaurantId);
+    const branding = metaBranding || getRestaurantBranding(staffContext.restaurantId);
+
+    return NextResponse.json({ ok: true, theme, branding, restaurantName: resto?.name || "" });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Internal error" },
@@ -61,10 +75,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { theme } = body as { theme?: RestaurantThemeType };
+    const { theme, branding } = body as {
+      theme?: RestaurantThemeType;
+      branding?: Partial<RestaurantBrandingConfig>;
+    };
 
     const validThemes: RestaurantThemeType[] = ["amber", "crimson", "saffron", "emerald", "charcoal"];
-    if (!theme || !validThemes.includes(theme)) {
+    if (theme && !validThemes.includes(theme)) {
       return NextResponse.json({ message: "Invalid theme palette specified" }, { status: 400 });
     }
 
@@ -85,14 +102,31 @@ export async function POST(req: NextRequest) {
       meta.gstin_number = rawGstin;
     }
 
-    meta.theme = theme;
+    let updatedTheme = (meta.theme as RestaurantThemeType) || getRestaurantTheme(staffContext.restaurantId);
+    if (theme) {
+      meta.theme = theme;
+      updatedTheme = setRestaurantTheme(staffContext.restaurantId, theme);
+    }
+
+    let currentBranding = (meta.branding as RestaurantBrandingConfig) || getRestaurantBranding(staffContext.restaurantId);
+    let updatedBranding = currentBranding;
+    if (branding && typeof branding === "object") {
+      updatedBranding = {
+        ...DEFAULT_BRANDING_CONFIG,
+        ...currentBranding,
+        ...branding,
+        theme: updatedTheme,
+      };
+      meta.branding = updatedBranding;
+      setRestaurantBranding(staffContext.restaurantId, updatedBranding);
+    }
+
     await admin
       .from("restaurants")
       .update({ gstin: JSON.stringify(meta) })
       .eq("id", staffContext.restaurantId);
 
-    const updated = setRestaurantTheme(staffContext.restaurantId, theme);
-    return NextResponse.json({ ok: true, theme: updated });
+    return NextResponse.json({ ok: true, theme: updatedTheme, branding: updatedBranding });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Internal error" },

@@ -4965,6 +4965,7 @@ export default function SuperAdminPage() {
                     { key: "aiVoiceOrder", label: "Voice Ordering", desc: "Speak-to-order speech recognition into cart", icon: "🗣️" },
                     { key: "aiKitchenPrep", label: "Smart Prep Time", desc: "Automated cooking time estimator based on kitchen queue", icon: "⏱️" },
                     { key: "aiMenuDigitizer", label: "AI Menu Digitizer", desc: "Scan physical menu cards to auto-import dishes", icon: "📸" },
+                    { key: "showDishDescription", label: "Menu Dish Descriptions", desc: "Show 1-2 line description under dish names on customer menu (Default: OFF / Hide)", icon: "📝" },
                   ].map((feat) => {
                     const currentFeats = editingRestaurant.features || {
                       callWaiter: true,
@@ -5313,6 +5314,86 @@ export default function SuperAdminPage() {
                         </div>
                         <div className="text-[10px] text-[#8C8275] mt-0.5">
                           Compact inline card with 2-line dish rows (no truncation)
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4. AI Food Assistant Suggestions Layout */}
+                  <div className="p-3 bg-[#12100E] border border-[#2D251F] rounded-xl space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold text-white flex items-center gap-1.5">
+                          <span>🤖</span>
+                          <span>AI Chat Suggestions Layout</span>
+                        </div>
+                        <div className="text-[10px] text-[#8C8275]">
+                          Choose how quick suggestion chips are presented in AI Waiter
+                        </div>
+                      </div>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold bg-[#D96B27]/10 text-[#D96B27] border border-[#D96B27]/30">
+                        {editingRestaurant.features?.aiSuggestionsLayout === "drawer"
+                          ? "Collapsible Drawer"
+                          : "Horizontal Carousel (Default)"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {/* Option 1 */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingRestaurant({
+                            ...editingRestaurant,
+                            features: {
+                              ...(editingRestaurant.features || DEFAULT_RESTAURANT_FEATURES),
+                              aiSuggestionsLayout: "carousel",
+                            },
+                          })
+                        }
+                        className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all ${
+                          (editingRestaurant.features?.aiSuggestionsLayout || "carousel") === "carousel"
+                            ? "bg-[#D96B27]/15 border-[#D96B27] text-white shadow-xs"
+                            : "bg-[#181410] border-[#2D251F] text-[#8C8275] hover:text-white"
+                        }`}
+                      >
+                        <div className="font-bold flex items-center justify-between">
+                          <span>↔️ Horizontal Carousel</span>
+                          {(editingRestaurant.features?.aiSuggestionsLayout || "carousel") === "carousel" && (
+                            <span className="text-[10px] text-[#D96B27]">✓ Active</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-[#8C8275] mt-0.5">
+                          Single-row horizontal slider with auto-hide. 70% less vertical space on mobile.
+                        </div>
+                      </button>
+
+                      {/* Option 2 */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingRestaurant({
+                            ...editingRestaurant,
+                            features: {
+                              ...(editingRestaurant.features || DEFAULT_RESTAURANT_FEATURES),
+                              aiSuggestionsLayout: "drawer",
+                            },
+                          })
+                        }
+                        className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all ${
+                          editingRestaurant.features?.aiSuggestionsLayout === "drawer"
+                            ? "bg-[#D96B27]/15 border-[#D96B27] text-white shadow-xs"
+                            : "bg-[#181410] border-[#2D251F] text-[#8C8275] hover:text-white"
+                        }`}
+                      >
+                        <div className="font-bold flex items-center justify-between">
+                          <span>📑 Collapsible Drawer</span>
+                          {editingRestaurant.features?.aiSuggestionsLayout === "drawer" && (
+                            <span className="text-[10px] text-[#D96B27]">✓ Active</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-[#8C8275] mt-0.5">
+                          Floating action pills with bottom slide-up drawer for 100% clean chat stream.
                         </div>
                       </button>
                     </div>

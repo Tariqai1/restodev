@@ -73,6 +73,8 @@ export type RestaurantFeatures = {
   aiAddAllCombo?: boolean;
   aiPartySizeCalc?: boolean;
   aiBillStatusCheck?: boolean;
+  showDishDescription?: boolean;
+  aiSuggestionsLayout?: "carousel" | "drawer";
 };
 
 export type PortionType = "full" | "half";

@@ -1466,6 +1466,7 @@ export default function CustomerTableOrderingPage({
               halfQty={cart[`${item.id}__half`]?.qty || 0}
               fullQty={cart[`${item.id}__full`]?.qty || cart[item.id]?.qty || 0}
               showPortions={features.halfFullPortions !== false}
+              showDescription={Boolean(features.showDishDescription)}
               onPreviewDish={(dish) => setPreviewDish(dish)}
               onAddToCart={(id, portion, e) => addToCart(id, portion, e)}
               onRemoveFromCart={(id, portion) => removeFromCart(id, portion)}

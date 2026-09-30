@@ -7,6 +7,49 @@ interface StoreSettingsViewProps {
   initialName?: string;
 }
 
+const THEME_OPTIONS = [
+  {
+    id: "amber" as const,
+    name: "Amber Warm (Default)",
+    desc: "Warm Gold, Spice & Earthy Brown",
+    primary: "#b45309",
+    surface: "#fffbeb",
+    border: "#fde68a",
+  },
+  {
+    id: "crimson" as const,
+    name: "Crimson Velvet",
+    desc: "Deep Ruby & Fine Dine Burgundy",
+    primary: "#be123c",
+    surface: "#fff1f2",
+    border: "#fecdd3",
+  },
+  {
+    id: "saffron" as const,
+    name: "Saffron Royal",
+    desc: "Vibrant Indian Orange & Rust",
+    primary: "#c2410c",
+    surface: "#fff7ed",
+    border: "#ffedd5",
+  },
+  {
+    id: "emerald" as const,
+    name: "Emerald Bistro",
+    desc: "Fresh Botanical Green & Mint",
+    primary: "#047857",
+    surface: "#ecfdf5",
+    border: "#a7f3d0",
+  },
+  {
+    id: "charcoal" as const,
+    name: "Charcoal Dark",
+    desc: "Modern Midnight Slate & Gold",
+    primary: "#1e293b",
+    surface: "#f8fafc",
+    border: "#e2e8f0",
+  },
+];
+
 export default function StoreSettingsView({
   initialName = "Order Desk Restaurant",
 }: StoreSettingsViewProps) {
@@ -17,6 +60,17 @@ export default function StoreSettingsView({
   const [fssai, setFssai] = useState("11223344556677");
   const [serviceCharge, setServiceCharge] = useState(false);
   const [serviceChargePct, setServiceChargePct] = useState(5);
+
+  // Branding & Theme States
+  const [selectedTheme, setSelectedTheme] = useState<"amber" | "crimson" | "saffron" | "emerald" | "charcoal">("amber");
+  const [logoUrl, setLogoUrl] = useState<string>("");
+  const [tagline, setTagline] = useState<string>("");
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  // Menu Display & AI Features
+  const [showDishDescription, setShowDishDescription] = useState(false);
+  const [aiSuggestionsLayout, setAiSuggestionsLayout] = useState<"carousel" | "drawer">("carousel");
 
   // Online Ordering (Delivery / Pickup) States
   const [onlineOrderingEnabled, setOnlineOrderingEnabled] = useState(false);
@@ -34,13 +88,18 @@ export default function StoreSettingsView({
   const [isSaved, setIsSaved] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Load delivery & online ordering configuration
+  // Load all settings: delivery, theme, branding, and features
   useEffect(() => {
-    async function loadSettings() {
+    async function loadAllSettings() {
       try {
-        const res = await fetch("/api/restaurant/delivery");
-        if (res.ok) {
-          const data = await res.json();
+        const [delRes, themeRes, featRes] = await Promise.all([
+          fetch("/api/restaurant/delivery"),
+          fetch("/api/restaurant/theme"),
+          fetch("/api/restaurant/features"),
+        ]);
+
+        if (delRes.ok) {
+          const data = await delRes.json();
           if (data.settings) {
             setOnlineOrderingEnabled(Boolean(data.settings.onlineOrderingEnabled));
             setPickupEnabled(Boolean(data.settings.pickupEnabled));
@@ -56,33 +115,97 @@ export default function StoreSettingsView({
             if (data.restaurant.name) setStoreName(data.restaurant.name);
           }
         }
+
+        if (themeRes.ok) {
+          const tData = await themeRes.json();
+          if (tData.theme) setSelectedTheme(tData.theme);
+          if (tData.branding) {
+            if (tData.branding.logoUrl) setLogoUrl(tData.branding.logoUrl);
+            if (tData.branding.tagline) setTagline(tData.branding.tagline);
+          }
+        }
+
+        if (featRes.ok) {
+          const fData = await featRes.json();
+          if (fData.features) {
+            setShowDishDescription(Boolean(fData.features.showDishDescription));
+            if (fData.features.aiSuggestionsLayout) {
+              setAiSuggestionsLayout(fData.features.aiSuggestionsLayout);
+            }
+          }
+        }
       } catch (err) {
-        console.error("Failed to load delivery settings:", err);
+        console.error("Failed to load store settings:", err);
       } finally {
         setIsLoading(false);
       }
     }
-    loadSettings();
+    loadAllSettings();
   }, []);
+
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingLogo(true);
+    setUploadError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to upload logo");
+      if (data.url) {
+        setLogoUrl(data.url);
+      }
+    } catch (err: any) {
+      setUploadError(err.message || "Upload failed");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await fetch("/api/restaurant/delivery", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          restaurantId,
-          onlineOrderingEnabled,
-          pickupEnabled,
-          deliveryEnabled,
-          deliveryRadiusKm,
-          deliveryFee,
-          minimumOrderAmount,
-          estimatedPrepMinutes,
-          slug,
+      await Promise.all([
+        fetch("/api/restaurant/delivery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            restaurantId,
+            onlineOrderingEnabled,
+            pickupEnabled,
+            deliveryEnabled,
+            deliveryRadiusKm,
+            deliveryFee,
+            minimumOrderAmount,
+            estimatedPrepMinutes,
+            slug,
+          }),
         }),
-      });
+        fetch("/api/restaurant/theme", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            theme: selectedTheme,
+            branding: {
+              logoUrl: logoUrl.trim() || null,
+              tagline: tagline.trim() || null,
+            },
+          }),
+        }),
+        fetch("/api/restaurant/features", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            showDishDescription,
+            aiSuggestionsLayout,
+          }),
+        }),
+      ]);
 
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3500);
@@ -121,7 +244,7 @@ export default function StoreSettingsView({
             Administration &amp; Store Profile
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Configure restaurant identity, statutory tax identifiers (GSTIN/FSSAI), and optional online delivery/pickup ordering.
+            Configure restaurant identity, header logo, customer theme, dish descriptions, and AI features.
           </p>
         </div>
 
@@ -139,11 +262,266 @@ export default function StoreSettingsView({
       {isSaved && (
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
           <i className="fa-solid fa-circle-check text-emerald-600" />
-          <span>Store settings, statutory compliance, and online ordering rules saved successfully.</span>
+          <span>All store settings, branding, header logo, theme, and AI preferences saved successfully!</span>
         </div>
       )}
 
-      {/* 1. ONLINE ORDERING (DELIVERY & PICKUP) OPTIONAL FEATURE */}
+      {/* 1. RESTAURANT LOGO & HEADER BRANDING */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <i className="fa-solid fa-image text-amber-600 text-xs" />
+              <span>Customer Header Logo &amp; Brand Identity</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Upload your restaurant logo to show in the customer header instead of the table number badge.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+          {/* Logo Upload & URL Box */}
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Upload Logo Image (PNG / JPG / WebP)
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold cursor-pointer transition-colors flex items-center gap-2 shrink-0">
+                  <i className={`fa-solid ${isUploadingLogo ? "fa-spinner fa-spin" : "fa-cloud-arrow-up"} text-xs`} />
+                  <span>{isUploadingLogo ? "Uploading..." : "Upload Logo"}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={handleLogoFileUpload}
+                    disabled={isUploadingLogo}
+                  />
+                </label>
+                {logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl("")}
+                    className="px-3 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold transition-colors cursor-pointer"
+                  >
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+              {uploadError && (
+                <p className="text-[11px] text-rose-600 mt-1 font-semibold">{uploadError}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Or Paste Direct Logo Image URL
+              </label>
+              <input
+                type="text"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://example.com/logo.png"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 font-mono text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Brand Tagline
+              </label>
+              <input
+                type="text"
+                value={tagline}
+                onChange={(e) => setTagline(e.target.value)}
+                placeholder="e.g. Authentic North Indian & Mughlai Delicacies"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 text-xs"
+              />
+            </div>
+          </div>
+
+          {/* Live Preview Box */}
+          <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+              Customer Header Live Preview:
+            </span>
+            <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt={storeName}
+                    className="w-9 h-9 rounded-lg object-cover shadow-2xs border border-slate-200 shrink-0"
+                    onError={() => setLogoUrl("")}
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
+                    T01
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <span className="font-bold text-sm text-slate-900 block leading-tight truncate">
+                    {storeName || "Tauheed Resto"}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    Table T01 {tagline ? `· ${tagline}` : ""}
+                  </span>
+                </div>
+              </div>
+
+              <div className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-700 flex items-center gap-1 shrink-0">
+                <i className="fa-solid fa-bell text-[9px]" />
+                <span>Call</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. THEME COLOR PALETTE CUSTOMIZER */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <i className="fa-solid fa-palette text-purple-600 text-xs" />
+            <span>Customer Menu Theme &amp; Atmosphere</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Select the brand color theme for table diners and mobile menus.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {THEME_OPTIONS.map((thm) => {
+            const isSelected = selectedTheme === thm.id;
+            return (
+              <div
+                key={thm.id}
+                onClick={() => setSelectedTheme(thm.id)}
+                className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                  isSelected
+                    ? "border-purple-600 bg-purple-50/40 shadow-xs"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-5 h-5 rounded-full border border-black/10 shadow-2xs inline-block"
+                      style={{ backgroundColor: thm.primary }}
+                    />
+                    <span className="font-bold text-xs text-slate-900">{thm.name}</span>
+                  </div>
+                  {isSelected && (
+                    <i className="fa-solid fa-circle-check text-purple-600 text-sm" />
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 leading-snug">{thm.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. MENU DISPLAY & DISH DESCRIPTION CONTROL */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <i className="fa-solid fa-align-left text-blue-600 text-xs" />
+            <span>Menu Layout &amp; Dish Description Display</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Control the visual density and compact browsing experience for diners.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <span className="font-bold text-xs text-slate-900 block">
+              Show Dish Descriptions on Customer Menu
+            </span>
+            <span className="text-[11px] text-slate-500 block mt-0.5 leading-relaxed">
+              By default, dish descriptions are <strong>hidden</strong> to keep cards ultra-sleek and prevent vertical scrolling clutter. Enable to show ingredient &amp; preparation descriptions.
+            </span>
+          </div>
+
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={showDishDescription}
+              onChange={(e) => setShowDishDescription(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
+            <span className="ml-2.5 text-xs font-bold text-slate-800 min-w-[55px]">
+              {showDishDescription ? "Showing" : "Hidden"}
+            </span>
+          </label>
+        </div>
+      </div>
+
+      {/* 4. AI ASSISTANT SUGGESTIONS LAYOUT (OPTION 1 vs OPTION 2) */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <i className="fa-solid fa-wand-magic-sparkles text-amber-600 text-xs" />
+            <span>AI Food Assistant Suggestions Layout</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Choose how recommendation chips and party size options are presented in the customer chatbot.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Option 1 */}
+          <div
+            onClick={() => setAiSuggestionsLayout("carousel")}
+            className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+              aiSuggestionsLayout === "carousel"
+                ? "border-purple-600 bg-purple-50/40 shadow-xs"
+                : "border-slate-200 bg-white hover:border-slate-300"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <i className="fa-solid fa-arrows-left-right text-amber-600 text-[11px]" />
+                <span>Option 1: Horizontal Carousel (Default)</span>
+              </span>
+              {aiSuggestionsLayout === "carousel" && (
+                <i className="fa-solid fa-circle-check text-purple-600 text-sm" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Single-row horizontal scrollable strip with <strong>Auto-Hide</strong>. Conserves 70% vertical screen space on mobile phones, chips vanish once user interacts.
+            </p>
+          </div>
+
+          {/* Option 2 */}
+          <div
+            onClick={() => setAiSuggestionsLayout("drawer")}
+            className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+              aiSuggestionsLayout === "drawer"
+                ? "border-purple-600 bg-purple-50/40 shadow-xs"
+                : "border-slate-200 bg-white hover:border-slate-300"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <i className="fa-solid fa-layer-group text-purple-600 text-[11px]" />
+                <span>Option 2: Collapsible Action Drawer</span>
+              </span>
+              {aiSuggestionsLayout === "drawer" && (
+                <i className="fa-solid fa-circle-check text-purple-600 text-sm" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Floating micro-pills <code>[Quick Ideas]</code> &amp; <code>[Party Size]</code> above chat bar. Tapping opens an organized bottom drawer for a 100% clean chat stream.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. ONLINE ORDERING (DELIVERY & PICKUP) */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
@@ -361,7 +739,7 @@ export default function StoreSettingsView({
         )}
       </div>
 
-      {/* 2. STORE IDENTITY */}
+      {/* 6. STORE CONTACT & ADDRESS */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
           Restaurant Identity &amp; Contact
@@ -406,7 +784,7 @@ export default function StoreSettingsView({
         </div>
       </div>
 
-      {/* 3. STATUTORY & TAX IDS */}
+      {/* 7. STATUTORY & TAX IDS */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
           Statutory Compliance &amp; Tax Credentials
@@ -445,7 +823,7 @@ export default function StoreSettingsView({
         </div>
       </div>
 
-      {/* 4. OPERATIONAL FEATURES */}
+      {/* 8. OPERATIONAL FEATURES */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
           Dine-In Billing &amp; Service Charge

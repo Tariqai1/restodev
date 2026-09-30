@@ -29,6 +29,8 @@ export type RestaurantFeatures = {
   aiAddAllCombo?: boolean;   // 🛒 1-Tap "Add All to Cart" Meal Combo Button
   aiPartySizeCalc?: boolean; // 👥 Party Size Auto-Calculator (1, 2, 4, Group)
   aiBillStatusCheck?: boolean; // 🧾 In-Chat Bill & Cooking Status Check
+  showDishDescription?: boolean; // 📝 Show/Hide dish description on customer menu (Default: false / Hidden)
+  aiSuggestionsLayout?: "carousel" | "drawer"; // 🤖 AI suggestions layout: 'carousel' (Option 1 - Default) | 'drawer' (Option 2 - Collapsible)
 };
 
 export const DEFAULT_RESTAURANT_FEATURES: RestaurantFeatures = {
@@ -62,4 +64,6 @@ export const DEFAULT_RESTAURANT_FEATURES: RestaurantFeatures = {
   aiAddAllCombo: true,
   aiPartySizeCalc: true,
   aiBillStatusCheck: true,
+  showDishDescription: false,
+  aiSuggestionsLayout: "carousel",
 };

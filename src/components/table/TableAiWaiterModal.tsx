@@ -78,10 +78,14 @@ export default function TableAiWaiterModal({
   const initialAiMessage: ChatMessage = {
     id: "msg_welcome",
     sender: "ai",
-    text: `Welcome to ${restaurantName || "our restaurant"}! 👋\nMain aapka Smart AI Food Assistant hoon. Aaj kya khane ka mood hai? Mujhe apna taste, budget ya group size bataiye!`,
+    text: `${restaurantName || "Hamare restaurant"} me aapka swagat hai. Aaj kya khane ka mood hai? Mujhe apna taste, budget ya group size bataiye!`,
     quickSuggestions: initialSuggestions,
     time: formatCurrentTime(),
   };
+
+  const isDrawerLayout = features?.aiSuggestionsLayout === "drawer";
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [activeDrawerTab, setActiveDrawerTab] = useState<"suggestions" | "party">("suggestions");
 
   const [messages, setMessages] = useState<ChatMessage[]>([initialAiMessage]);
   const [inputText, setInputText] = useState("");
@@ -475,7 +479,7 @@ export default function TableAiWaiterModal({
 
         {/* Scrollable Chat Stream */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-stone-50/50">
-          {messages.map((msg) => (
+          {messages.map((msg, msgIdx) => (
             <div
               key={msg.id}
               className={`flex flex-col ${
@@ -486,7 +490,8 @@ export default function TableAiWaiterModal({
               <div className="flex items-center gap-1.5 px-1 text-[10px] text-stone-400">
                 {msg.sender === "ai" ? (
                   <span className="font-bold text-amber-800 flex items-center gap-1">
-                    <span>👨‍🍳</span> AI Captain
+                    <i className="fa-solid fa-utensils text-amber-600 text-[10px]" />
+                    <span>AI Assistant</span>
                   </span>
                 ) : (
                   <span className="font-semibold text-stone-600">You</span>
@@ -508,7 +513,7 @@ export default function TableAiWaiterModal({
                 {/* Chef's Pairing Tip */}
                 {msg.pairingTip && (
                   <div className="mt-2.5 px-3 py-2 rounded-xl bg-amber-50/90 border border-amber-200/90 text-[11px] text-amber-950 font-medium flex items-start gap-2 shadow-2xs">
-                    <span className="text-amber-600 text-xs shrink-0 mt-0.5">💡</span>
+                    <i className="fa-solid fa-lightbulb text-amber-600 text-xs shrink-0 mt-0.5" />
                     <div className="leading-snug">
                       <span className="font-extrabold text-amber-900 block text-[9px] uppercase tracking-wider mb-0.5">
                         Chef's Pairing Tip
@@ -573,7 +578,8 @@ export default function TableAiWaiterModal({
                 {msg.dishes && msg.dishes.length > 0 && (
                   <div className="mt-3 space-y-2 pt-2 border-t border-stone-100">
                     <p className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
-                      <span>✨</span> Recommended Dishes ({msg.dishes.length}):
+                      <i className="fa-solid fa-sparkles text-amber-600 text-xs shrink-0" />
+                      <span>Recommended Dishes ({msg.dishes.length}):</span>
                     </p>
                     {msg.dishes.map((dish) => {
                       const qty = getDishQty(dish.id);
@@ -694,22 +700,28 @@ export default function TableAiWaiterModal({
                 )}
               </div>
 
-              {/* Quick suggestion follow-up pills (NO EMOJIS) */}
-              {msg.quickSuggestions && msg.quickSuggestions.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap pt-1 pl-1 max-w-[95%]">
-                  {msg.quickSuggestions.map((sug, sIdx) => (
-                    <button
-                      key={sIdx}
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleSend(sug)}
-                      className="px-3 py-1 rounded-full text-[11px] font-semibold border border-amber-300/80 bg-amber-50/90 hover:bg-amber-100 text-amber-950 transition-all active:scale-95 cursor-pointer shadow-2xs text-left"
-                    >
-                      {sug}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Quick suggestion pills (Option 1: Horizontal Carousel with auto-hide for earlier messages) */}
+              {!isDrawerLayout &&
+                msg.quickSuggestions &&
+                msg.quickSuggestions.length > 0 &&
+                msgIdx === messages.length - 1 &&
+                !loading && (
+                  <div className="w-full overflow-x-auto scrollbar-none py-1.5 pl-0.5">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      {msg.quickSuggestions.map((sug, sIdx) => (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleSend(sug)}
+                          className="px-3 py-1 rounded-full text-[11px] font-semibold border border-amber-300/80 bg-amber-50/90 hover:bg-amber-100 text-amber-950 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </div>
           ))}
 
@@ -717,8 +729,8 @@ export default function TableAiWaiterModal({
           {loading && (
             <div className="flex flex-col items-start space-y-1.5 animate-in fade-in duration-200">
               <div className="flex items-center gap-1.5 px-1 text-[10px] text-amber-800 font-bold">
-                <span>👨‍🍳</span>
-                <span>AI Captain is thinking...</span>
+                <i className="fa-solid fa-utensils text-amber-600 text-[10px]" />
+                <span>AI Assistant is thinking...</span>
               </div>
               <div className="rounded-2xl rounded-tl-xs px-4 py-3 bg-white border border-stone-200 shadow-2xs flex items-center gap-3">
                 <div className="flex items-center gap-1">
@@ -736,8 +748,41 @@ export default function TableAiWaiterModal({
           <div ref={chatBottomRef} className="h-2" />
         </div>
 
-        {/* Party Size Quick Selector (NO EMOJIS) */}
-        {features?.aiPartySizeCalc !== false && (
+        {/* Option 2: Floating Collapsible Action Bar */}
+        {isDrawerLayout && (
+          <div className="px-3 py-1.5 bg-stone-50 border-t border-stone-200/80 flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveDrawerTab("suggestions");
+                  setIsDrawerOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white hover:bg-amber-50 text-stone-800 border border-stone-200 shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+              >
+                <i className="fa-solid fa-bolt text-amber-600 text-[10px]" />
+                <span>Quick Ideas</span>
+              </button>
+              {features?.aiPartySizeCalc !== false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDrawerTab("party");
+                    setIsDrawerOpen(true);
+                  }}
+                  className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white hover:bg-amber-50 text-stone-800 border border-stone-200 shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                >
+                  <i className="fa-solid fa-user-group text-amber-600 text-[10px]" />
+                  <span>Party Size</span>
+                </button>
+              )}
+            </div>
+            <span className="text-[10px] text-stone-400 font-medium">Tap to view</span>
+          </div>
+        )}
+
+        {/* Option 1: Party Size Quick Selector (Single Row Horizontal Carousel) */}
+        {!isDrawerLayout && features?.aiPartySizeCalc !== false && (
           <div className="px-3 py-1.5 bg-amber-50/60 border-t border-amber-100/70 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
             <span className="text-[10px] font-bold text-amber-900 shrink-0 uppercase tracking-wide">
               Party Size:
@@ -758,6 +803,68 @@ export default function TableAiWaiterModal({
                 {p.label}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Option 2: Collapsible Slide-up Mini Drawer */}
+        {isDrawerLayout && isDrawerOpen && (
+          <div className="absolute inset-x-0 bottom-0 z-30 bg-white border-t border-stone-200 rounded-t-2xl shadow-2xl p-4 animate-in slide-in-from-bottom duration-200 max-h-[65%] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2 mb-3">
+              <div className="flex items-center gap-2">
+                <i className={`fa-solid ${activeDrawerTab === "party" ? "fa-user-group" : "fa-bolt"} text-amber-600 text-xs`} />
+                <span className="text-xs font-bold text-stone-900">
+                  {activeDrawerTab === "party" ? "Select Group / Party Size" : "Quick Food Suggestions"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(false)}
+                className="w-6 h-6 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 flex items-center justify-center text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            {activeDrawerTab === "party" ? (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "1 Person", prompt: "1 person ke liye quick meal suggest karo" },
+                  { label: "2 People", prompt: "2 logon ke liye balanced dinner combo under 700" },
+                  { label: "3-4 People", prompt: "3 se 4 logon ke liye complete family dinner meal combo" },
+                  { label: "5+ Group", prompt: "5 ya us se zyada logon ke liye grand group feast" },
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      handleSend(p.prompt);
+                    }}
+                    className="p-2.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-300 text-xs font-bold text-stone-800 text-left transition-colors cursor-pointer"
+                  >
+                    <div className="font-extrabold text-amber-900">{p.label}</div>
+                    <div className="text-[10px] text-stone-500 font-normal truncate mt-0.5">{p.prompt}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {initialSuggestions.map((sug, sIdx) => (
+                  <button
+                    key={sIdx}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      handleSend(sug);
+                    }}
+                    className="p-2.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-300 text-xs font-semibold text-stone-800 text-left transition-colors cursor-pointer"
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
