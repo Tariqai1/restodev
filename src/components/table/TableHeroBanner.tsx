@@ -22,6 +22,9 @@ export default function TableHeroBanner({
   waiterCooldown,
   onOpenCallModal,
 }: TableHeroBannerProps) {
+  // Show call waiter button by default unless explicitly disabled as false
+  const showCallWaiter = features?.callWaiter !== false;
+
   return (
     <header
       className="sticky top-0 z-30 px-4 py-2.5 border-b backdrop-blur-md flex items-center justify-between"
@@ -65,7 +68,7 @@ export default function TableHeroBanner({
         </div>
       </div>
 
-      {features.callWaiter && (
+      {showCallWaiter && (
         <button
           type="button"
           disabled={waiterCooldown > 0}
@@ -73,19 +76,27 @@ export default function TableHeroBanner({
             triggerHaptic(12);
             onOpenCallModal();
           }}
-          className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all active:scale-95 cursor-pointer shrink-0 ${
-            waiterCooldown > 0 ? "opacity-50" : ""
+          className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all active:scale-95 cursor-pointer shrink-0 shadow-2xs ${
+            waiterCooldown > 0
+              ? "opacity-60 bg-stone-100 text-stone-500 border-stone-200"
+              : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border-amber-300"
           }`}
-          style={{
-            backgroundColor: "var(--paper-dim)",
-            borderColor: "var(--hairline)",
-            color: "var(--ink)",
-          }}
+          style={
+            waiterCooldown <= 0
+              ? {
+                  borderColor: "var(--rust)",
+                  color: "var(--rust)",
+                }
+              : undefined
+          }
+          title="Call Waiter to Table"
         >
           <i
-            className={`fa-solid ${waiterCooldown > 0 ? "fa-hourglass-half" : "fa-bell"} text-[10px]`}
+            className={`fa-solid ${
+              waiterCooldown > 0 ? "fa-hourglass-half text-stone-500" : "fa-bell"
+            } text-xs`}
           />
-          <span>{waiterCooldown > 0 ? `${waiterCooldown}s` : "Call"}</span>
+          <span>{waiterCooldown > 0 ? `${waiterCooldown}s` : "Call Waiter"}</span>
         </button>
       )}
     </header>
