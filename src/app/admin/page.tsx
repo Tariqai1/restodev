@@ -37,6 +37,7 @@ import WaiterCallBanner, { WaiterCall } from "@/components/admin/ui/WaiterCallBa
 import FloorApprovalsStrip, { PendingBatch } from "@/components/admin/ui/FloorApprovalsStrip";
 import EditRunningOrderModal from "@/components/admin/modals/EditRunningOrderModal";
 import UndoItemToast, { RemovedItemPayload } from "@/components/admin/ui/UndoItemToast";
+import TableTransferModal from "@/components/admin/modals/TableTransferModal";
 
 const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), {
   ssr: false,
@@ -250,6 +251,11 @@ export default function AdminPage() {
     tableNumber: string;
   } | null>(null);
   const [undoItem, setUndoItem] = useState<RemovedItemPayload | null>(null);
+  const [transferModal, setTransferModal] = useState<{
+    isOpen: boolean;
+    table: TableRecord | null;
+    mode: "shift" | "join";
+  }>({ isOpen: false, table: null, mode: "shift" });
 
   // Tracking refs to detect newly arrived items & trigger appropriate audio signatures
   const knownBatchIdsRef = React.useRef<Set<string>>(new Set());
@@ -2114,20 +2120,56 @@ export default function AdminPage() {
 
                       <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
                         {activeOrderForTable && (
-                          <AdminButton
-                            variant="outline"
-                            size="sm"
-                            leftIcon="fa-pen-to-square"
-                            onClick={() =>
-                              setActiveEditOrder({
-                                orderId: activeOrderForTable.id,
-                                tableNumber: t.table_number,
-                              })
-                            }
-                            className="w-full text-purple-700 border-purple-200 hover:bg-purple-50 justify-center mb-1 font-bold"
-                          >
-                            Edit Running Order
-                          </AdminButton>
+                          <>
+                            <AdminButton
+                              variant="outline"
+                              size="sm"
+                              leftIcon="fa-pen-to-square"
+                              onClick={() =>
+                                setActiveEditOrder({
+                                  orderId: activeOrderForTable.id,
+                                  tableNumber: t.table_number,
+                                })
+                              }
+                              className="w-full text-purple-700 border-purple-200 hover:bg-purple-50 justify-center mb-1 font-bold"
+                            >
+                              Edit Running Order
+                            </AdminButton>
+
+                            <div className="flex items-center gap-1.5 w-full mb-1">
+                              <AdminButton
+                                variant="outline"
+                                size="sm"
+                                leftIcon="fa-arrow-right-arrow-left"
+                                onClick={() =>
+                                  setTransferModal({
+                                    isOpen: true,
+                                    table: t,
+                                    mode: "shift",
+                                  })
+                                }
+                                className="flex-1 text-amber-700 border-amber-200 hover:bg-amber-50 justify-center text-xs font-bold"
+                              >
+                                Shift Table
+                              </AdminButton>
+
+                              <AdminButton
+                                variant="outline"
+                                size="sm"
+                                leftIcon="fa-link"
+                                onClick={() =>
+                                  setTransferModal({
+                                    isOpen: true,
+                                    table: t,
+                                    mode: "join",
+                                  })
+                                }
+                                className="flex-1 text-purple-700 border-purple-200 hover:bg-purple-50 justify-center text-xs font-bold"
+                              >
+                                Join Table
+                              </AdminButton>
+                            </div>
+                          </>
                         )}
 
                         <AdminButton
@@ -3257,6 +3299,20 @@ export default function AdminPage() {
         onUndo={handleUndoRestoreItem}
         onDismiss={() => setUndoItem(null)}
       />
+
+      {/* ======================================================== */}
+      {/* SHIFT & JOIN TABLE MODAL */}
+      {/* ======================================================== */}
+      {transferModal.isOpen && transferModal.table && (
+        <TableTransferModal
+          isOpen={transferModal.isOpen}
+          onClose={() => setTransferModal({ isOpen: false, table: null, mode: "shift" })}
+          sourceTable={transferModal.table}
+          allTables={tables as any}
+          mode={transferModal.mode}
+          onSuccess={() => fetchData(true)}
+        />
+      )}
     </div>
   );
 }

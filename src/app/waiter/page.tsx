@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import EditRunningOrderModal, { MenuItemRef } from "@/components/admin/modals/EditRunningOrderModal";
 import UndoItemToast, { RemovedItemPayload } from "@/components/admin/ui/UndoItemToast";
+import TableTransferModal from "@/components/admin/modals/TableTransferModal";
 import {
   isSoundMuted,
   setSoundMuted,
@@ -118,6 +119,13 @@ export default function WaiterPortalPage() {
   // Bill Summary Modal State
   const [viewingBillOrder, setViewingBillOrder] = useState<OpenOrderRecord | null>(null);
   const [isSettling, setIsSettling] = useState(false);
+
+  // Shift & Join Table Modal State
+  const [transferModal, setTransferModal] = useState<{
+    isOpen: boolean;
+    table: TableRecord | null;
+    mode: "shift" | "join";
+  }>({ isOpen: false, table: null, mode: "shift" });
 
   // Reject Approval Modal State
   const [rejectingBatch, setRejectingBatch] = useState<PendingApprovalBatch | null>(null);
@@ -1091,21 +1099,55 @@ export default function WaiterPortalPage() {
                                   tableNumber: table.table_number,
                                 });
                               }}
-                              className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              className="flex-1 py-2 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
                             >
                               <i className="fa-solid fa-pen-to-square text-xs" />
-                              <span>Edit Dishes</span>
+                              <span>Edit</span>
+                            </button>
+
+                            {/* Shift Table */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                unlockAudio();
+                                setTransferModal({
+                                  isOpen: true,
+                                  table,
+                                  mode: "shift",
+                                });
+                              }}
+                              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-amber-400 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
+                              title="Shift Table (Move party to another table)"
+                            >
+                              <i className="fa-solid fa-arrow-right-arrow-left text-xs" />
+                            </button>
+
+                            {/* Join Table */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                unlockAudio();
+                                setTransferModal({
+                                  isOpen: true,
+                                  table,
+                                  mode: "join",
+                                });
+                              }}
+                              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-purple-400 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
+                              title="Join Table (Merge for group dining)"
+                            >
+                              <i className="fa-solid fa-link text-xs" />
                             </button>
 
                             {/* View Bill Summary & Settle */}
                             <button
                               type="button"
                               onClick={() => setViewingBillOrder(ord)}
-                              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              className="py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
                               title="Settle Bill & Free Table"
                             >
                               <i className="fa-solid fa-receipt text-xs" />
-                              <span>Settle / Free</span>
+                              <span>Settle</span>
                             </button>
                           </>
                         ) : (
@@ -1581,6 +1623,20 @@ export default function WaiterPortalPage() {
         onUndo={(it) => handleUndoRestore(it)}
         onDismiss={() => setRemovedItemForUndo(null)}
       />
+
+      {/* ─────────────────────────────────────────────────────────────
+          9. SHIFT & JOIN TABLE MODAL
+         ───────────────────────────────────────────────────────────── */}
+      {transferModal.isOpen && transferModal.table && (
+        <TableTransferModal
+          isOpen={transferModal.isOpen}
+          onClose={() => setTransferModal({ isOpen: false, table: null, mode: "shift" })}
+          sourceTable={transferModal.table}
+          allTables={tables}
+          mode={transferModal.mode}
+          onSuccess={() => fetchDashboardData(true)}
+        />
+      )}
     </div>
   );
 }

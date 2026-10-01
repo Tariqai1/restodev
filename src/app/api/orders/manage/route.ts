@@ -9,9 +9,8 @@ async function getCallerPermissions() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
-
   const staff = await resolveStaffContext(user);
+  if (!user && !staff) return null;
   if (!staff) return null;
 
   const isOwnerOrManager = staff.isSuperAdmin || ["owner", "manager", "admin"].includes(staff.role);
