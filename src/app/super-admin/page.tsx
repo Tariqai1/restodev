@@ -52,6 +52,7 @@ type RestaurantFleetItem = {
   name: string;
   ownerEmail: string;
   ownerName: string;
+  ownerPin?: string;
   contactPhone: string | null;
   gstin: string | null;
   subscriptionPlan: "trial" | "basic" | "pro";
@@ -584,7 +585,8 @@ export default function SuperAdminPage() {
   // WhatsApp Setup Message generator
   const getWhatsAppSetupUrl = (resto: RestaurantFleetItem) => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const loginUrl = `${origin}/login?resto=${resto.id}&role=owner`;
+    const pin = resto.ownerPin || "1234";
+    const loginUrl = `${origin}/login?resto=${resto.id}&role=owner&pin=${pin}`;
     const feats = resto.features || DEFAULT_RESTAURANT_FEATURES;
 
     const activeList: string[] = [];
@@ -597,7 +599,7 @@ export default function SuperAdminPage() {
     if (feats.mobileNavStyle === "bottom_bar") activeList.push("⚡ Mobile Bottom Bar (Thumb Optimized)");
     if (feats.autoMobileCards) activeList.push("🖼️ Touch Dish Cards for Mobile");
 
-    const text = `🎉 *Hello ${resto.ownerName}! Welcome to OrderDesk*\n\nYour outlet *${resto.name}* is live with premium digital POS features:\n\n✨ *Active Features*:\n${activeList.map((f) => `• ${f}`).join("\n")}\n\n📱 *Manager POS Login Link*:\n${loginUrl}\n\n👤 *Owner*: ${resto.ownerName}\n📧 *Owner Email*: ${resto.ownerEmail}\n\nOpen this link on your phone or tablet to start taking orders!`;
+    const text = `🎉 *Hello ${resto.ownerName}! Welcome to OrderDesk*\n\nYour outlet *${resto.name}* is live with premium digital POS features:\n\n✨ *Active Features*:\n${activeList.map((f) => `• ${f}`).join("\n")}\n\n📱 *Manager POS Login Link*:\n${loginUrl}\n\n👤 *Owner*: ${resto.ownerName}\n📧 *Owner Email*: ${resto.ownerEmail}\n🔑 *Owner Terminal PIN*: ${pin}\n\nOpen this link on your phone or tablet to start taking orders!`;
 
     const cleanPhone = (resto.contactPhone || "").replace(/\D/g, "");
     return cleanPhone
@@ -5861,7 +5863,7 @@ export default function SuperAdminPage() {
                               <a
                                 href={(() => {
                                   const origin = typeof window !== "undefined" ? window.location.origin : "";
-                                  const staffLoginUrl = `${origin}/login?resto=${managingStaffResto.id}&role=${s.role}&staff=${s.id}`;
+                                  const staffLoginUrl = `${origin}/login?resto=${managingStaffResto.id}&role=${s.role}&staff=${s.id}&pin=${pinDisplay}`;
                                   const msg = `👋 *OrderDesk Shift Access*\n\nRestaurant: *${managingStaffResto.name}*\nStaff Name: *${s.name}*\nRole: *${s.role.toUpperCase()}*\nPIN: *${pinDisplay}*\n\n🔗 *Shift Login Link*: ${staffLoginUrl}`;
                                   return `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
                                 })()}
@@ -7149,7 +7151,8 @@ export default function SuperAdminPage() {
                       type="button"
                       onClick={() => {
                         const origin = typeof window !== "undefined" ? window.location.origin : "";
-                        const loginUrl = `${origin}/login?resto=${cockpitResto.id}&role=owner`;
+                        const pin = cockpitResto.ownerPin || "1234";
+                        const loginUrl = `${origin}/login?resto=${cockpitResto.id}&role=owner&pin=${pin}`;
                         navigator.clipboard.writeText(loginUrl);
                         setCopiedCockpitLink(true);
                         setTimeout(() => setCopiedCockpitLink(false), 2500);

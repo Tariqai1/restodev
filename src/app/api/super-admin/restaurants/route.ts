@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/super-admin";
 import {
   logActivity,
+  getStaffPermissions,
+  setStaffPermissions,
   archiveRestaurant,
   restoreRestaurant,
   isRestaurantArchived,
@@ -215,11 +217,17 @@ export async function GET(request: Request) {
       const dbOfferConfig = (meta.offerConfig as RestaurantOfferConfig) || null;
       const dbUpsellConfig = (meta.upsellConfig as SmartUpsellConfig) || null;
 
+      const ownerPin =
+        (owner ? getStaffPermissions(owner.id, "owner").assignedPin : undefined) ||
+        (meta.owner_pin as string) ||
+        "1234";
+
       return {
         id: r.id,
         name: r.name,
         ownerEmail: r.owner_email,
         ownerName: owner?.name || "Unassigned",
+        ownerPin,
         contactPhone: getRestaurantPhone(r.id) || r.contact_phone || null,
         gstin: realGstin,
         subscriptionPlan: r.subscription_plan || "trial",
@@ -305,6 +313,7 @@ export async function POST(request: Request) {
     const initialMeta = {
       features: DEFAULT_RESTAURANT_FEATURES,
       gstin_number: gstin?.trim() || null,
+      owner_pin: pin,
     };
 
     const { data: restaurant, error: restoError } = await admin
@@ -334,13 +343,21 @@ export async function POST(request: Request) {
 
     // 2. Hash PIN and create owner staff user
     const pinHash = await bcrypt.hash(pin, 10);
-    const { error: staffError } = await admin.from("staff_users").insert({
-      restaurant_id: restaurant.id,
-      name: ownerName,
-      role: "owner",
-      pin_hash: pinHash,
-      is_active: true,
-    });
+    const { data: ownerStaff, error: staffError } = await admin
+      .from("staff_users")
+      .insert({
+        restaurant_id: restaurant.id,
+        name: ownerName,
+        role: "owner",
+        pin_hash: pinHash,
+        is_active: true,
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (ownerStaff?.id) {
+      setStaffPermissions(ownerStaff.id, { assignedPin: pin }, "owner");
+    }
 
     if (staffError) {
       console.warn("Owner staff creation error:", staffError);

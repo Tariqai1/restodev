@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/super-admin";
-import { logActivity } from "@/lib/platform/state";
+import { logActivity, setStaffPermissions } from "@/lib/platform/state";
 
 export async function POST(
   request: Request,
@@ -70,6 +70,23 @@ export async function POST(
       if (pinErr) {
         return NextResponse.json({ ok: false, message: pinErr.message }, { status: 500 });
       }
+
+      setStaffPermissions(owner.id, { assignedPin: newPin }, "owner");
+
+      // Also persist in restaurants metadata for resiliency
+      try {
+        const { data: rRecord } = await admin
+          .from("restaurants")
+          .select("gstin")
+          .eq("id", restaurantId)
+          .maybeSingle();
+        if (rRecord?.gstin) {
+          const m = rRecord.gstin.startsWith("{") ? JSON.parse(rRecord.gstin) : {};
+          m.owner_pin = newPin;
+          await admin.from("restaurants").update({ gstin: JSON.stringify(m) }).eq("id", restaurantId);
+        }
+      } catch {}
+
       results.push(`Terminal PIN updated to ${newPin}`);
     }
 
