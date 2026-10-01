@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
+import { safeSetTableStatus } from "@/lib/tables/table-status";
 
 async function getCallerPermissions() {
   const supabase = await createClient();
@@ -125,12 +126,7 @@ export async function POST(request: NextRequest) {
       if (cancelError) throw cancelError;
 
       if (order.table_id) {
-        const { error: tableError } = await admin
-          .from("restaurant_tables")
-          .update({ status: "empty" })
-          .eq("id", order.table_id)
-          .eq("restaurant_id", caller.restaurantId);
-        if (tableError) throw tableError;
+        await safeSetTableStatus(admin, order.table_id, "empty", caller.restaurantId);
       }
 
       return NextResponse.json({ ok: true, message: "Order has been successfully voided and table freed." });
@@ -433,16 +429,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Mark source table as occupied (linked with targetTable)
-      await admin
-        .from("restaurant_tables")
-        .update({ status: "served" })
-        .eq("id", sourceTable.id);
+      await safeSetTableStatus(admin, sourceTable.id, "served", caller.restaurantId);
 
       // Ensure target table is also served/occupied
-      await admin
-        .from("restaurant_tables")
-        .update({ status: "served" })
-        .eq("id", targetTable.id);
+      await safeSetTableStatus(admin, targetTable.id, "served", caller.restaurantId);
 
       return NextResponse.json({
         ok: true,
@@ -506,8 +496,8 @@ export async function POST(request: NextRequest) {
       if (transferError) throw transferError;
 
       // Free previous table, mark new table occupied
-      await admin.from("restaurant_tables").update({ status: "empty" }).eq("id", curTable.id);
-      await admin.from("restaurant_tables").update({ status: "served" }).eq("id", nxtTable.id);
+      await safeSetTableStatus(admin, curTable.id, "empty", caller.restaurantId);
+      await safeSetTableStatus(admin, nxtTable.id, "served", caller.restaurantId);
 
       return NextResponse.json({
         ok: true,
@@ -516,11 +506,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ message: "Unknown action" }, { status: 400 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Manage order error:", err);
-    return NextResponse.json(
-      { message: err instanceof Error ? err.message : "Order operation failed" },
-      { status: 500 }
-    );
+    const msg = err?.message || err?.details || (typeof err === "string" ? err : "Order operation failed");
+    return NextResponse.json({ message: msg }, { status: 500 });
   }
 }

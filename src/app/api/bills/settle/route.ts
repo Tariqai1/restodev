@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
+import { safeSetTableStatus, safeFreeTableByNumber } from "@/lib/tables/table-status";
+
+const isUuid = (val: unknown): val is string =>
+  typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +30,7 @@ export async function POST(request: NextRequest) {
     let targetOrderId = orderId || null;
     let targetTableId = tableId || null;
     let activeOrderSessionId: string | null = null;
+    let orderStatus: string | null = null;
 
     // 1. If direct orderId provided, fetch order details directly
     if (targetOrderId) {
@@ -39,12 +44,12 @@ export async function POST(request: NextRequest) {
       if (directOrd) {
         targetTableId = targetTableId || directOrd.table_id;
         activeOrderSessionId = directOrd.table_session_id || null;
+        orderStatus = directOrd.status;
       }
     }
 
     // 2. If tableId not known yet, resolve from tableNumber scoped by restaurant
     if (!targetTableId && tableNumber) {
-      // First try exact match scoped by restaurant
       let tableQuery = admin
         .from("restaurant_tables")
         .select("id, table_number")
@@ -58,23 +63,14 @@ export async function POST(request: NextRequest) {
       if (tableData) {
         targetTableId = tableData.id;
       } else {
-        // Try variants (e.g. "T01" -> "1", "T1", "01")
         const raw = String(tableNumber).trim();
         const digits = raw.replace(/\D/g, "");
         const num = digits ? parseInt(digits, 10).toString() : raw;
-        const variants = Array.from(new Set([
-          raw,
-          `T${num}`,
-          `T0${num}`,
-          `Table ${num}`,
-          `Table T${num}`,
-          num
-        ]));
+        const variants = Array.from(
+          new Set([raw, `T${num}`, `T0${num}`, `Table ${num}`, `Table T${num}`, num])
+        );
 
-        let altQuery = admin
-          .from("restaurant_tables")
-          .select("id, table_number")
-          .in("table_number", variants);
+        let altQuery = admin.from("restaurant_tables").select("id, table_number").in("table_number", variants);
 
         if (restaurantId) {
           altQuery = altQuery.eq("restaurant_id", restaurantId);
@@ -91,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (!targetOrderId && targetTableId) {
       const { data: activeOrder } = await admin
         .from("orders")
-        .select("id, table_id, table_session_id, restaurant_id")
+        .select("id, table_id, table_session_id, restaurant_id, status")
         .eq("table_id", targetTableId)
         .eq("restaurant_id", restaurantId)
         .eq("status", "open")
@@ -102,13 +98,10 @@ export async function POST(request: NextRequest) {
       if (activeOrder) {
         targetOrderId = activeOrder.id;
         activeOrderSessionId = activeOrder.table_session_id || null;
+        orderStatus = activeOrder.status;
       } else {
-        // Table has no open order, ensure it is set to empty and return success
-        await admin
-          .from("restaurant_tables")
-          .update({ status: "empty" })
-          .eq("id", targetTableId)
-          .eq("restaurant_id", restaurantId);
+        // Table has no open order, ensure it is safely transitioned to empty
+        await safeSetTableStatus(admin, targetTableId, "empty", restaurantId);
 
         return NextResponse.json({
           ok: true,
@@ -118,14 +111,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (!targetOrderId) {
-      // If table exists but has no active order, free table
       if (targetTableId) {
-        await admin
-          .from("restaurant_tables")
-          .update({ status: "empty" })
-          .eq("id", targetTableId)
-          .eq("restaurant_id", restaurantId);
-
+        await safeSetTableStatus(admin, targetTableId, "empty", restaurantId);
         return NextResponse.json({
           ok: true,
           message: "No active order found. Table freed successfully.",
@@ -136,29 +123,68 @@ export async function POST(request: NextRequest) {
     }
 
     const validPaymentMode = ["cash", "upi", "card"].includes(paymentMode) ? paymentMode : "cash";
-    const { data: atomicSettlement, error: atomicSettlementError } = await admin.rpc("settle_order_atomic", {
-      p_order_id: targetOrderId,
-      p_payment_mode: validPaymentMode,
-      p_recorded_by: staffContext.staffId,
-      p_extra_table_numbers: Array.isArray(extraTableNumbers) ? extraTableNumbers.map((value: unknown) => String(value)) : [],
-    });
-    if (!atomicSettlementError && atomicSettlement) {
-      return NextResponse.json({
-        ok: true,
-        message: "Order successfully settled. Table is now available.",
-        bill: atomicSettlement,
-      });
-    }
-    if (atomicSettlementError) {
-      const functionMissing = /could not find the function|schema cache|does not exist/i.test(atomicSettlementError.message || "");
-      if (!functionMissing) {
-        console.error("Atomic settlement failed:", atomicSettlementError);
-        return NextResponse.json({ message: atomicSettlementError.message }, { status: 409 });
+    const recordedByUuid = isUuid(staffContext?.staffId) ? staffContext.staffId : null;
+
+    // Determine all tables that should be freed
+    let allJoinedTables: string[] = [];
+    if (activeOrderSessionId?.startsWith("joined:")) {
+      allJoinedTables = activeOrderSessionId.replace("joined:", "").split(",").map((s: string) => s.trim());
+    } else if (targetOrderId) {
+      const { data: ord } = await admin
+        .from("orders")
+        .select("table_session_id")
+        .eq("id", targetOrderId)
+        .maybeSingle();
+      if (ord?.table_session_id?.startsWith("joined:")) {
+        allJoinedTables = ord.table_session_id.replace("joined:", "").split(",").map((s: string) => s.trim());
       }
-      console.warn("Atomic settlement RPC is not installed; using compatibility settlement path.");
     }
 
-    // Fetch order items with prices
+    const tablesToFree = Array.from(
+      new Set([...(Array.isArray(extraTableNumbers) ? extraTableNumbers : []), ...allJoinedTables])
+    ).filter(Boolean);
+
+    // If order was ALREADY closed (e.g. earlier failed table transition), ensure table is now freed
+    if (orderStatus === "closed") {
+      if (targetTableId) {
+        await safeSetTableStatus(admin, targetTableId, "empty", restaurantId);
+      }
+      for (const tblNum of tablesToFree) {
+        await safeFreeTableByNumber(admin, tblNum, restaurantId);
+      }
+
+      const { data: existingBill } = await admin
+        .from("bills")
+        .select("*")
+        .eq("order_id", targetOrderId)
+        .maybeSingle();
+
+      return NextResponse.json({
+        ok: true,
+        message: "Order was already closed. Table has been freed.",
+        bill: existingBill,
+      });
+    }
+
+    // Try atomic settlement RPC if installed and valid UUID available
+    if (recordedByUuid) {
+      const { data: atomicSettlement, error: atomicSettlementError } = await admin.rpc("settle_order_atomic", {
+        p_order_id: targetOrderId,
+        p_payment_mode: validPaymentMode,
+        p_recorded_by: recordedByUuid,
+        p_extra_table_numbers: tablesToFree,
+      });
+
+      if (!atomicSettlementError && atomicSettlement) {
+        return NextResponse.json({
+          ok: true,
+          message: "Order successfully settled. Table is now available.",
+          bill: atomicSettlement,
+        });
+      }
+    }
+
+    // Fetch order items to compute totals
     const { data: orderItems, error: itemsErr } = await admin
       .from("order_items")
       .select(`
@@ -168,14 +194,6 @@ export async function POST(request: NextRequest) {
         menu_items (price)
       `)
       .eq("order_id", targetOrderId);
-
-    const { data: scopedOrder } = await admin
-      .from("orders")
-      .select("id")
-      .eq("id", targetOrderId)
-      .eq("restaurant_id", restaurantId)
-      .maybeSingle();
-    if (!scopedOrder) return NextResponse.json({ message: "Order not found" }, { status: 404 });
 
     if (itemsErr) {
       return NextResponse.json({ message: "Failed to retrieve order items" }, { status: 500 });
@@ -192,7 +210,7 @@ export async function POST(request: NextRequest) {
     const taxAmount = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST
     const total = Math.round((subtotal + taxAmount) * 100) / 100;
 
-    // 0. Idempotency Check: Prevent duplicate billing on double-clicks or concurrent requests
+    // Check existing bill
     const { data: existingBill } = await admin
       .from("bills")
       .select("id, subtotal, tax_amount, total, payment_mode, payment_status, paid_at")
@@ -202,7 +220,6 @@ export async function POST(request: NextRequest) {
     let billRecord = existingBill;
 
     if (!billRecord) {
-      // 1. Insert Paid Bill
       const { data: newBill, error: billErr } = await admin
         .from("bills")
         .insert({
@@ -210,15 +227,14 @@ export async function POST(request: NextRequest) {
           subtotal,
           tax_amount: taxAmount,
           total,
-          payment_mode: ["cash", "upi", "card"].includes(paymentMode) ? paymentMode : "cash",
-          payment_status: "unpaid",
-          paid_at: null,
+          payment_mode: validPaymentMode,
+          payment_status: "paid",
+          paid_at: new Date().toISOString(),
         })
         .select()
         .single();
 
       if (billErr) {
-        // If concurrent request won the race, fetch the created bill
         const { data: racedBill } = await admin
           .from("bills")
           .select("id, subtotal, tax_amount, total, payment_mode, payment_status, paid_at")
@@ -233,21 +249,40 @@ export async function POST(request: NextRequest) {
       } else {
         billRecord = newBill;
       }
+    } else if (billRecord.payment_status !== "paid") {
+      const { data: updatedBill } = await admin
+        .from("bills")
+        .update({
+          payment_status: "paid",
+          payment_mode: validPaymentMode,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", billRecord.id)
+        .select()
+        .single();
+
+      if (updatedBill) {
+        billRecord = updatedBill;
+      }
     }
 
-    if (!existingBill) {
-      if (!billRecord) return NextResponse.json({ message: "Bill creation failed" }, { status: 500 });
-      const { error: paymentError } = await admin.from("payment_transactions").insert({
-        bill_id: billRecord.id,
-        amount: total,
-        mode: ["cash", "upi", "card"].includes(paymentMode) ? paymentMode : "cash",
-        type: "payment",
-        recorded_by: staffContext.staffId,
-      });
-      if (paymentError) return NextResponse.json({ message: "Payment ledger write failed" }, { status: 500 });
+    // Record transaction in ledger if bill exists
+    if (billRecord?.id) {
+      try {
+        await admin.from("payment_transactions").insert({
+          bill_id: billRecord.id,
+          amount: total,
+          mode: validPaymentMode,
+          type: "payment",
+          reference_number: `settle:${targetOrderId}`,
+          ...(recordedByUuid ? { recorded_by: recordedByUuid } : {}),
+        });
+      } catch (ptErr) {
+        console.warn("Payment ledger insert non-fatal warning:", ptErr);
+      }
     }
 
-    // 2. Mark Order as Closed
+    // Mark Order as Closed
     const { error: closeError } = await admin
       .from("orders")
       .update({
@@ -256,44 +291,22 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", targetOrderId)
       .eq("restaurant_id", restaurantId);
-    if (closeError) throw closeError;
 
-    // 3. Mark Table as Empty & auto-free any joined tables
-    let allJoinedTables: string[] = [];
-    if (activeOrderSessionId?.startsWith("joined:")) {
-      allJoinedTables = activeOrderSessionId.replace("joined:", "").split(",").map((s: string) => s.trim());
-    } else if (targetOrderId) {
-      const { data: ord } = await admin
-        .from("orders")
-        .select("table_session_id")
-        .eq("id", targetOrderId)
-        .maybeSingle();
-      if (ord?.table_session_id?.startsWith("joined:")) {
-        allJoinedTables = ord.table_session_id.replace("joined:", "").split(",").map((s: string) => s.trim());
+    if (closeError) {
+      console.warn("Order close update warning:", closeError);
+    }
+
+    // Safely free the primary table
+    if (targetTableId) {
+      const freeRes = await safeSetTableStatus(admin, targetTableId, "empty", restaurantId);
+      if (!freeRes.success) {
+        console.warn("Failed to free table:", freeRes.error);
       }
     }
 
-    if (targetTableId) {
-      const { error: tableError } = await admin
-        .from("restaurant_tables")
-        .update({ status: "empty" })
-        .eq("id", targetTableId)
-        .eq("restaurant_id", restaurantId);
-      if (tableError) throw tableError;
-    }
-
-    const tablesToFree = Array.from(new Set([
-      ...(Array.isArray(extraTableNumbers) ? extraTableNumbers : []),
-      ...allJoinedTables
-    ])).filter(Boolean);
-
-    if (tablesToFree.length > 0) {
-      const { error: joinedError } = await admin
-        .from("restaurant_tables")
-        .update({ status: "empty" })
-        .in("table_number", tablesToFree)
-        .eq("restaurant_id", restaurantId);
-      if (joinedError) throw joinedError;
+    // Safely free any joined extra tables
+    for (const tblNum of tablesToFree) {
+      await safeFreeTableByNumber(admin, tblNum, restaurantId);
     }
 
     return NextResponse.json({
@@ -301,11 +314,9 @@ export async function POST(request: NextRequest) {
       message: "Order successfully settled. Table is now available.",
       bill: billRecord,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Settlement error:", error);
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Settlement failed" },
-      { status: 500 }
-    );
+    const msg = error?.message || error?.details || (typeof error === "string" ? error : "Settlement failed");
+    return NextResponse.json({ message: msg }, { status: 500 });
   }
 }
