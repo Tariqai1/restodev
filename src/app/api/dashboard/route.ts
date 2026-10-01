@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSuperAdminUser } from "@/lib/auth/super-admin";
+import { resolveStaffContext } from "@/lib/auth/staff-context";
 import {
   getBroadcast,
   getStaffPermissions,
@@ -90,14 +91,16 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  const staffContext = await resolveStaffContext(user);
+
+  if (!user && !staffContext) {
     return NextResponse.json(
       { ok: false, authenticated: false, message: "Staff authentication required" },
       { status: 401 }
     );
   }
 
-  const isSuper = await isSuperAdminUser(user);
+  const isSuper = user ? await isSuperAdminUser(user) : Boolean(staffContext?.isSuperAdmin);
   const cookieStore = await cookies();
   const impersonateCookie = cookieStore.get("od_impersonate_resto")?.value;
   let impersonating: { id: string; name: string; ownerEmail: string } | null = null;
@@ -265,6 +268,8 @@ export async function GET() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
+  const targetRestoId = staffContext?.restaurantId;
+
   const [
     restaurantResult,
     staffResult,
@@ -273,49 +278,104 @@ export async function GET() {
     billsResult,
     bestsellersResult,
   ] = await Promise.all([
-    supabase
-      .from("restaurants")
-      .select("id, name, subscription_plan, subscription_status, gstin")
-      .maybeSingle(),
-    admin
-      .from("staff_users")
-      .select("id, name, role")
-      .eq("auth_user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("restaurant_tables")
-      .select("id, table_number, status, qr_token")
-      .order("table_number"),
-    supabase
-      .from("orders")
-      .select(`
-        id,
-        table_id,
-        status,
-        opened_at,
-        table_session_id,
-        restaurant_tables (id, table_number),
-        order_items (
-          id,
-          qty,
-          unit_price,
-          notes,
-          item_status,
-          menu_items (id, name, is_veg, price)
-        )
-      `)
-      .eq("status", "open")
-      .order("opened_at", { ascending: true }),
-    supabase
-      .from("bills")
-      .select("id, total, payment_status, paid_at")
-      .gte("paid_at", todayStart.toISOString()),
-    supabase
-      .from("menu_items")
-      .select("id, name, price, is_veg, is_bestseller")
-      .eq("is_available", true)
-      .order("is_bestseller", { ascending: false })
-      .limit(6),
+    targetRestoId
+      ? admin
+          .from("restaurants")
+          .select("id, name, subscription_plan, subscription_status, gstin")
+          .eq("id", targetRestoId)
+          .maybeSingle()
+      : supabase
+          .from("restaurants")
+          .select("id, name, subscription_plan, subscription_status, gstin")
+          .maybeSingle(),
+    user?.id
+      ? admin
+          .from("staff_users")
+          .select("id, name, role")
+          .eq("auth_user_id", user.id)
+          .maybeSingle()
+      : staffContext?.staffId
+      ? admin
+          .from("staff_users")
+          .select("id, name, role")
+          .eq("id", staffContext.staffId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    targetRestoId
+      ? admin
+          .from("restaurant_tables")
+          .select("id, table_number, status, qr_token")
+          .eq("restaurant_id", targetRestoId)
+          .order("table_number")
+      : supabase
+          .from("restaurant_tables")
+          .select("id, table_number, status, qr_token")
+          .order("table_number"),
+    targetRestoId
+      ? admin
+          .from("orders")
+          .select(`
+            id,
+            table_id,
+            status,
+            opened_at,
+            table_session_id,
+            restaurant_tables (id, table_number),
+            order_items (
+              id,
+              qty,
+              unit_price,
+              notes,
+              item_status,
+              menu_items (id, name, is_veg, price)
+            )
+          `)
+          .eq("restaurant_id", targetRestoId)
+          .eq("status", "open")
+          .order("opened_at", { ascending: true })
+      : supabase
+          .from("orders")
+          .select(`
+            id,
+            table_id,
+            status,
+            opened_at,
+            table_session_id,
+            restaurant_tables (id, table_number),
+            order_items (
+              id,
+              qty,
+              unit_price,
+              notes,
+              item_status,
+              menu_items (id, name, is_veg, price)
+            )
+          `)
+          .eq("status", "open")
+          .order("opened_at", { ascending: true }),
+    targetRestoId
+      ? admin
+          .from("bills")
+          .select("id, total, payment_status, paid_at, order:orders(restaurant_id)")
+          .gte("paid_at", todayStart.toISOString())
+      : supabase
+          .from("bills")
+          .select("id, total, payment_status, paid_at")
+          .gte("paid_at", todayStart.toISOString()),
+    targetRestoId
+      ? admin
+          .from("menu_items")
+          .select("id, name, price, is_veg, is_bestseller")
+          .eq("restaurant_id", targetRestoId)
+          .eq("is_available", true)
+          .order("is_bestseller", { ascending: false })
+          .limit(6)
+      : supabase
+          .from("menu_items")
+          .select("id, name, price, is_veg, is_bestseller")
+          .eq("is_available", true)
+          .order("is_bestseller", { ascending: false })
+          .limit(6),
   ]);
 
   const firstError =
@@ -339,16 +399,19 @@ export async function GET() {
 
   const rawProfile =
     activeStaffProfile ||
-    staffResult.data || {
-      name: user.email?.split("@")[0] || "Staff",
-      role: "staff",
-    };
+    staffResult.data ||
+    (staffContext
+      ? { id: staffContext.staffId, name: staffContext.name, role: staffContext.role }
+      : {
+          name: user?.email?.split("@")[0] || "Staff",
+          role: "staff",
+        });
 
   const userProfile = {
     ...rawProfile,
     permissions:
       rawProfile.permissions ||
-      getStaffPermissions(rawProfile.id || user.id, rawProfile.role || "staff"),
+      getStaffPermissions(rawProfile.id || user?.id || "staff", rawProfile.role || "staff"),
   };
 
   // Compute live real-time metrics

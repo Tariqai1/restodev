@@ -11,6 +11,15 @@
   },
   "activities": [
     {
+      "action": "ONBOARD",
+      "actorEmail": "tariqfsd9@gmail.com",
+      "targetId": "ee572972-7247-44c6-91c1-678aa72a45f3",
+      "targetName": "Shadab Resto",
+      "details": "Onboarded new restaurant \"Shadab Resto\" (6 tables, plan: trial)",
+      "id": "act-mupulbcq-l39y",
+      "createdAt": "2026-10-01T18:08:37.562Z"
+    },
+    {
       "action": "STATUS_CHANGE",
       "actorEmail": "tariqfsd9@gmail.com",
       "targetId": "ebde73c4-c316-4101-9469-062c83319d7b",
@@ -525,7 +534,19 @@
     }
   ],
   "archivedRestaurants": {},
-  "staffPermissions": {},
+  "staffPermissions": {
+    "0716097a-a3e9-46fa-8b2f-397a24bee145": {
+      "canEditOrders": false,
+      "canDeleteOrders": false,
+      "assignedPin": "2222"
+    },
+    "b4695e8c-0ca1-4ce1-9e5a-3ee0bd444a4d": {
+      "canEditOrders": false,
+      "canDeleteOrders": false,
+      "assignedPin": "3333",
+      "phone": ""
+    }
+  },
   "waiterCalls": [],
   "restaurantThemes": {
     "ebde73c4-c316-4101-9469-062c83319d7b": "emerald"
@@ -592,7 +613,9 @@
     }
   },
   "orderPrepEstimates": {},
-  "restaurantPhones": {},
+  "restaurantPhones": {
+    "ee572972-7247-44c6-91c1-678aa72a45f3": "90041 67017"
+  },
   "dishSpecialTags": {},
   "pendingOrderApprovals": {
     "batch-1790618121031-ed2zx": {
@@ -627,8 +650,10 @@
       "totalAmount": 2445,
       "totalItems": 11,
       "id": "batch-1790715668395-oas8t",
-      "status": "awaiting_approval",
-      "createdAt": "2026-09-29T21:01:08.395Z"
+      "status": "approved",
+      "createdAt": "2026-09-29T21:01:08.395Z",
+      "approvedAt": "2026-10-01T17:40:46.666Z",
+      "approvedBy": "owner"
     },
     "batch-1790717393725-slwth": {
       "orderId": "21bb2eb9-10b5-4665-9016-e364b400ee68",
@@ -643,22 +668,10 @@
       "totalAmount": 320,
       "totalItems": 2,
       "id": "batch-1790717393725-slwth",
-      "status": "awaiting_approval",
-      "createdAt": "2026-09-29T21:29:53.725Z"
-    }
-  },
-  "deliverySettings": {
-    "ebde73c4-c316-4101-9469-062c83319d7b": {
-      "restaurantId": "ebde73c4-c316-4101-9469-062c83319d7b",
-      "onlineOrderingEnabled": true,
-      "pickupEnabled": true,
-      "deliveryEnabled": true,
-      "deliveryRadiusKm": 5,
-      "deliveryFee": 0,
-      "minimumOrderAmount": 0,
-      "estimatedPrepMinutes": 25,
-      "slug": "tauheed-resto",
-      "updatedAt": "2026-10-01T04:25:34.172Z"
+      "status": "approved",
+      "createdAt": "2026-09-29T21:29:53.725Z",
+      "approvedAt": "2026-10-01T17:40:46.896Z",
+      "approvedBy": "owner"
     }
   }
 }

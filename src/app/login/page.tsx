@@ -66,6 +66,10 @@ export default function TerminalLoginPage() {
   const [isShaking, setIsShaking] = useState(false);
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
 
+  // Connectivity & Role Filter state
+  const [isOnline, setIsOnline] = useState(true);
+  const [roleFilter, setRoleFilter] = useState<"all" | "waiter" | "kitchen" | "owner">("all");
+
   // Owner recovery toggle
   const [showEmailRecovery, setShowEmailRecovery] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState("");
@@ -189,8 +193,24 @@ export default function TerminalLoginPage() {
     };
   }, [handlePinSubmit]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   function handleKeyPress(digit: string) {
     if (isSubmitting || pin.length >= 4) return;
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(8);
+    }
     setErrorMessage("");
     const nextPin = pin + digit;
     setPin(nextPin);
@@ -202,12 +222,18 @@ export default function TerminalLoginPage() {
 
   function handleBackspace() {
     if (isSubmitting || pin.length === 0) return;
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(10);
+    }
     setErrorMessage("");
     setPin((prev) => prev.slice(0, -1));
   }
 
   function handleClear() {
     if (isSubmitting) return;
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(12);
+    }
     setErrorMessage("");
     setPin("");
   }
@@ -409,9 +435,19 @@ export default function TerminalLoginPage() {
           {/* Terminal Location & Restaurant Title */}
           <header className="space-y-2 border-b border-[#261E17] pb-4">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1F1711] border border-[#3A2A1E] text-[10px] font-mono text-amber-400 font-bold uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Station Terminal</span>
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${
+                  isOnline
+                    ? "bg-[#1F1711] border-[#3A2A1E] text-amber-400"
+                    : "bg-amber-950/80 border-amber-500/50 text-amber-300 animate-pulse"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isOnline ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
+                  }`}
+                />
+                <span>{isOnline ? "Terminal Online" : "Reconnecting..."}</span>
               </span>
 
               <span className="text-[11px] font-bold font-mono tracking-wider text-[#D96B27] uppercase">
@@ -466,38 +502,81 @@ export default function TerminalLoginPage() {
 
           {!showEmailRecovery ? (
             <div className="space-y-4">
+              {/* 3-Role Fast Selector Tabs: Waiter / Kitchen / Owner */}
+              <div className="grid grid-cols-4 p-0.5 bg-[#0D0A08] rounded-xl border border-[#261E17] text-[11px]">
+                {[
+                  { key: "all", label: "All" },
+                  { key: "waiter", label: "🛎️ Waiter" },
+                  { key: "kitchen", label: "🍳 Kitchen" },
+                  { key: "owner", label: "👑 Owner" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined" && navigator.vibrate) {
+                        navigator.vibrate(8);
+                      }
+                      setRoleFilter(tab.key as any);
+                      const match =
+                        tab.key === "all"
+                          ? staffList[0]
+                          : staffList.find((s) => s.role.toLowerCase() === tab.key);
+                      if (match) {
+                        setSelectedStaff(match);
+                        setPin("");
+                      }
+                    }}
+                    className={`py-1.5 rounded-lg font-bold transition-all cursor-pointer text-center ${
+                      roleFilter === tab.key
+                        ? "bg-[#251C15] text-[#D96B27] border border-[#D96B27]/40 shadow-xs"
+                        : "text-[#8C8275] hover:text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Staff Selector Pills */}
               {staffList.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] font-mono text-[#8C8275] uppercase">
-                    <span>Select Staff Profile:</span>
-                    <span className="text-[#D96B27]">{staffList.length} registered</span>
+                    <span>Select Profile:</span>
+                    <span className="text-[#D96B27]">
+                      {staffList.filter((s) => roleFilter === "all" || s.role.toLowerCase() === roleFilter).length} available
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
-                    {staffList.map((member) => {
-                      const isSelected = selectedStaff?.id === member.id;
-                      const roleLabel =
-                        member.role === "owner"
-                          ? "👑 Owner"
-                          : member.role === "kitchen"
-                          ? "🍳 Kitchen"
-                          : "🛎️ Waiter";
+                    {staffList
+                      .filter((s) => roleFilter === "all" || s.role.toLowerCase() === roleFilter)
+                      .map((member) => {
+                        const isSelected = selectedStaff?.id === member.id;
+                        const roleLabel =
+                          member.role === "owner"
+                            ? "👑 Owner"
+                            : member.role === "kitchen"
+                            ? "🍳 Kitchen"
+                            : "🛎️ Waiter";
 
-                      return (
-                        <button
-                          key={member.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedStaff(member);
-                            setPin("");
-                            setErrorMessage("");
-                          }}
-                          className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
-                            isSelected
-                              ? "bg-[#251C15] border-[#D96B27] ring-1 ring-[#D96B27]/40 text-white shadow-lg shadow-[#D96B27]/15"
-                              : "bg-[#110D0A] border-[#261E17] text-[#A89F91] hover:bg-[#1A1410] hover:text-white"
-                          }`}
+                        return (
+                          <button
+                            key={member.id}
+                            type="button"
+                            onClick={() => {
+                              if (typeof window !== "undefined" && navigator.vibrate) {
+                                navigator.vibrate(8);
+                              }
+                              setSelectedStaff(member);
+                              setPin("");
+                              setErrorMessage("");
+                            }}
+                            className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
+                              isSelected
+                                ? "bg-[#251C15] border-[#D96B27] ring-1 ring-[#D96B27]/40 text-white shadow-lg shadow-[#D96B27]/15"
+                                : "bg-[#110D0A] border-[#261E17] text-[#A89F91] hover:bg-[#1A1410] hover:text-white"
+                            }`}
                         >
                           <span
                             className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${

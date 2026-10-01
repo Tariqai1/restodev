@@ -84,14 +84,14 @@ export async function GET(req: NextRequest) {
           total,
           payment_status,
           paid_at,
-          created_at
+          updated_at
         )
       `)
       .eq("restaurant_id", targetRestaurantId);
 
     if (billsErr) {
       console.error("[/api/taxes GET] Error fetching bills:", billsErr);
-      return NextResponse.json({ message: "Failed to query bills" }, { status: 500 });
+      return NextResponse.json({ message: "Failed to query bills", details: billsErr.message }, { status: 500 });
     }
 
     // 3. Extract paid bills with date
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
       const rawBills = Array.isArray(ord.bills) ? ord.bills : ord.bills ? [ord.bills] : [];
       for (const b of rawBills) {
         if (b && b.id && b.payment_status === "paid") {
-          const dateStr = b.paid_at || b.created_at || ord.opened_at;
+          const dateStr = b.paid_at || b.updated_at || ord.opened_at;
           const billDate = dateStr ? new Date(dateStr) : new Date();
           const subtotal = Number(b.subtotal) || (Number(b.total) ? Math.round((Number(b.total) / 1.05) * 100) / 100 : 0);
           const tax = Number(b.tax_amount) || Math.round(subtotal * 0.05 * 100) / 100;

@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
           payment_mode,
           payment_status,
           paid_at,
-          created_at
+          updated_at
         )
       `)
       .eq("restaurant_id", targetRestaurantId)
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[/api/bills GET] Error fetching orders with bills:", error);
-      return NextResponse.json({ message: "Failed to query bills" }, { status: 500 });
+      return NextResponse.json({ message: "Failed to query bills", details: error.message }, { status: 500 });
     }
 
     const allBills: Array<{
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
             total: Number(b.total) || 0,
             payment_mode: (b.payment_mode || "cash").toLowerCase(),
             payment_status: b.payment_status === "paid" ? "paid" : "unpaid",
-            created_at: b.paid_at || b.created_at || ord.opened_at,
+            created_at: b.paid_at || b.updated_at || ord.opened_at,
           });
         }
       }

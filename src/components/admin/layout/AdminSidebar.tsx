@@ -389,8 +389,19 @@ export default function AdminSidebar({
           </div>
         )}
 
-        {/* Quick Floor Terminal Shortcut */}
-        <div className="p-3 border-t border-slate-100 shrink-0">
+        {/* Quick Operational Terminals */}
+        <div className="p-3 border-t border-slate-100 shrink-0 space-y-1.5">
+          <Link
+            href="/waiter"
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 active:scale-98 ${
+              isCollapsed ? "justify-center px-0" : ""
+            }`}
+            title="Open Waiter Floor Portal"
+          >
+            <i className="fa-solid fa-bell-concierge text-sm text-amber-600" />
+            {!isCollapsed && <span>Waiter Terminal</span>}
+          </Link>
+
           <button
             type="button"
             onClick={() => {

@@ -27,6 +27,15 @@ import TableQRStudioView from "@/components/admin/views/TableQRStudioView";
 import ApprovalsView from "@/components/admin/views/ApprovalsView";
 import StoreSettingsView from "@/components/admin/views/StoreSettingsView";
 import OnlineOrdersView from "@/components/admin/views/OnlineOrdersView";
+import {
+  playOrderApprovalChime,
+  playWaiterCallChime,
+  playEscalatedChime,
+} from "@/lib/audio/chime";
+import WaiterCallBanner, { WaiterCall } from "@/components/admin/ui/WaiterCallBanner";
+import FloorApprovalsStrip, { PendingBatch } from "@/components/admin/ui/FloorApprovalsStrip";
+import EditRunningOrderModal from "@/components/admin/modals/EditRunningOrderModal";
+import UndoItemToast, { RemovedItemPayload } from "@/components/admin/ui/UndoItemToast";
 
 const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), {
   ssr: false,
@@ -125,6 +134,15 @@ interface OrderRecord {
   status: "placed" | "preparing" | "served" | "completed" | "cancelled";
   created_at: string;
   items_summary?: string;
+  order_items?: Array<{
+    id: string;
+    name: string;
+    qty: number;
+    is_veg: boolean;
+    portion?: "half" | "full";
+    unit_price?: number;
+    item_status?: string;
+  }>;
 }
 
 interface StaffRecord {
@@ -222,15 +240,35 @@ export default function AdminPage() {
 
   const [selectedQRTable, setSelectedQRTable] = useState<TableRecord | null>(null);
 
+  // Live Waiter Operations State
+  const [pendingApprovals, setPendingApprovals] = useState<PendingBatch[]>([]);
+  const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([]);
+  const [activeEditOrder, setActiveEditOrder] = useState<{
+    orderId: string;
+    tableNumber: string;
+  } | null>(null);
+  const [undoItem, setUndoItem] = useState<RemovedItemPayload | null>(null);
+
+  // Tracking refs to detect newly arrived items & trigger appropriate audio signatures
+  const knownBatchIdsRef = React.useRef<Set<string>>(new Set());
+  const knownCallIdsRef = React.useRef<Set<string>>(new Set());
+  const lastEscalationSoundRef = React.useRef<number>(0);
+  const fetchInFlightRef = React.useRef<boolean>(false);
+
   // Role-Based Access Control State
   const [rolePermissions, setRolePermissions] = useState<RolePermissionsConfig>(DEFAULT_ROLE_PERMISSIONS);
   const [isSavingRoles, setIsSavingRoles] = useState(false);
   const [rolesSaveMessage, setRolesSaveMessage] = useState("");
   const [currentUserRole, setCurrentUserRole] = useState("owner");
 
-  // Fetch initial restaurant data
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  // Fetch initial restaurant data & background sync
+  const fetchData = useCallback(async (isInitial = false) => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
+
+    if (isInitial) {
+      setIsLoading(true);
+    }
     try {
       const res = await fetch("/api/dashboard");
       if (res.ok) {
@@ -255,129 +293,190 @@ export default function AdminPage() {
           );
         }
 
+        // Map Waiter Calls & trigger buzzer audio signature
+        if (Array.isArray(data.waiterCalls)) {
+          const activeCalls: WaiterCall[] = data.waiterCalls.filter((c: any) => c.status === "active");
+          setWaiterCalls(data.waiterCalls);
+
+          const hasNewCall = activeCalls.some(
+            (c) => !knownCallIdsRef.current.has(c.id)
+          );
+          if (hasNewCall && knownCallIdsRef.current.size > 0) {
+            playWaiterCallChime();
+          }
+          data.waiterCalls.forEach((c: any) => knownCallIdsRef.current.add(c.id));
+        }
+
+        // Map Pending Approvals & trigger melodic approval chime
+        if (Array.isArray(data.pendingApprovals)) {
+          const awaitingBatches: PendingBatch[] = data.pendingApprovals.filter(
+            (b: any) => b.status === "awaiting_approval"
+          );
+          setPendingApprovals(data.pendingApprovals);
+
+          const hasNewBatch = awaitingBatches.some(
+            (b) => !knownBatchIdsRef.current.has(b.id)
+          );
+          if (hasNewBatch && knownBatchIdsRef.current.size > 0) {
+            playOrderApprovalChime();
+          }
+          data.pendingApprovals.forEach((b: any) => knownBatchIdsRef.current.add(b.id));
+
+          // Auditory Escalation: If unaddressed for >20s, fire escalated chime every 15s
+          const now = Date.now();
+          const hasEscalated = awaitingBatches.some((b) => {
+            const waitSec = (now - new Date(b.createdAt).getTime()) / 1000;
+            return waitSec >= 20;
+          });
+          if (hasEscalated && now - lastEscalationSoundRef.current > 15000) {
+            playEscalatedChime();
+            lastEscalationSoundRef.current = now;
+          }
+        }
+
         // Map orders
         if (Array.isArray(data.openOrders)) {
           setOrders(
-            data.openOrders.map((o: any) => ({
-              id: o.id,
-              table_number: o.table_number || o.restaurant_tables?.table_number || "T01",
-              customer_name: o.customer_name || "Guest",
-              item_count: Array.isArray(o.order_items) ? o.order_items.length : 1,
-              total_amount: o.order_items
-                ? o.order_items.reduce((s: number, it: any) => s + (Number(it.unit_price) * Number(it.qty) || 0), 0)
-                : 0,
-              status: o.status === "open" ? "preparing" : o.status || "placed",
-              created_at: o.opened_at || new Date().toISOString(),
-              items_summary: Array.isArray(o.order_items)
-                ? o.order_items.map((it: any) => `${it.qty}x ${it.menu_items?.name || "Dish"}`).join(", ")
-                : "Assorted dishes",
-            }))
+            data.openOrders.map((o: any) => {
+              const rawItems = Array.isArray(o.order_items) ? o.order_items : [];
+              const hasPending = rawItems.some((it: any) => it.item_status === "pending");
+              return {
+                id: o.id,
+                table_number: o.table_number || o.restaurant_tables?.table_number || "T01",
+                customer_name: o.customer_name || "Guest",
+                item_count: rawItems.length || 1,
+                total_amount: rawItems.reduce(
+                  (s: number, it: any) => s + (Number(it.unit_price) * Number(it.qty) || 0),
+                  0
+                ),
+                status: hasPending ? "placed" : o.status === "open" ? "preparing" : o.status || "placed",
+                created_at: o.opened_at || new Date().toISOString(),
+                items_summary:
+                  rawItems.length > 0
+                    ? rawItems.map((it: any) => `${it.qty}x ${it.menu_items?.name || "Dish"}`).join(", ")
+                    : "Assorted dishes",
+                order_items: rawItems.map((it: any) => ({
+                  id: it.id,
+                  name: it.menu_items?.name || "Dish",
+                  qty: Number(it.qty) || 1,
+                  is_veg: Boolean(it.menu_items?.is_veg),
+                  unit_price: Number(it.unit_price) || 0,
+                  item_status: it.item_status,
+                })),
+              };
+            })
           );
         }
       }
 
-      // Fetch Menu
-      const menuRes = await fetch("/api/menu");
-      if (menuRes.ok) {
-        const menuData = await menuRes.json();
-        const catsList: CategoryRecord[] = Array.isArray(menuData.categories)
-          ? menuData.categories.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              sort_order: c.sort_order ?? 0,
-            }))
-          : [];
-        setCategoriesList(catsList);
-        if (Array.isArray(menuData.categories)) {
-          setCategories(menuData.categories.map((c: any) => c.name));
-        }
-        if (Array.isArray(menuData.items)) {
-          setMenuItems(
-            menuData.items.map((m: any) => ({
-              id: m.id,
-              name: m.name,
-              category:
-                m.menu_categories?.name ||
-                m.category ||
-                catsList.find((c) => c.id === m.category_id)?.name ||
-                "General",
-              category_id: m.category_id,
-              price: Number(m.price) || 0,
-              is_veg: Boolean(m.is_veg),
-              is_available: m.is_available !== false,
-              description: m.description,
-              photo_url: m.photo_url || null,
-              has_half_portion: Boolean(m.has_half_portion),
-              half_price: m.half_price
-                ? Number(m.half_price)
-                : Math.round((Number(m.price) || 0) * 0.6),
-              special_tag: m.special_tag,
-            }))
-          );
-        }
-      }
-
-      // Fetch Staff
-      const staffRes = await fetch("/api/staff");
-      if (staffRes.ok) {
-        const staffData = await staffRes.json();
-        if (Array.isArray(staffData.staff)) {
-          setStaffList(
-            staffData.staff.map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              role: s.role || "waiter",
-              pin: s.permissions?.assignedPin || s.pin || "••••",
-              phone: s.phone || "",
-              is_active: s.is_active !== false,
-              created_at: s.created_at,
-            }))
-          );
-        }
-      }
-
-      // Fetch Role Access Permissions
-      try {
-        const rolesRes = await fetch("/api/restaurant/roles");
-        if (rolesRes.ok) {
-          const rolesData = await rolesRes.json();
-          if (rolesData.permissions) {
-            setRolePermissions(rolesData.permissions);
+      // Heavy catalogs only fetch on INITIAL load or explicit refresh (not on background polling)
+      if (isInitial) {
+        // Fetch Menu
+        const menuRes = await fetch("/api/menu");
+        if (menuRes.ok) {
+          const menuData = await menuRes.json();
+          const catsList: CategoryRecord[] = Array.isArray(menuData.categories)
+            ? menuData.categories.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                sort_order: c.sort_order ?? 0,
+              }))
+            : [];
+          setCategoriesList(catsList);
+          if (Array.isArray(menuData.categories)) {
+            setCategories(menuData.categories.map((c: any) => c.name));
           }
-        }
-      } catch {
-        // ignore
-      }
-
-      // Fetch Invoices / Bills
-      try {
-        const billsRes = await fetch("/api/bills");
-        if (billsRes.ok) {
-          const billsData = await billsRes.json();
-          if (Array.isArray(billsData.bills)) {
-            setInvoices(
-              billsData.bills.map((b: any) => ({
-                id: b.id,
-                bill_number: b.bill_number,
-                table_number: b.table_number,
-                order_id: b.order_id,
-                subtotal: b.subtotal,
-                tax_amount: b.tax_amount,
-                total: b.total,
-                payment_mode: b.payment_mode === "upi" || b.payment_mode === "card" ? b.payment_mode : "cash",
-                payment_status: b.payment_status,
-                paid_at: b.created_at,
+          if (Array.isArray(menuData.items)) {
+            setMenuItems(
+              menuData.items.map((m: any) => ({
+                id: m.id,
+                name: m.name,
+                category:
+                  m.menu_categories?.name ||
+                  m.category ||
+                  catsList.find((c) => c.id === m.category_id)?.name ||
+                  "General",
+                category_id: m.category_id,
+                price: Number(m.price) || 0,
+                is_veg: Boolean(m.is_veg),
+                is_available: m.is_available !== false,
+                description: m.description,
+                photo_url: m.photo_url || null,
+                has_half_portion: Boolean(m.has_half_portion),
+                half_price: m.half_price
+                  ? Number(m.half_price)
+                  : Math.round((Number(m.price) || 0) * 0.6),
+                special_tag: m.special_tag,
               }))
             );
           }
         }
-      } catch {
-        // ignore
+
+        // Fetch Staff
+        const staffRes = await fetch("/api/staff");
+        if (staffRes.ok) {
+          const staffData = await staffRes.json();
+          if (Array.isArray(staffData.staff)) {
+            setStaffList(
+              staffData.staff.map((s: any) => ({
+                id: s.id,
+                name: s.name,
+                role: s.role || "waiter",
+                pin: s.permissions?.assignedPin || s.pin || "••••",
+                phone: s.phone || "",
+                is_active: s.is_active !== false,
+                created_at: s.created_at,
+              }))
+            );
+          }
+        }
+
+        // Fetch Role Access Permissions
+        try {
+          const rolesRes = await fetch("/api/restaurant/roles");
+          if (rolesRes.ok) {
+            const rolesData = await rolesRes.json();
+            if (rolesData.permissions) {
+              setRolePermissions(rolesData.permissions);
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        // Fetch Invoices / Bills
+        try {
+          const billsRes = await fetch("/api/bills");
+          if (billsRes.ok) {
+            const billsData = await billsRes.json();
+            if (Array.isArray(billsData.bills)) {
+              setInvoices(
+                billsData.bills.map((b: any) => ({
+                  id: b.id,
+                  bill_number: b.bill_number,
+                  table_number: b.table_number,
+                  order_id: b.order_id,
+                  subtotal: b.subtotal,
+                  tax_amount: b.tax_amount,
+                  total: b.total,
+                  payment_mode: b.payment_mode === "upi" || b.payment_mode === "card" ? b.payment_mode : "cash",
+                  payment_status: b.payment_status,
+                  paid_at: b.created_at,
+                }))
+              );
+            }
+          }
+        } catch {
+          // ignore
+        }
       }
     } catch {
       // Gracefully fall back to local starter data if fresh
     } finally {
-      setIsLoading(false);
+      fetchInFlightRef.current = false;
+      if (isInitial) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -423,7 +522,11 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
+    const interval = setInterval(() => {
+      fetchData(false);
+    }, 8000);
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   // Derived KPI Metrics
@@ -458,6 +561,41 @@ export default function AdminPage() {
       return matchesSearch && matchesStatus;
     });
   }, [orders, searchQuery, statusFilter]);
+
+  // Contextual Table Intelligence for Waiter Calls
+  const tableOrderContexts = useMemo(() => {
+    const map: Record<
+      string,
+      { tableNumber: string; hasOrder: boolean; orderStatus?: string; elapsedMinutes?: number }
+    > = {};
+    tables.forEach((t) => {
+      const ord = orders.find(
+        (o) => o.table_number === t.table_number && o.status !== "completed" && o.status !== "cancelled"
+      );
+      if (ord) {
+        const elapsedMin = Math.floor(
+          (Date.now() - new Date(ord.created_at).getTime()) / (60 * 1000)
+        );
+        map[t.table_number] = {
+          tableNumber: t.table_number,
+          hasOrder: true,
+          orderStatus:
+            ord.status === "preparing"
+              ? "Cooking"
+              : ord.status === "placed"
+              ? "Awaiting Approval"
+              : "Served",
+          elapsedMinutes: Math.max(0, elapsedMin),
+        };
+      } else {
+        map[t.table_number] = {
+          tableNumber: t.table_number,
+          hasOrder: false,
+        };
+      }
+    });
+    return map;
+  }, [tables, orders]);
 
   // Open Add Dish Modal
   const openAddDishModal = () => {
@@ -991,15 +1129,123 @@ export default function AdminPage() {
   };
 
   const handleApproveOrder = async (orderId: string) => {
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(15);
+    }
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: "preparing" } : o))
     );
+    try {
+      await fetch("/api/orders/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", orderId }),
+      });
+    } catch (err) {
+      console.error("Failed to approve order:", err);
+    } finally {
+      fetchData();
+    }
   };
 
-  const handleRejectOrder = async (orderId: string) => {
+  const handleRejectOrder = async (orderId: string, reason?: string) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: "cancelled" } : o))
     );
+    try {
+      await fetch("/api/orders/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reject",
+          orderId,
+          reason: reason || "Rejected by floor captain",
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to reject order:", err);
+    } finally {
+      fetchData();
+    }
+  };
+
+  const handleApproveBatch = async (batch: PendingBatch) => {
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(15);
+    }
+    setPendingApprovals((prev) => prev.filter((b) => b.id !== batch.id));
+    setOrders((prev) =>
+      prev.map((o) => (o.id === batch.orderId ? { ...o, status: "preparing" } : o))
+    );
+    try {
+      await fetch("/api/orders/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "approve",
+          batchId: batch.id,
+          orderId: batch.orderId,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to approve batch:", err);
+    } finally {
+      fetchData();
+    }
+  };
+
+  const handleRejectBatch = async (batch: PendingBatch, reason?: string) => {
+    setPendingApprovals((prev) => prev.filter((b) => b.id !== batch.id));
+    try {
+      await fetch("/api/orders/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reject",
+          batchId: batch.id,
+          orderId: batch.orderId,
+          reason: reason || "Rejected by floor captain",
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to reject batch:", err);
+    } finally {
+      fetchData();
+    }
+  };
+
+  const handleAcknowledgeWaiterCall = async (callId: string) => {
+    setWaiterCalls((prev) => prev.filter((c) => c.id !== callId));
+    try {
+      await fetch("/api/public/table/call-waiter", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId }),
+      });
+    } catch (err) {
+      console.error("Failed to acknowledge waiter call:", err);
+    }
+  };
+
+  const handleUndoRestoreItem = async (item: RemovedItemPayload) => {
+    setUndoItem(null);
+    try {
+      await fetch("/api/orders/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "restore_item",
+          orderId: item.orderId,
+          menuItemId: item.menuItemId,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          notes: item.notes,
+        }),
+      });
+      fetchData();
+    } catch (err) {
+      console.error("Failed to undo remove item:", err);
+    }
   };
 
   // Page titles mapping
@@ -1665,6 +1911,16 @@ export default function AdminPage() {
                 isLoading={isLoading}
                 rowActions={[
                   {
+                    label: "Edit Order",
+                    icon: "fa-pen-to-square",
+                    onClick: (r) => {
+                      setActiveEditOrder({
+                        orderId: r.id,
+                        tableNumber: r.table_number,
+                      });
+                    },
+                  },
+                  {
                     label: "Mark Served",
                     icon: "fa-utensils",
                     onClick: (r) => {
@@ -1727,88 +1983,174 @@ export default function AdminPage() {
           {/* ======================================================== */}
           {currentView === "floor" && (
             <div className="space-y-6">
+              {/* Contextual Waiter Call Banner */}
+              <WaiterCallBanner
+                calls={waiterCalls}
+                orderContexts={tableOrderContexts}
+                onAcknowledge={handleAcknowledgeWaiterCall}
+              />
+
+              {/* Persistent Floor Approvals Strip with 30s Auto-Approve */}
+              <FloorApprovalsStrip
+                batches={pendingApprovals}
+                autoApproveSeconds={30}
+                onApprove={handleApproveBatch}
+                onReject={handleRejectBatch}
+              />
+
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
                     Floor Plan & Table Management
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Click any table to view or print customer QR table code
+                    Real-time occupancy, guest orders, and 1-tap table management
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {tables.map((t) => (
-                  <div
-                    key={t.id}
-                    className={`bg-white border rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md ${
-                      t.status === "occupied"
-                        ? "border-purple-300 ring-2 ring-purple-100"
-                        : "border-slate-200"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-base font-bold text-slate-900">
-                          Table {t.table_number}
-                        </span>
-                        <AdminBadge
-                          variant={t.status === "occupied" ? "cooking" : "active"}
-                          size="sm"
-                        >
-                          {t.status === "occupied" ? "Occupied" : "Free"}
-                        </AdminBadge>
-                      </div>
+                {tables.map((t) => {
+                  const activeOrderForTable = orders.find(
+                    (o) =>
+                      o.table_number === t.table_number &&
+                      o.status !== "completed" &&
+                      o.status !== "cancelled"
+                  );
 
-                      <div className="text-xs text-slate-500 space-y-1 mb-4">
-                        <div className="flex justify-between">
-                          <span>QR Token:</span>
-                          <span className="font-mono text-slate-700">
-                            {t.qr_token.slice(0, 10)}...
+                  return (
+                    <div
+                      key={t.id}
+                      className={`bg-white border rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md ${
+                        t.status === "occupied" || activeOrderForTable
+                          ? "border-purple-300 ring-2 ring-purple-100"
+                          : "border-slate-200"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-base font-bold text-slate-900">
+                            Table {t.table_number}
                           </span>
+                          <AdminBadge
+                            variant={
+                              t.status === "occupied" || activeOrderForTable
+                                ? "cooking"
+                                : "active"
+                            }
+                            size="sm"
+                          >
+                            {t.status === "occupied" || activeOrderForTable
+                              ? "Occupied"
+                              : "Free"}
+                          </AdminBadge>
                         </div>
-                        {t.active_bill_amount ? (
-                          <div className="flex justify-between font-semibold text-slate-800">
-                            <span>Running Bill:</span>
-                            <span>₹{t.active_bill_amount}</span>
+
+                        {/* Running Order Status Pill */}
+                        {activeOrderForTable && (
+                          <div className="mb-3 p-2.5 rounded-xl bg-purple-50/80 border border-purple-200 flex items-center justify-between text-xs">
+                            <div className="min-w-0 pr-1">
+                              <span className="font-extrabold text-purple-900 block truncate">
+                                {activeOrderForTable.item_count} items · ₹{activeOrderForTable.total_amount}
+                              </span>
+                              <span className="text-[10px] text-purple-700 capitalize font-medium block">
+                                Status: {activeOrderForTable.status}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActiveEditOrder({
+                                  orderId: activeOrderForTable.id,
+                                  tableNumber: t.table_number,
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                              title="Edit items in running order"
+                            >
+                              <i className="fa-solid fa-pen text-[10px]" />
+                              <span>Edit</span>
+                            </button>
                           </div>
-                        ) : null}
+                        )}
+
+                        <div className="text-xs text-slate-500 space-y-1 mb-4">
+                          <div className="flex justify-between">
+                            <span>QR Token:</span>
+                            <span className="font-mono text-slate-700">
+                              {t.qr_token.slice(0, 10)}...
+                            </span>
+                          </div>
+                          {t.active_bill_amount || activeOrderForTable ? (
+                            <div className="flex justify-between font-semibold text-slate-800">
+                              <span>Running Bill:</span>
+                              <span>
+                                ₹{activeOrderForTable?.total_amount || t.active_bill_amount || 0}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
+                        {activeOrderForTable && (
+                          <AdminButton
+                            variant="outline"
+                            size="sm"
+                            leftIcon="fa-pen-to-square"
+                            onClick={() =>
+                              setActiveEditOrder({
+                                orderId: activeOrderForTable.id,
+                                tableNumber: t.table_number,
+                              })
+                            }
+                            className="w-full text-purple-700 border-purple-200 hover:bg-purple-50 justify-center mb-1 font-bold"
+                          >
+                            Edit Running Order
+                          </AdminButton>
+                        )}
+
+                        <AdminButton
+                          variant="outline"
+                          size="sm"
+                          leftIcon="fa-qrcode"
+                          onClick={() => setSelectedQRTable(t)}
+                          className="flex-1"
+                        >
+                          Print QR
+                        </AdminButton>
+
+                        <AdminButton
+                          variant={
+                            t.status === "occupied" || activeOrderForTable
+                              ? "ghost"
+                              : "primary"
+                          }
+                          size="sm"
+                          onClick={() => {
+                            setTables((prev) =>
+                              prev.map((tbl) =>
+                                tbl.id === t.id
+                                  ? {
+                                      ...tbl,
+                                      status:
+                                        tbl.status === "occupied"
+                                          ? "available"
+                                          : "occupied",
+                                    }
+                                  : tbl
+                              )
+                            );
+                          }}
+                        >
+                          {t.status === "occupied" || activeOrderForTable
+                            ? "Vacate"
+                            : "Occupy"}
+                        </AdminButton>
                       </div>
                     </div>
-
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                      <AdminButton
-                        variant="outline"
-                        size="sm"
-                        leftIcon="fa-qrcode"
-                        onClick={() => setSelectedQRTable(t)}
-                        className="flex-1"
-                      >
-                        Print QR
-                      </AdminButton>
-
-                      <AdminButton
-                        variant={t.status === "occupied" ? "ghost" : "primary"}
-                        size="sm"
-                        onClick={() => {
-                          setTables((prev) =>
-                            prev.map((tbl) =>
-                              tbl.id === t.id
-                                ? {
-                                    ...tbl,
-                                    status: tbl.status === "occupied" ? "available" : "occupied",
-                                  }
-                                : tbl
-                            )
-                          );
-                        }}
-                      >
-                        {t.status === "occupied" ? "Vacate" : "Occupy"}
-                      </AdminButton>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2853,6 +3195,30 @@ export default function AdminPage() {
           qr_token: t.qr_token || "",
         }))}
         defaultTableId={selectedQRTable?.id}
+      />
+
+      {/* ======================================================== */}
+      {/* EDIT RUNNING ORDER MODAL (WAITER IN-ORDER EDITING) */}
+      {/* ======================================================== */}
+      {activeEditOrder && (
+        <EditRunningOrderModal
+          isOpen={!!activeEditOrder}
+          onClose={() => setActiveEditOrder(null)}
+          orderId={activeEditOrder.orderId}
+          tableNumber={activeEditOrder.tableNumber}
+          menuItems={menuItems}
+          onOrderUpdated={fetchData}
+          onTriggerUndoToast={(item) => setUndoItem(item)}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* 5-SECOND FLOATING UNDO RESTORATION TOAST */}
+      {/* ======================================================== */}
+      <UndoItemToast
+        item={undoItem}
+        onUndo={handleUndoRestoreItem}
+        onDismiss={() => setUndoItem(null)}
       />
     </div>
   );

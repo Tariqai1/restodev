@@ -24,9 +24,59 @@ async function getCallerPermissions() {
     isSuper: staff.isSuperAdmin,
     restaurantId: staff.restaurantId,
     isOwnerOrManager,
-    canEdit: isOwnerOrManager || perms.canEditOrders,
+    canEdit: isOwnerOrManager || perms.canEditOrders || ["waiter", "captain"].includes(staff.role),
     canDelete: isOwnerOrManager || perms.canDeleteOrders,
   };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const caller = await getCallerPermissions();
+    if (!caller) {
+      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const orderId = searchParams.get("orderId");
+    if (!orderId) {
+      return NextResponse.json({ message: "orderId is required" }, { status: 400 });
+    }
+
+    const admin = createAdminClient();
+    const { data: order, error } = await admin
+      .from("orders")
+      .select(`
+        id,
+        table_id,
+        status,
+        opened_at,
+        restaurant_tables (id, table_number),
+        order_items (
+          id,
+          menu_item_id,
+          qty,
+          unit_price,
+          notes,
+          item_status,
+          created_at,
+          menu_items (id, name, is_veg, price)
+        )
+      `)
+      .eq("id", orderId)
+      .eq("restaurant_id", caller.restaurantId)
+      .maybeSingle();
+
+    if (error || !order) {
+      return NextResponse.json({ message: "Order not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, order });
+  } catch (err) {
+    return NextResponse.json(
+      { message: err instanceof Error ? err.message : "Failed to fetch order" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -87,8 +137,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, message: "Order has been successfully voided and table freed." });
     }
 
-    // 2. EDIT ORDER (Add items, modify quantity, or delete specific item)
-    if (action === "update_qty" || action === "remove_item") {
+    // 2. EDIT ORDER (Add items, modify quantity, remove item, restore item for Undo)
+    if (action === "update_qty" || action === "remove_item" || action === "add_items" || action === "restore_item") {
       if (!caller.canEdit) {
         return NextResponse.json(
           {
@@ -99,6 +149,110 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // ADD ITEMS TO RUNNING ORDER
+      if (action === "add_items") {
+        const { orderId, items } = body as {
+          orderId: string;
+          items: Array<{ menuItemId: string; qty: number; portion?: "half" | "full"; notes?: string }>;
+        };
+
+        if (!orderId || !Array.isArray(items) || items.length === 0) {
+          return NextResponse.json({ message: "orderId and items array required" }, { status: 400 });
+        }
+
+        const { data: order } = await admin
+          .from("orders")
+          .select("id, restaurant_id, table_id")
+          .eq("id", orderId)
+          .eq("restaurant_id", caller.restaurantId)
+          .maybeSingle();
+
+        if (!order) {
+          return NextResponse.json({ message: "Order not found" }, { status: 404 });
+        }
+
+        const itemIds = items.map((i) => i.menuItemId);
+        const { data: menuItems } = await admin
+          .from("menu_items")
+          .select("id, name, price, is_available")
+          .eq("restaurant_id", caller.restaurantId)
+          .in("id", itemIds);
+
+        const priceMap = new Map<string, number>();
+        for (const mi of menuItems || []) {
+          priceMap.set(mi.id, Number(mi.price) || 0);
+        }
+
+        const itemsToInsert = items
+          .filter((i) => priceMap.has(i.menuItemId))
+          .map((i) => {
+            const cleanQty = Math.max(1, Math.min(30, Math.floor(Number(i.qty)) || 1));
+            const basePrice = priceMap.get(i.menuItemId) || 0;
+            const portion = i.portion === "half" ? "half" : "full";
+            const unitPrice = portion === "half" ? Math.round(basePrice * 0.6) : basePrice;
+            const portionLabel = portion === "half" ? "Half Portion" : "";
+            const cleanNotes = i.notes
+              ? (portionLabel && !i.notes.includes("Half") ? `${portionLabel} • ${i.notes}` : i.notes).trim().slice(0, 200)
+              : (portionLabel || null);
+
+            return {
+              order_id: orderId,
+              menu_item_id: i.menuItemId,
+              qty: cleanQty,
+              unit_price: unitPrice,
+              notes: cleanNotes,
+              item_status: "preparing" as const, // Floor additions fire directly to kitchen
+            };
+          });
+
+        if (itemsToInsert.length === 0) {
+          return NextResponse.json({ message: "No valid menu items to add" }, { status: 400 });
+        }
+
+        const { data: inserted, error: insertError } = await admin
+          .from("order_items")
+          .insert(itemsToInsert)
+          .select("id, menu_item_id, qty, unit_price, notes, item_status");
+
+        if (insertError) throw insertError;
+
+        return NextResponse.json({
+          ok: true,
+          message: `${inserted.length} item(s) added and fired to kitchen.`,
+          inserted,
+        });
+      }
+
+      // RESTORE ITEM (5s Undo)
+      if (action === "restore_item") {
+        const { orderId, menuItemId, qty, unitPrice, notes } = body;
+        if (!orderId || !menuItemId) {
+          return NextResponse.json({ message: "orderId and menuItemId required" }, { status: 400 });
+        }
+
+        const { data: restored, error: restoreError } = await admin
+          .from("order_items")
+          .insert({
+            order_id: orderId,
+            menu_item_id: menuItemId,
+            qty: Math.max(1, Number(qty) || 1),
+            unit_price: Number(unitPrice) || 0,
+            notes: notes || null,
+            item_status: "preparing",
+          })
+          .select("id, menu_item_id, qty, unit_price, notes, item_status")
+          .single();
+
+        if (restoreError) throw restoreError;
+
+        return NextResponse.json({
+          ok: true,
+          message: "Item restored to order.",
+          item: restored,
+        });
+      }
+
+      // UPDATE QUANTITY
       if (action === "update_qty") {
         if (!itemId || qty === undefined) {
           return NextResponse.json({ message: "itemId and qty required" }, { status: 400 });
@@ -124,19 +278,37 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true, message: "Order item updated." });
       }
 
+      // REMOVE ITEM (With item details returned for Undo toast)
       if (action === "remove_item") {
+        const { reason } = body;
         if (!itemId) {
           return NextResponse.json({ message: "itemId required" }, { status: 400 });
         }
         const { data: scopedItem } = await admin
           .from("order_items")
-          .select("id, orders!inner(restaurant_id)")
+          .select("id, order_id, menu_item_id, qty, unit_price, notes, menu_items(name), orders!inner(restaurant_id, table_id)")
           .eq("id", itemId)
           .eq("orders.restaurant_id", caller.restaurantId)
           .maybeSingle();
+
         if (!scopedItem) return NextResponse.json({ message: "Order item not found" }, { status: 404 });
+
         await admin.from("order_items").delete().eq("id", itemId);
-        return NextResponse.json({ ok: true, message: "Item removed from order." });
+
+        return NextResponse.json({
+          ok: true,
+          message: "Item removed from order.",
+          removedItem: {
+            id: scopedItem.id,
+            orderId: scopedItem.order_id,
+            menuItemId: scopedItem.menu_item_id,
+            dishName: (scopedItem.menu_items as unknown as { name: string } | null)?.name || "Dish",
+            qty: scopedItem.qty,
+            unitPrice: scopedItem.unit_price,
+            notes: scopedItem.notes,
+            reason: reason || null,
+          },
+        });
       }
     }
 

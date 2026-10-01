@@ -1,10 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminButton from "../ui/AdminButton";
+import {
+  isSoundMuted,
+  setSoundMuted,
+  snoozeSound,
+  cancelSnooze,
+  getSnoozeRemainingMinutes,
+  unlockAudio,
+} from "@/lib/audio/chime";
 
 interface AdminHeaderProps {
   pageTitle: string;
@@ -34,6 +42,56 @@ export default function AdminHeader({
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSoundMenu, setShowSoundMenu] = useState(false);
+  const [soundMutedState, setSoundMutedState] = useState(false);
+  const [snoozeMins, setSnoozeMins] = useState(0);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    setSoundMutedState(isSoundMuted());
+    setSnoozeMins(getSnoozeRemainingMinutes());
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    const soundCheckInterval = setInterval(() => {
+      setSoundMutedState(isSoundMuted());
+      setSnoozeMins(getSnoozeRemainingMinutes());
+    }, 5000);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      clearInterval(soundCheckInterval);
+    };
+  }, []);
+
+  const toggleSound = () => {
+    unlockAudio();
+    const nextMuted = !soundMutedState;
+    setSoundMuted(nextMuted);
+    setSoundMutedState(nextMuted);
+    setSnoozeMins(0);
+  };
+
+  const handleSnooze = (minutes: number) => {
+    unlockAudio();
+    snoozeSound(minutes);
+    setSoundMutedState(true);
+    setSnoozeMins(minutes);
+    setShowSoundMenu(false);
+  };
+
+  const handleUnmute = () => {
+    unlockAudio();
+    cancelSnooze();
+    setSoundMutedState(false);
+    setSnoozeMins(0);
+    setShowSoundMenu(false);
+  };
 
   // Compute clean 2-letter initials
   const initials = userName
@@ -128,6 +186,17 @@ export default function AdminHeader({
           </button>
         )}
 
+        {/* Dedicated Waiter Operations Terminal */}
+        <Link
+          href="/waiter"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
+          title="Open Dedicated Waiter Operations Portal"
+        >
+          <i className="fa-solid fa-bell-concierge text-xs text-amber-600" />
+          <span className="hidden sm:inline">Waiter Portal</span>
+          <span className="sm:hidden">Waiter</span>
+        </Link>
+
         {/* Quick Action Button */}
         {onQuickAction && (
           <AdminButton
@@ -139,6 +208,122 @@ export default function AdminHeader({
             New Dish
           </AdminButton>
         )}
+
+        {/* Offline / Online Health Pill */}
+        <div
+          className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono font-medium ${
+            isOnline
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+              : "bg-amber-50 border-amber-300 text-amber-800 animate-pulse"
+          }`}
+          title={isOnline ? "Cloud POS sync active" : "Reconnecting to server..."}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              isOnline ? "bg-emerald-500" : "bg-amber-500"
+            }`}
+          />
+          <span>{isOnline ? "Connected" : "Reconnecting..."}</span>
+        </div>
+
+        {/* Per-Shift Sound Mute & Snooze Controller */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              unlockAudio();
+              setShowSoundMenu(!showSoundMenu);
+              setShowNotifications(false);
+              setShowProfileMenu(false);
+            }}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+              soundMutedState
+                ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+            }`}
+            title={
+              soundMutedState
+                ? snoozeMins > 0
+                  ? `Audio Snoozed (${snoozeMins}m left)`
+                  : "Audio Muted (Click to configure)"
+                : "Audio Chimes Active (Click to mute/snooze)"
+            }
+          >
+            <i
+              className={`fa-solid ${
+                soundMutedState ? "fa-bell-slash text-amber-600" : "fa-bell text-slate-700"
+              } text-xs`}
+            />
+          </button>
+
+          {/* Sound Menu Dropdown */}
+          {showSoundMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-20"
+                onClick={() => setShowSoundMenu(false)}
+              />
+              <div className="absolute right-0 top-11 z-30 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-2 py-1.5 border-b border-slate-100 mb-1 flex items-center justify-between">
+                  <span className="font-bold text-slate-900">Floor Audio Chimes</span>
+                  <span
+                    className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                      soundMutedState
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}
+                  >
+                    {soundMutedState ? "MUTED" : "ACTIVE"}
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  {soundMutedState ? (
+                    <button
+                      type="button"
+                      onClick={handleUnmute}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-bold flex items-center gap-2 cursor-pointer transition-colors text-left"
+                    >
+                      <i className="fa-solid fa-volume-high text-emerald-600" />
+                      <span>Unmute & Enable Chimes</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={toggleSound}
+                      className="w-full px-2.5 py-1.5 rounded-lg text-amber-700 hover:bg-amber-50 font-bold flex items-center gap-2 cursor-pointer transition-colors text-left"
+                    >
+                      <i className="fa-solid fa-volume-xmark text-amber-600" />
+                      <span>Mute for this shift</span>
+                    </button>
+                  )}
+
+                  <div className="border-t border-slate-100 my-1 pt-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block px-2 mb-1">
+                      Quick Snooze:
+                    </span>
+                    <div className="grid grid-cols-2 gap-1 px-1">
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(5)}
+                        className="px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-50 text-[11px] font-medium text-slate-700 text-center cursor-pointer"
+                      >
+                        5 mins
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(15)}
+                        className="px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-50 text-[11px] font-medium text-slate-700 text-center cursor-pointer"
+                      >
+                        15 mins
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Notifications Bell */}
         <div className="relative">

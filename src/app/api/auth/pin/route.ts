@@ -261,7 +261,12 @@ export async function POST(request: NextRequest) {
     }
 
     const permissions = getStaffPermissions(matchedStaff.id, matchedStaff.role);
-    const redirectPath = matchedStaff.role === "kitchen" ? "/kitchen" : "/";
+    const redirectPath =
+      matchedStaff.role === "kitchen"
+        ? "/kitchen"
+        : matchedStaff.role === "waiter"
+        ? "/waiter"
+        : "/admin";
 
     // Save active staff identity in cookie with secure attributes
     const cookieStore = await cookies();
