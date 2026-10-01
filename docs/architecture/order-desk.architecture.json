@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Order Desk - Multi-Tenant Restaurant Hospitality Platform",
+    "output": "order-desk-architecture.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "guest_qr", "type": "external", "label": "Dine-In Guest", "sublabel": "Table QR Scanner", "pos": [40, 160], "size": [140, 64] },
+    { "id": "online_guest", "type": "external", "label": "Online Customer", "sublabel": "Direct Storefront /r/[slug]", "pos": [40, 320], "size": [140, 64] },
+    { "id": "staff_pos", "type": "external", "label": "Floor Waiter / Captain", "sublabel": "4-Digit PIN Terminal", "pos": [40, 480], "size": [140, 64] },
+    { "id": "next_app", "type": "backend", "label": "Next.js 16 Core Engine", "sublabel": "SSR + API Route Handlers", "pos": [280, 320], "size": [160, 70], "tag": "Next.js 16" },
+    { "id": "ai_concierge", "type": "cloud", "label": "AI Captain & Concierge", "sublabel": "Nvidia Llama 3.3 70B", "pos": [280, 160], "size": [160, 64], "tag": "AI Upselling" },
+    { "id": "supabase_db", "type": "database", "label": "Supabase PostgreSQL", "sublabel": "Orders, Bills, Tables, RLS", "pos": [540, 320], "size": [160, 70], "tag": "Postgres 16" },
+    { "id": "kitchen_kds", "type": "backend", "label": "Kitchen KDS Rail", "sublabel": "Live Cook Tickets & Timers", "pos": [780, 160], "size": [160, 64] },
+    { "id": "admin_pos", "type": "security", "label": "Owner & Admin Console", "sublabel": "POS, Day-End Register, Reports", "pos": [780, 320], "size": [160, 70] },
+    { "id": "thermal_printer", "type": "backend", "label": "Hardware Thermal Printer", "sublabel": "ESC/POS 3-Sec Print Dispatch", "pos": [780, 480], "size": [160, 64] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Client Layer", "wraps": ["guest_qr", "online_guest", "staff_pos"] },
+    { "kind": "region", "label": "Order Desk Cloud Application Core", "wraps": ["next_app", "ai_concierge", "supabase_db"] },
+    { "kind": "region", "label": "Operations & Fulfillment", "wraps": ["kitchen_kds", "admin_pos", "thermal_printer"] }
+  ],
+  "connections": [
+    { "id": "c1", "from": "guest_qr", "to": "next_app", "label": "Table QR Orders" },
+    { "id": "c2", "from": "online_guest", "to": "next_app", "label": "Delivery / Takeaway" },
+    { "id": "c3", "from": "staff_pos", "to": "next_app", "label": "Punch Items / Approvals" },
+    { "id": "c4", "from": "next_app", "to": "ai_concierge", "label": "Smart Food Recs", "variant": "emphasis" },
+    { "id": "c5", "from": "next_app", "to": "supabase_db", "label": "SQL & Realtime Sync", "variant": "emphasis" },
+    { "id": "c6", "from": "supabase_db", "to": "kitchen_kds", "label": "Kitchen Tickets", "fromSide": "top", "toSide": "bottom" },
+    { "id": "c7", "from": "supabase_db", "to": "admin_pos", "label": "Billing & Audit" },
+    { "id": "c8", "from": "supabase_db", "to": "thermal_printer", "label": "Receipt Dispatch", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "Guest Experience", "items": ["Instant QR Table Ordering without app downloads", "Direct online delivery storefront with 0% aggregator commission", "Conversational AI Captain for combo pairings and bill status"] },
+    { "dot": "emerald", "title": "Kitchen & Operations", "items": ["Paperless Kitchen Display System (KDS) with station routing", "Instant preparation countdown timers and buzzer alerts", "Fast 4-digit PIN shift clock-in for kitchen staff and waiters"] },
+    { "dot": "violet", "title": "Admin & Finance", "items": ["Executive analytics, sales reports, and GST compliant tax breakdowns", "Day-end cash register reconciliation and thermal printer dispatch", "Full theme customizer, logo branding, and delivery radius configuration"] }
+  ]
+}
