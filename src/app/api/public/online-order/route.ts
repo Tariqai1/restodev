@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getDeliverySettings } from "@/lib/platform/state";
+import { getDeliverySettings, getDishHalfPrice } from "@/lib/platform/state";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 type OrderItemPayload = {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     const itemIds = items.map((i) => i.menuItemId).filter(Boolean);
     const { data: menuItems, error: menuErr } = await admin
       .from("menu_items")
-      .select("id, name, price, has_half_portion, half_price, is_available")
+      .select("id, name, price, is_available")
       .eq("restaurant_id", restaurantId)
       .in("id", itemIds);
 
@@ -150,8 +150,9 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      const halfPriceConfig = getDishHalfPrice(m.id);
       const full = Number(m.price) || 0;
-      const half = m.half_price ? Number(m.half_price) : Math.round(full * 0.6);
+      const half = halfPriceConfig ? Number(halfPriceConfig) : Math.round(full * 0.6);
       itemCatalog.set(m.id, {
         price: full,
         halfPrice: half,

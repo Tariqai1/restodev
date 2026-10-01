@@ -7,6 +7,8 @@ import {
   getRestaurantFeatures,
   getRestaurantOfferConfig,
   getPlatformState,
+  getDishHalfPortion,
+  getDishHalfPrice,
 } from "@/lib/platform/state";
 
 export async function GET(
@@ -122,7 +124,7 @@ export async function GET(
         .order("sort_order", { ascending: true }),
       admin
         .from("menu_items")
-        .select("id, category_id, name, description, price, is_veg, is_available, is_bestseller, has_half_portion, photo_url")
+        .select("id, category_id, name, description, price, is_veg, is_available, is_bestseller, photo_url")
         .eq("restaurant_id", restaurantId)
         .eq("is_available", true)
         .order("name", { ascending: true }),
@@ -130,19 +132,26 @@ export async function GET(
 
     const categories = categoriesRes.data || [];
     const rawItems = itemsRes.data || [];
-    const formattedItems = rawItems.map((m: any) => ({
-      id: m.id,
-      category_id: m.category_id,
-      name: m.name,
-      price: Number(m.price) || 0,
-      description: m.description,
-      is_veg: Boolean(m.is_veg),
-      photo_url: m.photo_url || null,
-      has_half_portion: Boolean(m.has_half_portion),
-      half_price: m.half_price ? Number(m.half_price) : Math.round((Number(m.price) || 0) * 0.6),
-      is_available: Boolean(m.is_available),
-      is_bestseller: Boolean(m.is_bestseller),
-    }));
+    const formattedItems = rawItems.map((m: any) => {
+      const halfPortionConfig = getDishHalfPortion(m.id);
+      const halfPriceConfig = getDishHalfPrice(m.id);
+      const fullPrice = Number(m.price) || 0;
+      const halfPrice = halfPriceConfig ? Number(halfPriceConfig) : Math.round(fullPrice * 0.6);
+
+      return {
+        id: m.id,
+        category_id: m.category_id,
+        name: m.name,
+        price: fullPrice,
+        description: m.description,
+        is_veg: Boolean(m.is_veg),
+        photo_url: m.photo_url || null,
+        has_half_portion: halfPortionConfig !== null ? Boolean(halfPortionConfig) : false,
+        half_price: halfPrice,
+        is_available: Boolean(m.is_available),
+        is_bestseller: Boolean(m.is_bestseller),
+      };
+    });
 
     // 4. Fetch Theme and Branding
     const theme = getRestaurantTheme(restaurantId);

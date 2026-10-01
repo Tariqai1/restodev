@@ -173,7 +173,7 @@ export default function OnlineOrdersView({
 
   // WhatsApp Share
   const handleShareWhatsApp = () => {
-    const text = `Namaste! Order delicious food directly from *${restaurantName}*.\n\nBrowse full menu & get hot delivery at your doorstep:\n👉 ${storefrontUrl}`;
+    const text = `Hello! Order delicious food directly from *${restaurantName}*.\n\nBrowse full menu & get hot delivery at your doorstep:\n👉 ${storefrontUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
