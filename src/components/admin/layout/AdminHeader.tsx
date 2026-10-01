@@ -103,6 +103,19 @@ export default function AdminHeader({
           </span>
         </div>
 
+        {/* Online Orders Quick Switch */}
+        {onSelectView && (
+          <button
+            type="button"
+            onClick={() => onSelectView("online_orders")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
+            title="Manage Online Orders & Storefront"
+          >
+            <i className="fa-solid fa-motorcycle text-xs text-amber-600" />
+            <span>Online Orders</span>
+          </button>
+        )}
+
         {/* Floor Workspace Quick Switch */}
         {onSelectView && (
           <button

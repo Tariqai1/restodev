@@ -10,6 +10,7 @@ export type AdminViewType =
   | "floor"
   | "kitchen"
   | "orders"
+  | "online_orders"
   | "approvals"
   | "menu_items"
   | "menu_categories"
@@ -58,6 +59,7 @@ const NAV_SECTIONS: NavSection[] = [
           { id: "floor", label: "Tables & Live Floor", icon: "fa-table-cells" },
           { id: "kitchen", label: "Kitchen KDS", icon: "fa-fire-burner" },
           { id: "orders", label: "Live Dine-In Orders", icon: "fa-receipt" },
+          { id: "online_orders", label: "Online Orders & Store", icon: "fa-motorcycle" },
         ],
       },
     ],
@@ -169,15 +171,15 @@ export default function AdminSidebar({
     const canAccessView = (viewId: AdminViewType): boolean => {
       if (!perms) {
         if (role === "kitchen") return viewId === "kitchen";
-        if (role === "waiter") return viewId === "floor" || viewId === "orders";
-        if (role === "captain") return viewId === "floor" || viewId === "orders" || viewId === "kitchen";
-        if (role === "cashier") return viewId === "invoices" || viewId === "cash_register" || viewId === "orders";
+        if (role === "waiter") return viewId === "floor" || viewId === "orders" || viewId === "online_orders";
+        if (role === "captain") return viewId === "floor" || viewId === "orders" || viewId === "kitchen" || viewId === "online_orders";
+        if (role === "cashier") return viewId === "invoices" || viewId === "cash_register" || viewId === "orders" || viewId === "online_orders";
         if (role === "manager") return viewId !== "settings";
         return true;
       }
 
       if (viewId === "floor" || viewId === "dashboard") return perms.canAccessFloor ?? true;
-      if (viewId === "orders" || viewId === "approvals") return perms.canAccessOrders ?? true;
+      if (viewId === "orders" || viewId === "approvals" || viewId === "online_orders") return perms.canAccessOrders ?? true;
       if (viewId === "kitchen") return perms.canAccessKitchen ?? false;
       if (viewId === "menu_items" || viewId === "menu_categories" || viewId === "stockout") return perms.canAccessMenu ?? false;
       if (viewId === "invoices" || viewId === "cash_register" || viewId === "taxes") return perms.canAccessInvoices ?? false;

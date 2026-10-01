@@ -26,6 +26,7 @@ import AiStudioView from "@/components/admin/views/AiStudioView";
 import TableQRStudioView from "@/components/admin/views/TableQRStudioView";
 import ApprovalsView from "@/components/admin/views/ApprovalsView";
 import StoreSettingsView from "@/components/admin/views/StoreSettingsView";
+import OnlineOrdersView from "@/components/admin/views/OnlineOrdersView";
 
 const ShareMenuModal = dynamic(() => import("@/components/ShareMenuModal"), {
   ssr: false,
@@ -1009,6 +1010,7 @@ export default function AdminPage() {
     floor: { title: "Live Floor Plan", breadcrumb: ["Admin", "Operations", "Floor Plan"] },
     kitchen: { title: "Kitchen Display (KDS)", breadcrumb: ["Admin", "Operations", "Kitchen"] },
     orders: { title: "Dine-In & Orders", breadcrumb: ["Admin", "Operations", "Orders"] },
+    online_orders: { title: "Online Delivery & Takeaway", breadcrumb: ["Admin", "Operations", "Online Orders"] },
     approvals: { title: "Captain Approvals", breadcrumb: ["Admin", "Operations", "Approvals"] },
     menu_items: { title: "Dishes & Modifiers", breadcrumb: ["Admin", "Catalog", "Dishes"] },
     menu_categories: { title: "Menu Categories", breadcrumb: ["Admin", "Catalog", "Categories"] },
@@ -1130,6 +1132,14 @@ export default function AdminPage() {
                   <span>Restaurant Engine Online · Real-time sync enabled</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <AdminButton
+                    variant="outline"
+                    size="sm"
+                    leftIcon="fa-motorcycle"
+                    onClick={() => setCurrentView("online_orders")}
+                  >
+                    Online Store
+                  </AdminButton>
                   <AdminButton
                     variant="outline"
                     size="sm"
@@ -2121,6 +2131,17 @@ export default function AdminPage() {
           {/* VIEW: STORE & SYSTEM SETTINGS */}
           {/* ======================================================== */}
           {currentView === "settings" && <StoreSettingsView initialName={restaurantName} />}
+
+          {/* ======================================================== */}
+          {/* VIEW: ONLINE ORDERS & STOREFRONT */}
+          {/* ======================================================== */}
+          {currentView === "online_orders" && (
+            <OnlineOrdersView
+              restaurantId={restaurantId}
+              restaurantName={restaurantName}
+              onGoToSettings={() => setCurrentView("settings")}
+            />
+          )}
 
           {/* ======================================================== */}
           {/* VIEW: AI COPILOT & OCR HUB */}

@@ -307,8 +307,8 @@ export default function TableAiWaiterModal({
             })),
           },
           quickSuggestions: [
-            "Inke saath best roti ya naan",
             "Kuch meetha bhi dikhao",
+            "Popular beverages",
             "Top bestsellers",
           ],
           time: formatCurrentTime(),
@@ -361,8 +361,8 @@ export default function TableAiWaiterModal({
         Array.isArray(data.followUpSuggestions) && data.followUpSuggestions.length > 0
           ? data.followUpSuggestions
           : [
-              "Inke saath best roti ya rice",
               "Kuch meetha bhi dikhao",
+              "Popular beverages",
               "Thode aur options dikhaiye",
             ];
 

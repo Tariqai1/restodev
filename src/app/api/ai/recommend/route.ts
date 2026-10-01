@@ -176,10 +176,10 @@ You MUST respond with a JSON object in this exact schema:
 {
   "message": "Enthusiastic, mouthwatering 2-3 sentence recommendation explaining the flavor profile and why these dishes are the perfect choice.",
   "recommendedDishIds": ["<id1>", "<id2>", "<id3>"],
-  "pairingTip": "Pro-tip about how to best enjoy these dishes (e.g. 'Butter Chicken ke saath crisp Garlic Naan ya Jeera Rice ka combination lajawab lagta hai!')",
+  "pairingTip": "Optional pro-tip about culinary flavor notes or complementary drink/dessert (keep it brief and genuine, or null if none needed)",
   "followUpSuggestions": ["<clean text reply 1>", "<clean text reply 2>", "<clean text reply 3>"]
 }
-CRITICAL: In followUpSuggestions, DO NOT use any emojis or icons. Use clean plain text only (e.g. 'Inke saath best roti ya naan', 'Kuch meetha bhi dikhao', 'Mera bill status').
+CRITICAL: In followUpSuggestions, DO NOT use any emojis or icons. Use clean plain text only (e.g. 'Kuch meetha bhi dikhao', 'Popular beverages', 'Mera bill status', 'Thode spicy options'). DO NOT ask or suggest roti/naan repeatedly unless the guest explicitly requests bread pairing.
 Recommend 2 to 4 dishes maximum.`;
 
     const messagesToSend: any[] = [{ role: "system", content: systemPrompt }];
@@ -317,12 +317,10 @@ Recommend 2 to 4 dishes maximum.`;
           ? `Aapke taste aur craving ke hisaab se ${restoName || "humare restaurant"} ki ye best dishes perfect rahengi:`
           : `Aapke liye ${restoName || "humare restaurant"} ke top chef recommendations yahan hain:`,
       recommendedDishIds: selected.map((it: any) => it.id),
-      pairingTip: selected.some((it: any) => it.name.toLowerCase().includes("chicken") || it.name.toLowerCase().includes("paneer"))
-        ? "Pro-tip: Rich gravies ke saath Butter Naan ya Garlic Naan ka combination zabardast lagta hai!"
-        : null,
+      pairingTip: null,
       followUpSuggestions: [
-        "Inke saath best roti ya naan",
         "Kuch meetha bhi dikhao",
+        "Popular beverages",
         "Thode aur budget-friendly options",
       ],
     });
