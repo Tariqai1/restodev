@@ -117,6 +117,7 @@ export default function WaiterPortalPage() {
 
   // Bill Summary Modal State
   const [viewingBillOrder, setViewingBillOrder] = useState<OpenOrderRecord | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
 
   // Reject Approval Modal State
   const [rejectingBatch, setRejectingBatch] = useState<PendingApprovalBatch | null>(null);
@@ -404,6 +405,41 @@ export default function WaiterPortalPage() {
       }
     } catch {
       // non-fatal
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // SETTLE BILL & FREE TABLE (Cash or UPI)
+  // ─────────────────────────────────────────────────────────────
+  const handleSettleAndFreeTable = async (
+    orderId: string,
+    tableNumber: string,
+    mode: "cash" | "upi" = "cash"
+  ) => {
+    setIsSettling(true);
+    try {
+      const res = await fetch("/api/bills/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          tableNumber,
+          paymentMode: mode,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to settle table");
+
+      setViewingBillOrder(null);
+      await fetchDashboardData(true);
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([20, 30, 20]);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to settle and free table");
+    } finally {
+      setIsSettling(false);
     }
   };
 
@@ -1058,17 +1094,18 @@ export default function WaiterPortalPage() {
                               className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
                               <i className="fa-solid fa-pen-to-square text-xs" />
-                              <span>Edit / Add Dishes</span>
+                              <span>Edit Dishes</span>
                             </button>
 
-                            {/* View Bill Summary */}
+                            {/* View Bill Summary & Settle */}
                             <button
                               type="button"
                               onClick={() => setViewingBillOrder(ord)}
-                              className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
-                              title="View Bill Breakdown"
+                              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              title="Settle Bill & Free Table"
                             >
                               <i className="fa-solid fa-receipt text-xs" />
+                              <span>Settle / Free</span>
                             </button>
                           </>
                         ) : (
@@ -1405,12 +1442,52 @@ export default function WaiterPortalPage() {
               </span>
             </div>
 
+            {/* Settle & Free Table Actions */}
+            <div className="pt-3 border-t border-slate-800 space-y-2">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Select Settlement Mode to Free Table:
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={isSettling}
+                  onClick={() =>
+                    handleSettleAndFreeTable(
+                      viewingBillOrder.id,
+                      viewingBillOrder.restaurant_tables?.table_number || "",
+                      "cash"
+                    )
+                  }
+                  className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <i className="fa-solid fa-money-bill-wave text-xs" />
+                  <span>{isSettling ? "Settling..." : "💵 Cash Settle"}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isSettling}
+                  onClick={() =>
+                    handleSettleAndFreeTable(
+                      viewingBillOrder.id,
+                      viewingBillOrder.restaurant_tables?.table_number || "",
+                      "upi"
+                    )
+                  }
+                  className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <i className="fa-solid fa-qrcode text-xs" />
+                  <span>{isSettling ? "Settling..." : "📱 UPI Paid"}</span>
+                </button>
+              </div>
+            </div>
+
             <button
               type="button"
+              disabled={isSettling}
               onClick={() => setViewingBillOrder(null)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-slate-200 font-bold text-xs cursor-pointer mt-1"
             >
-              Close
+              Cancel / Close
             </button>
           </div>
         </div>

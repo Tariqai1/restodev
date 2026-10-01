@@ -2147,24 +2147,41 @@ export default function AdminPage() {
                               : "primary"
                           }
                           size="sm"
-                          onClick={() => {
-                            setTables((prev) =>
-                              prev.map((tbl) =>
-                                tbl.id === t.id
-                                  ? {
-                                      ...tbl,
-                                      status:
-                                        tbl.status === "occupied"
-                                          ? "available"
-                                          : "occupied",
-                                    }
-                                  : tbl
-                              )
-                            );
+                          onClick={async () => {
+                            if (activeOrderForTable) {
+                              try {
+                                await fetch("/api/bills/settle", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    orderId: activeOrderForTable.id,
+                                    tableNumber: t.table_number,
+                                    paymentMode: "cash",
+                                  }),
+                                });
+                                await fetchData(true);
+                              } catch (e) {
+                                console.error("Error vacating table", e);
+                              }
+                            } else {
+                              setTables((prev) =>
+                                prev.map((tbl) =>
+                                  tbl.id === t.id
+                                    ? {
+                                        ...tbl,
+                                        status:
+                                          tbl.status === "occupied"
+                                            ? "available"
+                                            : "occupied",
+                                      }
+                                    : tbl
+                                )
+                              );
+                            }
                           }}
                         >
                           {t.status === "occupied" || activeOrderForTable
-                            ? "Vacate"
+                            ? "Settle / Vacate"
                             : "Occupy"}
                         </AdminButton>
                       </div>

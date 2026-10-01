@@ -10,19 +10,18 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    const staffContext = await resolveStaffContext(user);
+    if (!user && !staffContext) {
       return NextResponse.json({ message: "Staff authentication required" }, { status: 401 });
     }
+
+    if (!staffContext) return NextResponse.json({ message: "Staff access required" }, { status: 403 });
+    const restaurantId = staffContext.restaurantId;
 
     const body = await request.json().catch(() => ({}));
     const { tableNumber, tableId, orderId, paymentMode = "cash", extraTableNumbers } = body;
 
     const admin = createAdminClient();
-
-    // Resolve current user's restaurant_id
-    const staffContext = await resolveStaffContext(user);
-    if (!staffContext) return NextResponse.json({ message: "Staff access required" }, { status: 403 });
-    const restaurantId = staffContext.restaurantId;
 
     let targetOrderId = orderId || null;
     let targetTableId = tableId || null;
