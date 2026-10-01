@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import AdminSidebar, { AdminViewType } from "@/components/admin/layout/AdminSidebar";
 import AdminHeader from "@/components/admin/layout/AdminHeader";
 import AdminKPICard from "@/components/admin/ui/AdminKPICard";
@@ -169,6 +170,7 @@ interface InvoiceRecord {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [currentView, setCurrentView] = useState<AdminViewType>("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -278,6 +280,23 @@ export default function AdminPage() {
           setRestaurantName(data.restaurant.name || "Restaurant");
           setOwnerEmail(data.restaurant.owner_email || data.user?.email || "owner@restaurant.com");
           setOwnerName(data.restaurant.owner_name || data.user?.name || "Restaurant Owner");
+        }
+
+        if (data.user) {
+          const userRole = (data.user.role === "staff" ? "waiter" : data.user.role || "owner").toLowerCase();
+          setCurrentUserRole(userRole);
+          if (data.user.name) {
+            setOwnerName(data.user.name);
+          }
+          // Strict Role Isolation: Waiters belong to /waiter, Kitchen belongs to /kitchen
+          if (userRole === "waiter") {
+            router.replace("/waiter");
+            return;
+          }
+          if (userRole === "kitchen") {
+            router.replace("/kitchen");
+            return;
+          }
         }
 
         // Map tables
@@ -1305,6 +1324,7 @@ export default function AdminPage() {
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           userName={ownerName}
           userEmail={ownerEmail}
+          userRole={currentUserRole}
           restaurantName={restaurantName}
           activeTablesCount={activeTablesCount}
           totalTablesCount={tables.length}

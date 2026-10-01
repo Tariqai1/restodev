@@ -407,11 +407,15 @@ export async function GET() {
           role: "staff",
         });
 
+  const rawRole = (rawProfile.role || "staff").toLowerCase();
+  const normalizedUserRole = rawRole === "staff" ? "waiter" : rawRole;
+
   const userProfile = {
     ...rawProfile,
+    role: normalizedUserRole,
     permissions:
       rawProfile.permissions ||
-      getStaffPermissions(rawProfile.id || user?.id || "staff", rawProfile.role || "staff"),
+      getStaffPermissions(rawProfile.id || user?.id || "staff", normalizedUserRole),
   };
 
   // Compute live real-time metrics

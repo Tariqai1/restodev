@@ -260,11 +260,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Failed to establish terminal session" }, { status: 500 });
     }
 
-    const permissions = getStaffPermissions(matchedStaff.id, matchedStaff.role);
+    const effectiveRole = (matchedStaff.role === "staff" ? "waiter" : matchedStaff.role || "").toLowerCase();
+    const permissions = getStaffPermissions(matchedStaff.id, effectiveRole);
     const redirectPath =
-      matchedStaff.role === "kitchen"
+      effectiveRole === "kitchen"
         ? "/kitchen"
-        : matchedStaff.role === "waiter"
+        : effectiveRole === "waiter"
         ? "/waiter"
         : "/admin";
 
@@ -275,7 +276,7 @@ export async function POST(request: NextRequest) {
       JSON.stringify({
         id: matchedStaff.id,
         name: matchedStaff.name,
-        role: matchedStaff.role,
+        role: effectiveRole,
         restaurant_id: matchedStaff.restaurant_id,
         permissions,
       }),

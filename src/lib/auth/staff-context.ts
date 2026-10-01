@@ -165,13 +165,14 @@ export async function resolveStaffContext(user?: User | null): Promise<ResolvedS
     .eq("id", staffRecord.restaurant_id)
     .maybeSingle();
 
-  const permissions = getStaffPermissions(staffRecord.id, staffRecord.role);
+  const effectiveRole = staffRecord.role === "staff" ? "waiter" : staffRecord.role;
+  const permissions = getStaffPermissions(staffRecord.id, effectiveRole);
 
   return {
     user: user ?? null,
     staffId: staffRecord.id,
     name: staffRecord.name,
-    role: staffRecord.role,
+    role: effectiveRole,
     restaurantId: staffRecord.restaurant_id,
     restaurantName: resto?.name || "Order Desk",
     isSuperAdmin: isSuper,

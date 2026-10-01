@@ -20,6 +20,7 @@ interface AdminHeaderProps {
   onOpenMobileSidebar: () => void;
   userName?: string;
   userEmail?: string;
+  userRole?: string;
   restaurantName?: string;
   activeTablesCount?: number;
   totalTablesCount?: number;
@@ -33,6 +34,7 @@ export default function AdminHeader({
   onOpenMobileSidebar,
   userName = "Owner",
   userEmail = "owner@restaurant.com",
+  userRole = "owner",
   restaurantName = "Order Desk",
   activeTablesCount = 0,
   totalTablesCount = 0,
@@ -388,8 +390,8 @@ export default function AdminHeader({
               <span className="block text-xs font-bold text-slate-900 leading-tight truncate">
                 {userName}
               </span>
-              <span className="block text-[10px] text-purple-600 font-mono leading-none">
-                Restaurant Owner
+              <span className="block text-[10px] text-purple-600 font-mono leading-none capitalize">
+                {userRole === "owner" ? "Restaurant Owner" : userRole}
               </span>
             </div>
             <i className="fa-solid fa-chevron-down text-[10px] text-slate-400 hidden sm:block" />
@@ -421,6 +423,15 @@ export default function AdminHeader({
                   <i className="fa-solid fa-table-cells text-slate-400 text-xs" />
                   <span>Floor View</span>
                 </button>
+
+                <Link
+                  href="/waiter"
+                  className="w-full px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                  onClick={() => setShowProfileMenu(false)}
+                >
+                  <i className="fa-solid fa-bell-concierge text-slate-400 text-xs" />
+                  <span>Waiter Terminal</span>
+                </Link>
 
                 <Link
                   href="/kitchen"

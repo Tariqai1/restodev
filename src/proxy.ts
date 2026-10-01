@@ -103,7 +103,8 @@ export async function proxy(request: NextRequest) {
   if (activeStaffCookie) {
     try {
       const parsed = JSON.parse(activeStaffCookie);
-      activeRole = (parsed.role || "").toLowerCase();
+      const rawRole = (parsed.role || "").toLowerCase();
+      activeRole = rawRole === "staff" ? "waiter" : rawRole;
     } catch {
       // ignore
     }
@@ -117,7 +118,15 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // 2. Staff Management Role Guard: Only Owner and Manager can access /staff
+  // 2. Waiter Role Strict Isolation: Waiters can ONLY access /waiter (never full POS /admin)
+  if (activeRole === "waiter") {
+    const isWaiterPage = request.nextUrl.pathname === "/waiter";
+    if (!isWaiterPage && !isApiRoute && !isLoginPage && !isCustomerTableRoute) {
+      return NextResponse.redirect(new URL("/waiter", request.url));
+    }
+  }
+
+  // 3. Staff Management Role Guard: Only Owner and Manager can access /staff
   if (request.nextUrl.pathname.startsWith("/staff")) {
     if (!isSuperAdmin && activeRole && activeRole !== "owner" && activeRole !== "manager" && activeRole !== "admin") {
       return NextResponse.redirect(new URL("/", request.url));
