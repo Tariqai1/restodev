@@ -966,9 +966,9 @@ export type DeliverySettings = {
 };
 
 export const DEFAULT_DELIVERY_SETTINGS: Omit<DeliverySettings, "restaurantId"> = {
-  onlineOrderingEnabled: false,
+  onlineOrderingEnabled: true,
   pickupEnabled: true,
-  deliveryEnabled: false,
+  deliveryEnabled: true,
   deliveryRadiusKm: 5,
   deliveryFee: 0,
   minimumOrderAmount: 0,

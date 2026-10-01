@@ -83,7 +83,9 @@ export async function GET(
     const fallbackSettings = getDeliverySettings(restaurantId);
 
     const isOnlineOrderingEnabled =
-      typeof fallbackSettings.onlineOrderingEnabled === "boolean"
+      typeof restaurant?.online_ordering_enabled === "boolean"
+        ? restaurant.online_ordering_enabled
+        : typeof fallbackSettings.onlineOrderingEnabled === "boolean"
         ? fallbackSettings.onlineOrderingEnabled
         : true;
 

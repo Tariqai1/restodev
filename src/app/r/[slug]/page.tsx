@@ -314,6 +314,25 @@ export default function OnlineOrderingPage({
           Please visit our outlet and scan the table QR code to explore the menu and place your order.
         </p>
 
+        <div className="mt-6 flex flex-col gap-2.5 w-full max-w-xs">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+          >
+            <i className="fa-solid fa-rotate-right" />
+            <span>Refresh Store Status</span>
+          </button>
+
+          <Link
+            href="/login"
+            className="w-full py-2 rounded-xl bg-stone-900 hover:bg-stone-800 border border-stone-800 text-stone-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+          >
+            <i className="fa-solid fa-sliders text-amber-500" />
+            <span>Store Manager / Turn On Online Store</span>
+          </Link>
+        </div>
+
         <div className="mt-6 p-3 rounded-xl bg-stone-900/80 border border-stone-800 text-[11px] text-stone-400 max-w-xs">
           <i className="fa-solid fa-qrcode text-stone-300 mr-1.5" />
           <span>Table QR ordering is active on the dining floor.</span>

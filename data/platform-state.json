@@ -650,14 +650,14 @@
   "deliverySettings": {
     "ebde73c4-c316-4101-9469-062c83319d7b": {
       "restaurantId": "ebde73c4-c316-4101-9469-062c83319d7b",
-      "onlineOrderingEnabled": false,
+      "onlineOrderingEnabled": true,
       "pickupEnabled": true,
-      "deliveryEnabled": false,
+      "deliveryEnabled": true,
       "deliveryRadiusKm": 5,
       "deliveryFee": 0,
       "minimumOrderAmount": 0,
       "estimatedPrepMinutes": 25,
-      "slug": "",
+      "slug": "tauheed-resto",
       "updatedAt": "2026-10-01T04:25:34.172Z"
     }
   }
