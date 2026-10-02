@@ -50,6 +50,7 @@ export async function proxy(request: NextRequest) {
   const isSetupPage = request.nextUrl.pathname === "/setup";
   const isEnterPage = request.nextUrl.pathname === "/enter";
   const isCustomerTableRoute = request.nextUrl.pathname.startsWith("/table/");
+  const isCustomerOnlineRoute = request.nextUrl.pathname.startsWith("/r/");
   const isPublicApi =
     request.nextUrl.pathname === "/api/health" ||
     request.nextUrl.pathname === "/api/setup" ||
@@ -64,7 +65,15 @@ export async function proxy(request: NextRequest) {
   const isSuperAdmin = await isAuthorizedSuperAdmin(user);
 
   if (!user) {
-    if (isPublicApi || isLoginPage || isSuperAdminLoginPage || isSetupPage || isEnterPage || isCustomerTableRoute) {
+    if (
+      isPublicApi ||
+      isLoginPage ||
+      isSuperAdminLoginPage ||
+      isSetupPage ||
+      isEnterPage ||
+      isCustomerTableRoute ||
+      isCustomerOnlineRoute
+    ) {
       return response;
     }
 
@@ -121,7 +130,7 @@ export async function proxy(request: NextRequest) {
   // 2. Waiter Role Strict Isolation: Waiters can ONLY access /waiter (never full POS /admin)
   if (activeRole === "waiter") {
     const isWaiterPage = request.nextUrl.pathname === "/waiter";
-    if (!isWaiterPage && !isApiRoute && !isLoginPage && !isCustomerTableRoute) {
+    if (!isWaiterPage && !isApiRoute && !isLoginPage && !isCustomerTableRoute && !isCustomerOnlineRoute) {
       return NextResponse.redirect(new URL("/waiter", request.url));
     }
   }
