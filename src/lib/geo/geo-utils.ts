@@ -122,3 +122,36 @@ export async function reverseGeocodeCoords(
     };
   }
 }
+
+export interface LocalitySearchResult {
+  displayName: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Searches localities, landmarks, and street addresses using Nominatim OpenStreetMap
+ */
+export async function searchLocality(query: string): Promise<LocalitySearchResult[]> {
+  if (!query || query.trim().length < 2) return [];
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+      query.trim()
+    )}&limit=5`;
+    const res = await fetch(url, {
+      headers: {
+        "Accept-Language": "en-IN,en;q=0.9",
+        "User-Agent": "OrderDesk-HMS/1.0",
+      },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data || []).map((d: any) => ({
+      displayName: d.display_name,
+      lat: parseFloat(d.lat),
+      lng: parseFloat(d.lon),
+    }));
+  } catch {
+    return [];
+  }
+}

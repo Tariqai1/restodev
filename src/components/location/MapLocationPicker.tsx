@@ -6,6 +6,8 @@ import {
   DEFAULT_RESTO_COORDINATES,
   checkDeliveryServiceability,
   reverseGeocodeCoords,
+  searchLocality,
+  LocalitySearchResult,
 } from "@/lib/geo/geo-utils";
 
 export interface SelectedLocationData {
@@ -57,6 +59,11 @@ export default function MapLocationPicker({
     message: string;
   } | null>(null);
 
+  // Search locality state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<LocalitySearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   // Serviceability state
   const serviceCheck = checkDeliveryServiceability(
     restoCoords,
@@ -90,16 +97,13 @@ export default function MapLocationPicker({
         center: initialCenter,
         zoom: 15,
         zoomControl: false,
+        attributionControl: false, // 100% remove Leaflet attribution watermark
       });
 
       mapInstanceRef.current = map;
 
-      // Add Zoom Control to bottom-right
-      L.control.zoom({ position: "bottomright" }).addTo(map);
-
-      // OpenStreetMap clean tiles (100% free, no API key, zero watermarks)
+      // Clean OpenStreetMap tiles without any watermark/attribution overlay
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
         subdomains: ["a", "b", "c"],
       }).addTo(map);
@@ -222,13 +226,19 @@ export default function MapLocationPicker({
             if (fallbackErr.code === 1 /* PERMISSION_DENIED */) {
               setGpsNotice({
                 type: "warning",
-                message: "Location permission is blocked. Please enable location permissions in your browser or drag the map pin to your doorstep.",
+                message: "Location blocked in browser. Tap 🔒 in address bar to Allow, or search locality above / drag the pin to your doorstep.",
               });
+              setTimeout(() => {
+                setGpsNotice((cur) => (cur?.type === "warning" ? null : cur));
+              }, 7000);
             } else {
               setGpsNotice({
                 type: "info",
-                message: "Unable to detect exact satellite GPS. Please drag the pin on the map to your address.",
+                message: "Unable to detect exact satellite GPS. Please search your locality above or drag the pin on the map.",
               });
+              setTimeout(() => {
+                setGpsNotice((cur) => (cur?.type === "info" ? null : cur));
+              }, 5000);
             }
           },
           { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
@@ -236,6 +246,35 @@ export default function MapLocationPicker({
       },
       { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // SEARCH LOCALITY (Zepto / Swiggy Instant Area FlyTo)
+  // ─────────────────────────────────────────────────────────────
+  const handleSearchLocality = async (val: string) => {
+    setSearchQuery(val);
+    if (val.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const results = await searchLocality(val);
+      setSearchResults(results);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectLocality = (item: LocalitySearchResult) => {
+    setSearchQuery("");
+    setSearchResults([]);
+    const targetCoords = { lat: item.lat, lng: item.lng };
+    setCurrentCoords(targetCoords);
+    setAreaText(item.displayName);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([item.lat, item.lng], 16, { animate: true, duration: 1.2 });
+    }
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -333,6 +372,71 @@ export default function MapLocationPicker({
             </button>
           </div>
         )}
+
+        {/* Locality / Area Search Bar (Zepto & Swiggy Style) */}
+        <div className="relative px-4 py-2 bg-stone-50 border-b border-stone-200 shrink-0 z-20">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs">
+              🔍
+            </span>
+            <input
+              type="text"
+              placeholder="Search area, locality, street (e.g. Indiranagar, Civil Lines)..."
+              value={searchQuery}
+              onChange={(e) => handleSearchLocality(e.target.value)}
+              className="w-full text-xs font-semibold pl-8 pr-8 py-2 rounded-xl bg-white border border-stone-300 text-stone-900 placeholder-stone-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 shadow-xs"
+            />
+            {isSearching && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 text-xs animate-spin">
+                ⏳
+              </span>
+            )}
+            {searchQuery && !isSearching && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs cursor-pointer p-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Autocomplete Suggestions Dropdown */}
+          {searchResults.length > 0 && (
+            <div className="absolute left-4 right-4 top-full mt-1 bg-white rounded-2xl shadow-2xl border border-stone-200 z-30 max-h-52 overflow-y-auto divide-y divide-stone-100">
+              {searchResults.map((res, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSelectLocality(res)}
+                  className="w-full px-3.5 py-2.5 text-left hover:bg-stone-50 transition-colors flex items-start gap-2.5 cursor-pointer"
+                >
+                  <span className="text-emerald-600 text-xs mt-0.5 shrink-0">📍</span>
+                  <span className="text-xs font-semibold text-stone-800 leading-snug line-clamp-2">
+                    {res.displayName}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Global style to 100% remove Leaflet attribution watermark */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          .leaflet-control-attribution,
+          .leaflet-attribution {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            width: 0 !important;
+            pointer-events: none !important;
+          }
+        ` }} />
 
         {/* Interactive Map Area with Floating Center Pin */}
         <div className="relative w-full h-64 sm:h-72 bg-stone-100 shrink-0">

@@ -61,6 +61,7 @@ export default function LiveDeliveryMapTracker({
         center: [midLat, midLng],
         zoom: 14,
         zoomControl: false,
+        attributionControl: false,
       });
       mapInstanceRef.current = map;
 
