@@ -88,8 +88,8 @@ export async function GET(req: NextRequest) {
         Number(dbSettings?.minimum_order_amount) ?? fallback.minimumOrderAmount ?? 0,
       estimatedPrepMinutes:
         Number(dbSettings?.estimated_prep_minutes) || fallback.estimatedPrepMinutes || 25,
-      latitude: Number(dbSettings?.latitude) || fallback.latitude || 12.9716,
-      longitude: Number(dbSettings?.longitude) || fallback.longitude || 77.5946,
+      latitude: Number(dbSettings?.latitude) || fallback.latitude || 19.1918,
+      longitude: Number(dbSettings?.longitude) || fallback.longitude || 73.0229,
       slug: resto?.slug || fallback.slug || "",
     };
 
@@ -166,8 +166,8 @@ export async function POST(req: NextRequest) {
       delivery_fee: Number(body.deliveryFee) || 0,
       minimum_order_amount: Number(body.minimumOrderAmount) || 0,
       estimated_prep_minutes: Number(body.estimatedPrepMinutes) || 25,
-      latitude: body.latitude !== undefined ? Number(body.latitude) : 12.9716,
-      longitude: body.longitude !== undefined ? Number(body.longitude) : 77.5946,
+      latitude: body.latitude !== undefined ? Number(body.latitude) : 19.1918,
+      longitude: body.longitude !== undefined ? Number(body.longitude) : 73.0229,
       updated_at: new Date().toISOString(),
     };
 

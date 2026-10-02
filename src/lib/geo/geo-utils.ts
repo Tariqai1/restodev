@@ -18,10 +18,10 @@ export interface GeocodedAddress {
   postcode?: string;
 }
 
-// Fallback restaurant coordinates if none set in settings (e.g. Connaught Place, New Delhi or Indiranagar, Bengaluru)
+// Fallback restaurant coordinates if none set in settings (defaults to Mumbra, Thane / Mumbai)
 export const DEFAULT_RESTO_COORDINATES: LatLng = {
-  lat: 12.9716,
-  lng: 77.5946,
+  lat: 19.1918,
+  lng: 73.0229,
 };
 
 /**

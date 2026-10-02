@@ -278,6 +278,8 @@ export function getPlatformState(): PlatformState {
         restaurantPhones: parsed.restaurantPhones || {},
         dishSpecialTags: parsed.dishSpecialTags || {},
         pendingOrderApprovals: parsed.pendingOrderApprovals || {},
+        deliverySettings: parsed.deliverySettings || {},
+        deliveryRiders: parsed.deliveryRiders || {},
       };
     } else {
       savePlatformState(memoryState);
@@ -977,8 +979,8 @@ export const DEFAULT_DELIVERY_SETTINGS: Omit<DeliverySettings, "restaurantId"> =
   deliveryFee: 0,
   minimumOrderAmount: 0,
   estimatedPrepMinutes: 25,
-  latitude: 12.9716,
-  longitude: 77.5946,
+  latitude: 19.1918,
+  longitude: 73.0229,
   slug: "",
 };
 

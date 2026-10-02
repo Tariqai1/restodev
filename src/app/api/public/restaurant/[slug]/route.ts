@@ -111,6 +111,8 @@ export async function GET(
       deliveryFee: Number(dbDelivery?.delivery_fee) ?? fallbackSettings.deliveryFee ?? 40,
       minimumOrderAmount: Number(dbDelivery?.minimum_order_amount) ?? fallbackSettings.minimumOrderAmount ?? 0,
       estimatedPrepMinutes: Number(dbDelivery?.estimated_prep_minutes) || fallbackSettings.estimatedPrepMinutes || 25,
+      latitude: Number(dbDelivery?.latitude) || fallbackSettings.latitude || 19.1918,
+      longitude: Number(dbDelivery?.longitude) || fallbackSettings.longitude || 73.0229,
       slug: fallbackSettings.slug || cleanSlug,
     };
 

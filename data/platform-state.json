@@ -673,5 +673,33 @@
       "approvedAt": "2026-10-01T17:40:46.896Z",
       "approvedBy": "owner"
     }
+  },
+  "deliverySettings": {
+    "ee572972-7247-44c6-91c1-678aa72a45f3": {
+      "restaurantId": "ee572972-7247-44c6-91c1-678aa72a45f3",
+      "onlineOrderingEnabled": true,
+      "pickupEnabled": true,
+      "deliveryEnabled": true,
+      "deliveryRadiusKm": 10,
+      "deliveryFee": 30,
+      "minimumOrderAmount": 0,
+      "estimatedPrepMinutes": 25,
+      "latitude": 19.1918,
+      "longitude": 73.0229,
+      "slug": "ee572972-7247-44c6-91c1-678aa72a45f3"
+    },
+    "ebde73c4-c316-4101-9469-062c83319d7b": {
+      "restaurantId": "ebde73c4-c316-4101-9469-062c83319d7b",
+      "onlineOrderingEnabled": true,
+      "pickupEnabled": true,
+      "deliveryEnabled": true,
+      "deliveryRadiusKm": 10,
+      "deliveryFee": 30,
+      "minimumOrderAmount": 0,
+      "estimatedPrepMinutes": 25,
+      "latitude": 19.1918,
+      "longitude": 73.0229,
+      "slug": "ebde73c4-c316-4101-9469-062c83319d7b"
+    }
   }
 }
