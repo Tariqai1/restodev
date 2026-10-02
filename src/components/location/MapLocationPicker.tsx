@@ -7,6 +7,7 @@ import {
   checkDeliveryServiceability,
   reverseGeocodeCoords,
   searchLocality,
+  getApproximateIpLocation,
   LocalitySearchResult,
 } from "@/lib/geo/geo-utils";
 
@@ -42,6 +43,7 @@ export default function MapLocationPicker({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const circleLayerRef = useRef<any>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // User pin position (center of map)
   const [currentCoords, setCurrentCoords] = useState<LatLng>(restoCoords);
@@ -54,6 +56,7 @@ export default function MapLocationPicker({
   const [areaText, setAreaText] = useState("");
   const [landmark, setLandmark] = useState("");
   const [addressTag, setAddressTag] = useState<"home" | "work" | "other">("home");
+  const [showGpsHelpModal, setShowGpsHelpModal] = useState(false);
   const [gpsNotice, setGpsNotice] = useState<{
     type: "info" | "warning" | "error";
     message: string;
@@ -223,22 +226,32 @@ export default function MapLocationPicker({
           (fallbackErr) => {
             console.warn("[GPS Phase 2 Fallback Failed]", fallbackErr);
             setIsLocatingGps(false);
+            
+            // Pop up the easy-to-use Swiggy/Zepto style Action Modal
+            setShowGpsHelpModal(true);
+
+            // Also try coarse IP location so the map instantly moves near user's city!
+            getApproximateIpLocation().then((ipLoc) => {
+              if (ipLoc && mapInstanceRef.current) {
+                const ipCoords = { lat: ipLoc.lat, lng: ipLoc.lng };
+                setCurrentCoords(ipCoords);
+                mapInstanceRef.current.flyTo([ipLoc.lat, ipLoc.lng], 14, { animate: true, duration: 1 });
+                if (ipLoc.city) {
+                  setAreaText(ipLoc.city);
+                }
+              }
+            });
+
             if (fallbackErr.code === 1 /* PERMISSION_DENIED */) {
               setGpsNotice({
                 type: "warning",
-                message: "Location blocked in browser. Tap 🔒 in address bar to Allow, or search locality above / drag the pin to your doorstep.",
+                message: "Device GPS off or permission blocked. Choose an easy option below or search locality.",
               });
-              setTimeout(() => {
-                setGpsNotice((cur) => (cur?.type === "warning" ? null : cur));
-              }, 7000);
             } else {
               setGpsNotice({
                 type: "info",
-                message: "Unable to detect exact satellite GPS. Please search your locality above or drag the pin on the map.",
+                message: "Unable to detect satellite GPS. Please search your area or drag pin on map.",
               });
-              setTimeout(() => {
-                setGpsNotice((cur) => (cur?.type === "info" ? null : cur));
-              }, 5000);
             }
           },
           { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
@@ -320,7 +333,7 @@ export default function MapLocationPicker({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-xs overscroll-contain animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-stone-200">
+      <div className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-stone-200">
         {/* Header */}
         <div className="px-4 py-3 border-b border-stone-200 flex items-center justify-between bg-stone-50 shrink-0">
           <div className="flex items-center gap-2">
@@ -380,6 +393,7 @@ export default function MapLocationPicker({
               🔍
             </span>
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search area, locality, street (e.g. Indiranagar, Civil Lines)..."
               value={searchQuery}
@@ -578,6 +592,96 @@ export default function MapLocationPicker({
             )}
           </div>
         </div>
+
+        {/* Swiggy / Zepto Style GPS Permission & Action Helper Bottom Sheet */}
+        {showGpsHelpModal && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center p-0 animate-in fade-in duration-200">
+            <div className="w-full bg-white rounded-t-3xl p-5 shadow-2xl border-t border-stone-200 animate-in slide-in-from-bottom-6 duration-200">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 text-amber-600 flex items-center justify-center text-2xl shadow-xs shrink-0 animate-pulse">
+                    📍
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-stone-900 leading-tight">
+                      Device Location is Off
+                    </h4>
+                    <p className="text-[11px] text-stone-500 font-medium">
+                      GPS off hai ya permission allow nahi hai
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGpsHelpModal(false)}
+                  className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500 flex items-center justify-center cursor-pointer transition-colors text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2.5 mb-3 text-[11px] text-amber-900 leading-relaxed">
+                Aapke phone ke notification bar se Location (GPS) off hai. Aap <strong>bina GPS ke bhi aasaani se</strong> apna order deliver karwa sakte hain:
+              </div>
+
+              <div className="space-y-2">
+                {/* Option 1: Search manually (Zero friction, like Zepto/Swiggy) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGpsHelpModal(false);
+                    setTimeout(() => {
+                      searchInputRef.current?.focus();
+                      searchInputRef.current?.scrollIntoView({ behavior: "smooth" });
+                    }, 100);
+                  }}
+                  className="w-full py-2.5 px-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-xl font-bold text-xs flex items-center justify-between shadow-md cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-2.5 text-left">
+                    <span className="text-base">🔍</span>
+                    <div>
+                      <span className="block font-black text-xs">Search Area / Locality</span>
+                      <span className="block text-[10px] text-emerald-100 font-normal">
+                        Sabse aasan · No GPS required
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-lg">Open Search →</span>
+                </button>
+
+                {/* Option 2: Turn on GPS & Retry */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGpsHelpModal(false);
+                    handleDetectGps();
+                  }}
+                  className="w-full py-2.5 px-3.5 bg-stone-100 hover:bg-stone-200 active:scale-98 text-stone-800 rounded-xl font-bold text-xs flex items-center justify-between border border-stone-300 cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-2.5 text-left">
+                    <span className="text-base">🎯</span>
+                    <div>
+                      <span className="block font-bold text-xs">Turn ON Location & Retry</span>
+                      <span className="block text-[10px] text-stone-500 font-normal">
+                        Notification bar se GPS ON karke Retry karein
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs">🔄</span>
+                </button>
+
+                {/* Option 3: Drag pin */}
+                <button
+                  type="button"
+                  onClick={() => setShowGpsHelpModal(false)}
+                  className="w-full py-1.5 text-stone-500 hover:text-stone-800 text-[11px] font-semibold text-center cursor-pointer transition-colors"
+                >
+                  Ya map par pin drag karke set karein
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

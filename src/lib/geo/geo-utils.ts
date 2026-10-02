@@ -155,3 +155,26 @@ export async function searchLocality(query: string): Promise<LocalitySearchResul
     return [];
   }
 }
+
+/**
+ * Coarse IP-based fallback when browser GPS is blocked/off.
+ * Automatically centers map around user's city/region without requiring GPS permissions.
+ */
+export async function getApproximateIpLocation(): Promise<{ lat: number; lng: number; city?: string } | null> {
+  try {
+    const res = await fetch("https://ipwho.is/", { signal: AbortSignal.timeout(3500) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.success && data.latitude && data.longitude) {
+      return {
+        lat: Number(data.latitude),
+        lng: Number(data.longitude),
+        city: data.city || data.region,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
