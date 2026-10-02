@@ -130,6 +130,7 @@ export async function GET() {
       ordersRes,
       billsRes,
       bestsellersRes,
+      closedOnlineOrdersRes,
     ] = await Promise.all([
       admin.from("restaurants").select("id, name, subscription_plan, subscription_status, gstin").eq("id", targetRestoId).single(),
       admin.from("staff_users").select("id, name, role").eq("restaurant_id", targetRestoId).eq("role", "owner").maybeSingle(),
@@ -152,6 +153,24 @@ export async function GET() {
       `).eq("restaurant_id", targetRestoId).eq("status", "open").order("opened_at", { ascending: true }),
       admin.from("bills").select("id, total, payment_status, paid_at, order:orders(restaurant_id)").gte("paid_at", todayStart.toISOString()),
       admin.from("menu_items").select("id, name, price, is_veg, is_bestseller").eq("restaurant_id", targetRestoId).eq("is_available", true).order("is_bestseller", { ascending: false }).limit(6),
+      admin.from("orders").select(`
+        id,
+        table_id,
+        status,
+        opened_at,
+        closed_at,
+        table_session_id,
+        restaurant_tables (id, table_number),
+        order_items (
+          id,
+          qty,
+          unit_price,
+          notes,
+          item_status,
+          menu_items (id, name, is_veg, price)
+        ),
+        bills (id, total, payment_mode, payment_status, paid_at)
+      `).eq("restaurant_id", targetRestoId).eq("status", "closed").gte("closed_at", todayStart.toISOString()).order("closed_at", { ascending: false }).limit(25),
     ]);
 
     const targetBills = (billsRes.data || []).filter((b) => {
@@ -205,6 +224,80 @@ export async function GET() {
       };
     });
 
+    // ─────────────────────────────────────────────────────────────
+    // ONLINE ORDERS SEGREGATION (Delivery & Takeaway Separated from Dining Floor)
+    // ─────────────────────────────────────────────────────────────
+    const parseOnlineDetails = (tbl?: string, notes?: string | null) => {
+      const isOnline =
+        Boolean(tbl?.startsWith("DEL-")) ||
+        Boolean(tbl?.startsWith("PU-")) ||
+        Boolean(notes?.includes("[🛵 Delivery")) ||
+        Boolean(notes?.includes("[🛍️ Pickup"));
+      const type = tbl?.startsWith("PU-") || notes?.includes("[🛍️ Pickup") ? "pickup" : "delivery";
+
+      let customerName = "";
+      let customerPhone = "";
+      let deliveryAddress = "";
+
+      if (notes) {
+        const match = notes.match(/\[(?:🛵 Delivery|🛍️ Pickup):\s*([^(\]]+)(?:\(([^)]+)\))?(?:\s*-\s*([^\]]+))?\]/);
+        if (match) {
+          customerName = match[1]?.trim() || "";
+          customerPhone = match[2]?.trim() || "";
+          deliveryAddress = match[3]?.trim() || "";
+        }
+      }
+
+      return { isOnline, type, customerName, customerPhone, deliveryAddress };
+    };
+
+    const formatOnlineTicket = (ord: any) => {
+      const tbl = ord.restaurant_tables?.table_number;
+      const rawItems = (ord.order_items as any[]) || [];
+      const notes = rawItems[0]?.notes || "";
+      const details = parseOnlineDetails(tbl, notes);
+      const billsArr = Array.isArray(ord.bills) ? ord.bills : ord.bills ? [ord.bills] : [];
+      const bill = billsArr[0] || null;
+
+      const subtotal = rawItems.reduce((s, it) => s + (Number(it.unit_price) || 0) * (Number(it.qty) || 1), 0);
+      const totalAmount = bill ? Number(bill.total) || subtotal : Math.round(subtotal * 1.05);
+
+      const allServed = rawItems.length > 0 && rawItems.every((it) => it.item_status === "served");
+      const anyPreparing = rawItems.some((it) => it.item_status === "preparing");
+      const stage = allServed ? "ready" : anyPreparing ? "preparing" : "received";
+
+      return {
+        id: ord.id,
+        orderNumber: tbl || `ONL-${ord.id.slice(0, 4).toUpperCase()}`,
+        type: details.type as "delivery" | "pickup",
+        customerName: details.customerName || "Online Guest",
+        customerPhone: details.customerPhone,
+        deliveryAddress: details.deliveryAddress,
+        status: ord.status, // "open" | "closed"
+        stage: stage as "received" | "preparing" | "ready",
+        openedAt: ord.opened_at,
+        closedAt: ord.closed_at,
+        totalAmount,
+        paymentMode: bill?.payment_mode || "cash",
+        paymentStatus: bill?.payment_status || (ord.status === "closed" ? "paid" : "unpaid"),
+        items: rawItems.map((it) => ({
+          name: it.menu_items?.name || "Dish",
+          qty: it.qty,
+          price: Number(it.unit_price) || Number(it.menu_items?.price) || 0,
+          isVeg: Boolean(it.menu_items?.is_veg),
+          status: it.item_status,
+        })),
+      };
+    };
+
+    const activeOnlineOrders = openOrders
+      .filter((o: any) => parseOnlineDetails(o.restaurant_tables?.table_number, o.order_items?.[0]?.notes).isOnline)
+      .map(formatOnlineTicket);
+
+    const completedOnlineOrders = (closedOnlineOrdersRes?.data || [])
+      .filter((o: any) => parseOnlineDetails(o.restaurant_tables?.table_number, o.order_items?.[0]?.notes).isOnline)
+      .map(formatOnlineTicket);
+
     return NextResponse.json({
       ok: true,
       authenticated: true,
@@ -221,6 +314,10 @@ export async function GET() {
       },
       tables,
       openOrders: openOrders.map((o) => ({ ...o, prepEstimate: getOrderPrepTime(o.id) })),
+      onlineOrders: {
+        active: activeOnlineOrders,
+        completed: completedOnlineOrders,
+      },
       metrics: {
         todayRevenue: Math.round(todayRevenue),
         dispatchedOrders: dispatchedOrdersCount,

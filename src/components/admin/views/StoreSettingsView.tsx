@@ -71,7 +71,7 @@ export default function StoreSettingsView({
   const [serviceChargePct, setServiceChargePct] = useState(5);
 
   // Branding & Theme States
-  const [selectedTheme, setSelectedTheme] = useState<"amber" | "crimson" | "saffron" | "emerald" | "charcoal">("amber");
+  const [selectedTheme, setSelectedTheme] = useState<"amber" | "crimson" | "saffron" | "emerald" | "charcoal" | "purple">("amber");
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [tagline, setTagline] = useState<string>("");
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);

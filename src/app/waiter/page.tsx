@@ -84,6 +84,29 @@ interface PendingApprovalBatch {
   createdAt: string;
 }
 
+interface OnlineOrderTicket {
+  id: string;
+  orderNumber: string;
+  type: "delivery" | "pickup";
+  customerName: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  status: string;
+  stage: "received" | "preparing" | "ready";
+  openedAt: string;
+  closedAt?: string;
+  totalAmount: number;
+  paymentMode: string;
+  paymentStatus: string;
+  items: {
+    name: string;
+    qty: number;
+    price: number;
+    isVeg: boolean;
+    status: string;
+  }[];
+}
+
 export default function WaiterPortalPage() {
   const router = useRouter();
 
@@ -94,10 +117,16 @@ export default function WaiterPortalPage() {
   const [openOrders, setOpenOrders] = useState<OpenOrderRecord[]>([]);
   const [waiterCalls, setWaiterCalls] = useState<WaiterCallRecord[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalBatch[]>([]);
+  const [onlineOrders, setOnlineOrders] = useState<{
+    active: OnlineOrderTicket[];
+    completed: OnlineOrderTicket[];
+  }>({ active: [], completed: [] });
   const [menuItems, setMenuItems] = useState<MenuItemRef[]>([]);
 
   // UI Control State
-  const [activeTab, setActiveTab] = useState<"floor" | "approvals" | "calls">("floor");
+  const [activeTab, setActiveTab] = useState<"floor" | "online" | "approvals" | "calls">("floor");
+  const [onlineFilter, setOnlineFilter] = useState<"active" | "completed">("active");
+  const [isSettlingOnlineId, setIsSettlingOnlineId] = useState<string | null>(null);
   const [floorFilter, setFloorFilter] = useState<"all" | "occupied" | "calling" | "empty">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -220,6 +249,12 @@ export default function WaiterPortalPage() {
         setOpenOrders(newOrders);
         setWaiterCalls(newCalls);
         setPendingApprovals(newApprovals);
+        if (data.onlineOrders) {
+          setOnlineOrders({
+            active: data.onlineOrders.active || [],
+            completed: data.onlineOrders.completed || [],
+          });
+        }
         setLastSyncTime(new Date());
 
         // Audio Triggers
@@ -448,6 +483,39 @@ export default function WaiterPortalPage() {
       alert(err.message || "Failed to settle and free table");
     } finally {
       setIsSettling(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // SETTLE DIRECT ONLINE ORDER (Delivery / Pickup)
+  // ─────────────────────────────────────────────────────────────
+  const handleSettleOnlineOrder = async (
+    order: OnlineOrderTicket,
+    mode: "cash" | "upi" = "cash"
+  ) => {
+    setIsSettlingOnlineId(order.id);
+    try {
+      const res = await fetch("/api/bills/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          tableNumber: order.orderNumber,
+          paymentMode: mode,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to settle online order");
+
+      await fetchDashboardData(true);
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([20, 30, 20]);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to settle online order");
+    } finally {
+      setIsSettlingOnlineId(null);
     }
   };
 
@@ -824,15 +892,15 @@ export default function WaiterPortalPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          3. SEGMENTED TAB SELECTOR (Floor | Approvals | Calls)
+          3. SEGMENTED TAB SELECTOR (Floor | Online | Approvals | Calls)
          ───────────────────────────────────────────────────────────── */}
-      <div className="bg-slate-900 border-b border-slate-800 px-3.5 sm:px-5 py-2">
-        <div className="grid grid-cols-3 gap-2 max-w-xl mx-auto">
+      <div className="bg-slate-900 border-b border-slate-800 px-2.5 sm:px-5 py-2">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 max-w-2xl mx-auto">
           {/* Tab 1: Floor Tables */}
           <button
             type="button"
             onClick={() => setActiveTab("floor")}
-            className={`py-2 px-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
               activeTab === "floor"
                 ? "bg-amber-500 text-slate-950 shadow-md font-black"
                 : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
@@ -840,21 +908,43 @@ export default function WaiterPortalPage() {
           >
             <span>🪑 Floor</span>
             <span
-              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+              className={`text-[9px] sm:text-[10px] font-mono px-1 sm:px-1.5 py-0.2 rounded-full ${
                 activeTab === "floor"
                   ? "bg-slate-950/20 text-slate-950 font-bold"
                   : "bg-slate-700 text-slate-300"
               }`}
             >
-              {occupiedCount}/{tables.length}
+              {occupiedCount}/{physicalTables.length}
             </span>
           </button>
 
-          {/* Tab 2: Approvals Queue */}
+          {/* Tab 2: Dedicated Online Orders */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("online")}
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer relative ${
+              activeTab === "online"
+                ? "bg-emerald-500 text-slate-950 shadow-md font-black"
+                : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            <span>🛵 Online</span>
+            {onlineOrders.active.length > 0 ? (
+              <span className="bg-emerald-400 text-slate-950 text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+                {onlineOrders.active.length}
+              </span>
+            ) : (
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono">
+                {onlineOrders.completed.length}
+              </span>
+            )}
+          </button>
+
+          {/* Tab 3: Approvals Queue */}
           <button
             type="button"
             onClick={() => setActiveTab("approvals")}
-            className={`py-2 px-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer relative ${
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer relative ${
               activeTab === "approvals"
                 ? "bg-amber-500 text-slate-950 shadow-md font-black"
                 : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
@@ -862,19 +952,19 @@ export default function WaiterPortalPage() {
           >
             <span>⚡ Approvals</span>
             {approvalsCount > 0 ? (
-              <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full animate-bounce">
+              <span className="bg-amber-400 text-slate-950 text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full animate-bounce">
                 {approvalsCount}
               </span>
             ) : (
-              <span className="text-[10px] text-slate-500 font-mono">0</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono">0</span>
             )}
           </button>
 
-          {/* Tab 3: Waiter Calls */}
+          {/* Tab 4: Waiter Calls */}
           <button
             type="button"
             onClick={() => setActiveTab("calls")}
-            className={`py-2 px-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer relative ${
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer relative ${
               activeTab === "calls"
                 ? "bg-amber-500 text-slate-950 shadow-md font-black"
                 : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
@@ -882,11 +972,11 @@ export default function WaiterPortalPage() {
           >
             <span>🔔 Buzzers</span>
             {callsCount > 0 ? (
-              <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+              <span className="bg-rose-500 text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
                 {callsCount}
               </span>
             ) : (
-              <span className="text-[10px] text-slate-500 font-mono">0</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono">0</span>
             )}
           </button>
         </div>
@@ -1173,6 +1263,317 @@ export default function WaiterPortalPage() {
                   );
                 })}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════
+            TAB ONLINE: DEDICATED ONLINE ORDERS (Delivery & Pickup)
+           ═══════════════════════════════════════════════════════════ */}
+        {activeTab === "online" && (
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {/* Header & Mini Sub-filter */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-extrabold text-white">
+                    🛵 Online & Direct Orders
+                  </h2>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Direct Store
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Delivery and takeaway orders separated from dining room floor
+                </p>
+              </div>
+
+              {/* Sub-filter pills: Active vs Completed */}
+              <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOnlineFilter("active")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    onlineFilter === "active"
+                      ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <span>🔥 Running</span>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                      onlineFilter === "active"
+                        ? "bg-slate-950/20 text-slate-950"
+                        : "bg-slate-800 text-slate-300"
+                    }`}
+                  >
+                    {onlineOrders.active.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOnlineFilter("completed")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    onlineFilter === "completed"
+                      ? "bg-slate-100 text-slate-950 font-black shadow-xs"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <span>✅ Completed</span>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                      onlineFilter === "completed"
+                        ? "bg-slate-900 text-slate-950"
+                        : "bg-slate-800 text-slate-300"
+                    }`}
+                  >
+                    {onlineOrders.completed.length}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* List View */}
+            {onlineFilter === "active" ? (
+              onlineOrders.active.length === 0 ? (
+                <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-8 space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl mx-auto">
+                    🛵
+                  </div>
+                  <h3 className="text-sm font-bold text-white">No Active Online Orders</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    When customers place home delivery or pickup orders from your digital store, they will appear here separately from table orders.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {onlineOrders.active.map((ord) => {
+                    const elapsed = Math.floor(
+                      (Date.now() - new Date(ord.openedAt).getTime()) / 60000
+                    );
+                    const isSettlingThis = isSettlingOnlineId === ord.id;
+
+                    return (
+                      <div
+                        key={ord.id}
+                        className="rounded-2xl border border-slate-800 bg-slate-900/95 p-4 shadow-xl flex flex-col justify-between gap-3 relative overflow-hidden"
+                      >
+                        {/* Top Indicator Strip */}
+                        <div
+                          className={`absolute top-0 left-0 right-0 h-1 ${
+                            ord.stage === "ready"
+                              ? "bg-emerald-500"
+                              : ord.stage === "preparing"
+                              ? "bg-amber-500 animate-pulse"
+                              : "bg-cyan-500"
+                          }`}
+                        />
+
+                        {/* Order Header */}
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg border ${
+                                  ord.type === "pickup"
+                                    ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                    : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                }`}
+                              >
+                                {ord.type === "pickup" ? "🛍️ Takeaway" : "🛵 Delivery"}
+                              </span>
+                              <span className="text-xs font-mono font-extrabold text-white">
+                                #{ord.orderNumber}
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-400">
+                              {elapsed < 1 ? "Just now" : `${elapsed}m ago`}
+                            </span>
+                          </div>
+
+                          {/* Customer & Destination */}
+                          <div className="mt-2.5 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-extrabold text-white">
+                                {ord.customerName}
+                              </span>
+                              {ord.customerPhone && (
+                                <a
+                                  href={`tel:${ord.customerPhone}`}
+                                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20"
+                                >
+                                  <i className="fa-solid fa-phone text-[9px]" />
+                                  <span>{ord.customerPhone}</span>
+                                </a>
+                              )}
+                            </div>
+                            {ord.type === "delivery" && ord.deliveryAddress && (
+                              <p className="text-[11px] text-slate-400 flex items-start gap-1 leading-snug pt-0.5">
+                                <span className="text-rose-400 shrink-0">📍</span>
+                                <span>{ord.deliveryAddress}</span>
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Order Stage Badge */}
+                          <div className="mt-2 flex items-center gap-2">
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                ord.stage === "ready"
+                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                  : ord.stage === "preparing"
+                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse"
+                                  : "bg-slate-800 text-slate-400 border border-slate-700"
+                              }`}
+                            >
+                              {ord.stage === "ready"
+                                ? "✅ Ready for Handover"
+                                : ord.stage === "preparing"
+                                ? "🔥 Cooking in Kitchen"
+                                : "⏳ Order Placed"}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {ord.items.length} items
+                            </span>
+                          </div>
+
+                          {/* Dishes Mini List */}
+                          <div className="mt-2.5 space-y-1 bg-slate-950/40 rounded-xl p-2.5 border border-slate-800/80 max-h-36 overflow-y-auto">
+                            {ord.items.map((it, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between text-xs text-slate-300"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                      it.isVeg ? "bg-emerald-400" : "bg-rose-400"
+                                    }`}
+                                  />
+                                  <span className="font-medium truncate">
+                                    {it.qty}× {it.name}
+                                  </span>
+                                </div>
+                                <span className="font-mono text-[11px] text-slate-400 shrink-0">
+                                  ₹{it.price * it.qty}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Bill Amount & Settle Actions */}
+                        <div className="pt-2 border-t border-slate-800 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                                Total Bill
+                              </span>
+                              <span className="text-base font-black text-white font-mono">
+                                ₹{ord.totalAmount}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                ord.paymentStatus === "paid"
+                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                  : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                              }`}
+                            >
+                              {ord.paymentStatus === "paid"
+                                ? "Paid"
+                                : "Collect at Delivery"}
+                            </span>
+                          </div>
+
+                          {/* Quick 1-Tap Settle Buttons */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              disabled={isSettlingThis}
+                              onClick={() => handleSettleOnlineOrder(ord, "cash")}
+                              className="py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black text-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                              {isSettlingThis ? (
+                                <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+                              ) : (
+                                <i className="fa-solid fa-money-bill-wave text-xs" />
+                              )}
+                              <span>Cash Settled</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isSettlingThis}
+                              onClick={() => handleSettleOnlineOrder(ord, "upi")}
+                              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 disabled:opacity-50 text-cyan-300 font-bold text-xs border border-cyan-500/30 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              {isSettlingThis ? (
+                                <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+                              ) : (
+                                <i className="fa-solid fa-qrcode text-xs" />
+                              )}
+                              <span>UPI Settled</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              /* Completed Orders List */
+              onlineOrders.completed.length === 0 ? (
+                <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-8 space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl mx-auto">
+                    ✅
+                  </div>
+                  <h3 className="text-sm font-bold text-white">No Completed Orders Today</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Orders settled and dispatched today will be archived here for reference.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {onlineOrders.completed.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm shrink-0">
+                          {ord.type === "pickup" ? "🛍️" : "🛵"}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-xs sm:text-sm">
+                              #{ord.orderNumber} · {ord.customerName}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
+                              Delivered
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            {ord.items.length} items · Paid via {ord.paymentMode.toUpperCase()}
+                            {ord.closedAt && ` · ${new Date(ord.closedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right sm:border-l sm:border-slate-800 sm:pl-4 shrink-0">
+                        <span className="text-xs font-extrabold text-white font-mono block">
+                          ₹{ord.totalAmount}
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-medium">
+                          ✓ Settled
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
         )}

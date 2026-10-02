@@ -602,128 +602,105 @@ export default function OnlineOrderingPage({
       data-theme={theme}
       className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans select-none pb-28"
     >
-      {/* Top Banner Header with Logo and Theme Branding */}
-      <header className="sticky top-0 z-30 px-3.5 sm:px-5 py-3 bg-stone-900/95 border-b border-stone-800 backdrop-blur-md">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+      {/* Top Banner Header with Clean Logo and Theme Branding */}
+      <header className="sticky top-0 z-30 bg-stone-900/95 border-b border-stone-800 backdrop-blur-md">
+        <div className="max-w-3xl mx-auto px-3.5 sm:px-5 py-2.5 flex items-center justify-between gap-3">
           {/* Logo & Restaurant Title */}
           <div className="flex items-center gap-2.5 min-w-0">
             {branding?.logoUrl ? (
               <img
                 src={branding.logoUrl}
                 alt={restaurant?.name || "Logo"}
-                className="w-10 h-10 rounded-xl object-cover border border-stone-800 shadow-md shrink-0 bg-stone-900"
+                className="w-11 h-11 rounded-2xl object-cover border border-stone-800 shadow-md shrink-0 bg-stone-900"
               />
             ) : (
               <div
-                className={`w-10 h-10 rounded-xl ${themeStyles.accentBg} flex items-center justify-center text-white font-black text-base shadow-md shrink-0`}
+                className={`w-11 h-11 rounded-2xl ${themeStyles.accentBg} flex items-center justify-center text-white font-black text-lg shadow-md shrink-0`}
               >
                 {(restaurant?.name || "R")[0].toUpperCase()}
               </div>
             )}
 
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${themeStyles.accentText}`}>
-                  Direct Online Store
-                </span>
-                {recentOrder && (
-                  <button
-                    type="button"
-                    onClick={() => setIsTrackOrderOpen(true)}
-                    className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse cursor-pointer"
-                  >
-                    <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                    <span>My Order</span>
-                  </button>
-                )}
-              </div>
-              <h1 className="text-sm sm:text-base font-black tracking-tight text-white truncate">
+              <h1 className="text-sm sm:text-base font-black tracking-tight text-white truncate leading-tight">
                 {restaurant?.name || "Restaurant"}
               </h1>
-              {branding?.tagline ? (
-                <p className="text-[10px] text-stone-400 truncate max-w-[180px] sm:max-w-xs">
-                  {branding.tagline}
-                </p>
-              ) : (
-                <div className="flex items-center gap-2 text-[10px] text-stone-400 mt-0.5">
-                  <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Accepting Orders</span>
-                  </span>
-                  <span>•</span>
-                  <span>~{deliverySettings?.estimatedPrepMinutes || 25}m prep</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-[10px] text-stone-400 mt-0.5">
+                <span className="flex items-center gap-1 text-emerald-400 font-bold shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Online Store</span>
+                </span>
+                <span>•</span>
+                <span className="truncate">~{deliverySettings?.estimatedPrepMinutes || 25}m prep</span>
+              </div>
             </div>
           </div>
 
-          {/* Delivery / Pickup Mode Switcher & My Order Trigger */}
-          <div className="flex items-center gap-2 shrink-0">
-            {recentOrder && (
+          {/* Delivery / Pickup Mode Switcher */}
+          <div className="flex bg-stone-950 p-1 rounded-xl border border-stone-800 text-xs font-bold shrink-0">
+            {deliverySettings?.deliveryEnabled && (
               <button
                 type="button"
-                onClick={() => setIsTrackOrderOpen(true)}
-                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${themeStyles.accentSoft}`}
+                onClick={() => setOrderType("delivery")}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  orderType === "delivery"
+                    ? themeStyles.pillActive
+                    : "text-stone-400 hover:text-white"
+                }`}
               >
-                <i className="fa-solid fa-clock-rotate-left" />
-                <span>Track {recentOrder.orderNumber}</span>
+                <i className="fa-solid fa-motorcycle text-[11px]" />
+                <span>Delivery</span>
               </button>
             )}
 
-            <div className="flex bg-stone-950 p-1 rounded-xl border border-stone-800 text-xs font-bold">
-              {deliverySettings?.deliveryEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setOrderType("delivery")}
-                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    orderType === "delivery"
-                      ? themeStyles.pillActive
-                      : "text-stone-400 hover:text-white"
-                  }`}
-                >
-                  <i className="fa-solid fa-motorcycle text-[11px]" />
-                  <span>Delivery</span>
-                </button>
-              )}
-
-              {deliverySettings?.pickupEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setOrderType("pickup")}
-                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    orderType === "pickup"
-                      ? themeStyles.pillActive
-                      : "text-stone-400 hover:text-white"
-                  }`}
-                >
-                  <i className="fa-solid fa-bag-shopping text-[11px]" />
-                  <span>Pickup</span>
-                </button>
-              )}
-            </div>
+            {deliverySettings?.pickupEnabled && (
+              <button
+                type="button"
+                onClick={() => setOrderType("pickup")}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  orderType === "pickup"
+                    ? themeStyles.pillActive
+                    : "text-stone-400 hover:text-white"
+                }`}
+              >
+                <i className="fa-solid fa-bag-shopping text-[11px]" />
+                <span>Pickup</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Dedicated Live Active Order Alert Bar (High Contrast, Never Overlapping) */}
+        {recentOrder && (
+          <div
+            onClick={() => setIsTrackOrderOpen(true)}
+            className="w-full bg-gradient-to-r from-emerald-950/90 via-stone-900 to-emerald-950/90 border-t border-emerald-500/30 px-3.5 sm:px-5 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-stone-900 transition-all shadow-md group"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div className="min-w-0">
+                <span className="font-bold text-white truncate inline-block mr-1.5">
+                  Active Order #{recentOrder.orderNumber}
+                </span>
+                <span className="text-[11px] text-emerald-300 font-mono hidden xs:inline">
+                  (₹{recentOrder.total} · {recentOrder.items.length} items)
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform">
+              <span>View Bill & Status</span>
+              <i className="fa-solid fa-arrow-right text-[10px]" />
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content Container */}
       <main className="max-w-3xl mx-auto w-full px-3.5 sm:px-5 pt-4 space-y-4">
-        {/* Floating Active Order Notice for Mobile */}
-        {recentOrder && (
-          <div
-            onClick={() => setIsTrackOrderOpen(true)}
-            className={`p-2.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all active:scale-[0.99] ${themeStyles.accentSoft}`}
-          >
-            <div className="flex items-center gap-2 text-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="font-bold">Active Order {recentOrder.orderNumber}</span>
-              <span className="text-stone-400">• ~{recentOrder.estimatedPrepMinutes}m prep</span>
-            </div>
-            <span className="text-[11px] font-bold underline flex items-center gap-1">
-              <span>View Order</span>
-              <i className="fa-solid fa-chevron-right text-[9px]" />
-            </span>
-          </div>
-        )}
 
         {/* Notice Banner */}
         {orderType === "delivery" && deliverySettings?.deliveryFee ? (
