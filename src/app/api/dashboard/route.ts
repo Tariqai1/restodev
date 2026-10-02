@@ -238,6 +238,7 @@ export async function GET() {
       let customerName = "";
       let customerPhone = "";
       let deliveryAddress = "";
+      let customerCoords: { lat: number; lng: number } | null = null;
 
       if (notes) {
         const match = notes.match(/\[(?:🛵 Delivery|🛍️ Pickup):\s*([^(\]]+)(?:\(([^)]+)\))?(?:\s*-\s*([^\]]+))?\]/);
@@ -246,9 +247,18 @@ export async function GET() {
           customerPhone = match[2]?.trim() || "";
           deliveryAddress = match[3]?.trim() || "";
         }
+
+        const gpsMatch = notes.match(/\[📍 GPS:\s*([0-9.-]+),\s*([0-9.-]+)\]/);
+        if (gpsMatch) {
+          customerCoords = {
+            lat: parseFloat(gpsMatch[1]),
+            lng: parseFloat(gpsMatch[2]),
+          };
+          deliveryAddress = deliveryAddress.replace(/\s*\[📍 GPS:[^\]]+\]/, "").trim();
+        }
       }
 
-      return { isOnline, type, customerName, customerPhone, deliveryAddress };
+      return { isOnline, type, customerName, customerPhone, deliveryAddress, customerCoords };
     };
 
     const formatOnlineTicket = (ord: any) => {
@@ -273,6 +283,7 @@ export async function GET() {
         customerName: details.customerName || "Online Guest",
         customerPhone: details.customerPhone,
         deliveryAddress: details.deliveryAddress,
+        customerCoords: details.customerCoords,
         status: ord.status, // "open" | "closed"
         stage: stage as "received" | "preparing" | "ready",
         openedAt: ord.opened_at,

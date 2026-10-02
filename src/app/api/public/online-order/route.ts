@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDeliverySettings, getDishHalfPrice } from "@/lib/platform/state";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import {
+  checkDeliveryServiceability,
+  DEFAULT_RESTO_COORDINATES,
+} from "@/lib/geo/geo-utils";
 
 type OrderItemPayload = {
   menuItemId: string;
@@ -21,6 +25,8 @@ export async function POST(req: NextRequest) {
       customerName,
       customerPhone,
       deliveryAddress,
+      customerLat,
+      customerLng,
       items,
       notes,
       paymentMode = "cash",
@@ -30,6 +36,8 @@ export async function POST(req: NextRequest) {
       customerName: string;
       customerPhone: string;
       deliveryAddress?: string;
+      customerLat?: number;
+      customerLng?: number;
       items: OrderItemPayload[];
       notes?: string;
       paymentMode?: "cash" | "upi" | "card";
@@ -128,6 +136,30 @@ export async function POST(req: NextRequest) {
 
     if (orderType === "delivery" && !deliveryEnabled) {
       return NextResponse.json({ message: "Home delivery is not offered at this time." }, { status: 400 });
+    }
+
+    // Geofencing & Delivery Radius Validation (Zepto/Swiggy Style)
+    if (
+      orderType === "delivery" &&
+      typeof customerLat === "number" &&
+      typeof customerLng === "number"
+    ) {
+      const restoCoords = {
+        lat: Number(dbDelivery?.latitude) || fallbackSettings.latitude || DEFAULT_RESTO_COORDINATES.lat,
+        lng: Number(dbDelivery?.longitude) || fallbackSettings.longitude || DEFAULT_RESTO_COORDINATES.lng,
+      };
+      const deliveryRadiusKm =
+        Number(dbDelivery?.delivery_radius_km) || fallbackSettings.deliveryRadiusKm || 5;
+
+      const serviceCheck = checkDeliveryServiceability(
+        restoCoords,
+        { lat: customerLat, lng: customerLng },
+        deliveryRadiusKm
+      );
+
+      if (!serviceCheck.isServiceable) {
+        return NextResponse.json({ message: serviceCheck.message }, { status: 400 });
+      }
     }
 
     // 3. Price resolution from database
@@ -277,9 +309,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Insert Order Items (with clear delivery / pickup banner on notes)
+    const geoTag =
+      typeof customerLat === "number" && typeof customerLng === "number"
+        ? ` [📍 GPS: ${customerLat.toFixed(5)},${customerLng.toFixed(5)}]`
+        : "";
+
     const channelTag =
       orderType === "delivery"
-        ? `[🛵 Delivery: ${customerName.trim()} (${customerPhone.trim()}) - ${deliveryAddress?.trim() || ""}]`
+        ? `[🛵 Delivery: ${customerName.trim()} (${customerPhone.trim()}) - ${deliveryAddress?.trim() || ""}${geoTag}]`
         : `[🛍️ Pickup: ${customerName.trim()} (${customerPhone.trim()})]`;
 
     const itemsToInsert = preparedItems.map((pi, idx) => ({

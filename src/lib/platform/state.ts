@@ -961,6 +961,8 @@ export type DeliverySettings = {
   deliveryFee: number;
   minimumOrderAmount: number;
   estimatedPrepMinutes: number;
+  latitude?: number;
+  longitude?: number;
   slug?: string;
   updatedAt?: string;
 };
@@ -973,6 +975,8 @@ export const DEFAULT_DELIVERY_SETTINGS: Omit<DeliverySettings, "restaurantId"> =
   deliveryFee: 0,
   minimumOrderAmount: 0,
   estimatedPrepMinutes: 25,
+  latitude: 12.9716,
+  longitude: 77.5946,
   slug: "",
 };
 

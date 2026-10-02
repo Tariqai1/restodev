@@ -98,6 +98,7 @@ interface OnlineOrderTicket {
   totalAmount: number;
   paymentMode: string;
   paymentStatus: string;
+  customerCoords?: { lat: number; lng: number } | null;
   items: {
     name: string;
     qty: number;
@@ -1409,10 +1410,25 @@ export default function WaiterPortalPage() {
                               )}
                             </div>
                             {ord.type === "delivery" && ord.deliveryAddress && (
-                              <p className="text-[11px] text-slate-400 flex items-start gap-1 leading-snug pt-0.5">
-                                <span className="text-rose-400 shrink-0">📍</span>
-                                <span>{ord.deliveryAddress}</span>
-                              </p>
+                              <div className="pt-1.5 flex items-center justify-between gap-2 border-t border-slate-900 mt-1">
+                                <p className="text-[11px] text-slate-400 flex items-start gap-1 leading-snug min-w-0">
+                                  <span className="text-rose-400 shrink-0">📍</span>
+                                  <span className="truncate">{ord.deliveryAddress}</span>
+                                </p>
+                                <a
+                                  href={`https://www.google.com/maps/dir/?api=1&destination=${
+                                    ord.customerCoords
+                                      ? `${ord.customerCoords.lat},${ord.customerCoords.lng}`
+                                      : encodeURIComponent(ord.deliveryAddress)
+                                  }`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 bg-cyan-950/70 border border-cyan-800/80 px-2 py-0.5 rounded-lg flex items-center gap-1 shrink-0 active:scale-95 transition-all shadow-xs"
+                                  title="Navigate using Google Maps"
+                                >
+                                  <span>🧭 Maps</span>
+                                </a>
+                              </div>
                             )}
                           </div>
 

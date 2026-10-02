@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo, use } from "react";
 import Link from "next/link";
 import FoodChefLoader from "@/components/FoodChefLoader";
+import MapLocationPicker, { SelectedLocationData } from "@/components/location/MapLocationPicker";
+import LiveDeliveryMapTracker from "@/components/location/LiveDeliveryMapTracker";
 
 interface MenuItem {
   id: string;
@@ -29,6 +31,8 @@ interface DeliverySettings {
   deliveryFee: number;
   minimumOrderAmount: number;
   estimatedPrepMinutes: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface RestaurantData {
@@ -60,6 +64,7 @@ interface PlacedOrderSummary {
   customerName: string;
   customerPhone: string;
   deliveryAddress?: string | null;
+  customerCoords?: { lat: number; lng: number } | null;
   subtotal: number;
   taxAmount: number;
   deliveryFee: number;
@@ -104,6 +109,8 @@ export default function OnlineOrderingPage({
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocationData | null>(null);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [orderNotes, setOrderNotes] = useState("");
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi">("cash");
 
@@ -365,6 +372,8 @@ export default function OnlineOrderingPage({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() : null,
+        customerLat: selectedLocation?.lat,
+        customerLng: selectedLocation?.lng,
         items: cartItemsList.map((it) => ({
           menuItemId: it.menuItemId,
           portion: it.portion,
@@ -393,6 +402,7 @@ export default function OnlineOrderingPage({
         customerName: data.customerName,
         customerPhone: data.customerPhone,
         deliveryAddress: data.deliveryAddress,
+        customerCoords: selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : null,
         subtotal: data.subtotal,
         taxAmount: data.taxAmount,
         deliveryFee: data.deliveryFee,
@@ -1023,18 +1033,79 @@ export default function OnlineOrderingPage({
                 </div>
 
                 {orderType === "delivery" && (
-                  <div>
-                    <label className="block font-semibold text-stone-300 mb-1">
-                      Complete Delivery Address *
-                    </label>
-                    <textarea
-                      required
-                      rows={3}
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      placeholder="Flat / House #, Building name, Street, Landmark"
-                      className={`w-full p-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none resize-none ${themeStyles.accentRing}`}
-                    />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block font-semibold text-stone-300">
+                        Delivery Address *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsMapPickerOpen(true)}
+                        className={`text-[11px] font-bold ${themeStyles.accentText} hover:underline flex items-center gap-1 cursor-pointer`}
+                      >
+                        <span>📍 {selectedLocation ? "Change Pin" : "Pick on Map"}</span>
+                      </button>
+                    </div>
+
+                    {selectedLocation ? (
+                      /* Verified Address Card (Zepto / Swiggy Style) */
+                      <div className="p-3 rounded-2xl bg-stone-950 border border-emerald-500/50 space-y-1.5 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            {selectedLocation.tag === "home" ? "🏠 Home" : selectedLocation.tag === "work" ? "🏢 Work" : "📍 Destination"}
+                          </span>
+                          <span className="text-[11px] font-mono text-emerald-400 font-bold">
+                            ✓ {selectedLocation.distanceKm} km away
+                          </span>
+                        </div>
+                        <p className="text-xs text-white font-bold leading-snug">
+                          {selectedLocation.flatNo}
+                        </p>
+                        <p className="text-[11px] text-stone-400 leading-snug">
+                          {selectedLocation.formattedAddress}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsMapPickerOpen(true)}
+                          className="text-[10px] font-bold text-amber-400 hover:text-amber-300 underline pt-0.5 cursor-pointer"
+                        >
+                          Adjust location on map
+                        </button>
+                      </div>
+                    ) : (
+                      /* Prominent Map Picker Button */
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsMapPickerOpen(true)}
+                          className="w-full py-3 px-3.5 rounded-2xl bg-gradient-to-r from-emerald-600/30 to-teal-600/30 border border-emerald-500/40 text-emerald-300 hover:border-emerald-400 font-bold text-xs flex items-center justify-between transition-all cursor-pointer shadow-md active:scale-98"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">📍</span>
+                            <div className="text-left">
+                              <span className="block font-black text-white text-xs leading-tight">
+                                Select Address on Live Map
+                              </span>
+                              <span className="text-[10px] text-emerald-300/80 font-normal">
+                                Pinpoint doorstep & check delivery radius
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-xs font-black bg-emerald-500 text-slate-950 px-2.5 py-1 rounded-xl">
+                            Locate →
+                          </span>
+                        </button>
+
+                        <textarea
+                          required
+                          rows={2}
+                          value={deliveryAddress}
+                          onChange={(e) => setDeliveryAddress(e.target.value)}
+                          placeholder="Or type Flat #, Building, Street, Landmark manually..."
+                          className={`w-full p-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-hidden text-xs resize-none ${themeStyles.accentRing}`}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1169,6 +1240,26 @@ export default function OnlineOrderingPage({
 
             {/* Scrollable details */}
             <div className="flex-1 overflow-y-auto space-y-4 py-3 text-xs overscroll-contain">
+              {/* Swiggy/Zepto-grade Live Map Delivery Tracker */}
+              {recentOrder.orderType === "delivery" && (
+                <div className="mb-2">
+                  <LiveDeliveryMapTracker
+                    orderNumber={recentOrder.orderNumber}
+                    stage="preparing"
+                    customerAddress={recentOrder.deliveryAddress || "Your location"}
+                    customerCoords={recentOrder.customerCoords}
+                    restoCoords={
+                      deliverySettings?.latitude && deliverySettings?.longitude
+                        ? { lat: deliverySettings.latitude, lng: deliverySettings.longitude }
+                        : undefined
+                    }
+                    restoName={restaurant?.name || "Kitchen"}
+                    estimatedMinutes={recentOrder.estimatedPrepMinutes || 25}
+                    customerPhone={recentOrder.customerPhone}
+                  />
+                </div>
+              )}
+
               {/* Order Number & Header */}
               <div className="p-3.5 rounded-2xl bg-stone-950/70 border border-stone-800 flex items-center justify-between">
                 <div>
@@ -1253,6 +1344,25 @@ export default function OnlineOrderingPage({
           </div>
         </div>
       )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          6. MODAL: Map Location Picker (Zepto/Swiggy Style)
+         ───────────────────────────────────────────────────────────── */}
+      <MapLocationPicker
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        restoCoords={
+          deliverySettings?.latitude && deliverySettings?.longitude
+            ? { lat: deliverySettings.latitude, lng: deliverySettings.longitude }
+            : undefined
+        }
+        restoName={restaurant?.name || "Our Restaurant"}
+        deliveryRadiusKm={deliverySettings?.deliveryRadiusKm || 5}
+        onConfirmLocation={(loc) => {
+          setSelectedLocation(loc);
+          setDeliveryAddress(loc.formattedAddress);
+        }}
+      />
     </div>
   );
 }

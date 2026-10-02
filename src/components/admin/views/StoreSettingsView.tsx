@@ -89,6 +89,9 @@ export default function StoreSettingsView({
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [minimumOrderAmount, setMinimumOrderAmount] = useState(0);
   const [estimatedPrepMinutes, setEstimatedPrepMinutes] = useState(25);
+  const [restoLat, setRestoLat] = useState<number>(12.9716);
+  const [restoLng, setRestoLng] = useState<number>(77.5946);
+  const [isDetectingOutletGps, setIsDetectingOutletGps] = useState(false);
   const [slug, setSlug] = useState("");
   const [restaurantId, setRestaurantId] = useState("");
 
@@ -118,6 +121,8 @@ export default function StoreSettingsView({
             setDeliveryFee(Number(data.settings.deliveryFee) || 0);
             setMinimumOrderAmount(Number(data.settings.minimumOrderAmount) || 0);
             setEstimatedPrepMinutes(Number(data.settings.estimatedPrepMinutes) || 25);
+            if (data.settings.latitude) setRestoLat(Number(data.settings.latitude));
+            if (data.settings.longitude) setRestoLng(Number(data.settings.longitude));
             setSlug(data.settings.slug || data.restaurant?.slug || "");
           }
           if (data.restaurant) {
@@ -193,6 +198,8 @@ export default function StoreSettingsView({
             deliveryFee,
             minimumOrderAmount,
             estimatedPrepMinutes,
+            latitude: restoLat,
+            longitude: restoLng,
             slug,
           }),
         }),
@@ -795,6 +802,76 @@ export default function StoreSettingsView({
                   </span>
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">Shown as "~{estimatedPrepMinutes}m ready"</span>
+              </div>
+            </div>
+
+            {/* Outlet Map & GPS Coordinates (Used for Geofence & Delivery Radius Check) */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <span className="text-emerald-600">📍</span>
+                    <span>Outlet GPS Coordinates & Delivery Geofence Center</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Used to calculate exact customer distance and enforce the {deliveryRadiusKm} km delivery radius.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isDetectingOutletGps}
+                  onClick={() => {
+                    if (!navigator.geolocation) {
+                      alert("Geolocation is not supported by your browser.");
+                      return;
+                    }
+                    setIsDetectingOutletGps(true);
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setRestoLat(pos.coords.latitude);
+                        setRestoLng(pos.coords.longitude);
+                        setIsDetectingOutletGps(false);
+                      },
+                      (err) => {
+                        console.warn(err);
+                        setIsDetectingOutletGps(false);
+                        alert("Could not detect location. Please check browser location permissions.");
+                      },
+                      { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-xs"
+                >
+                  <i className={`fa-solid ${isDetectingOutletGps ? "fa-spinner fa-spin" : "fa-location-crosshairs"} text-xs`} />
+                  <span>{isDetectingOutletGps ? "Locating..." : "Auto-Detect My Outlet GPS"}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-600 mb-1">
+                    Outlet Latitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={restoLat}
+                    onChange={(e) => setRestoLat(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-600 mb-1">
+                    Outlet Longitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={restoLng}
+                    onChange={(e) => setRestoLng(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-xs focus:outline-none focus:border-purple-500"
+                  />
+                </div>
               </div>
             </div>
           </div>
