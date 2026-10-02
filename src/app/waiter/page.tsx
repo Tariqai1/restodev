@@ -92,13 +92,19 @@ interface OnlineOrderTicket {
   customerPhone?: string;
   deliveryAddress?: string;
   status: string;
-  stage: "received" | "preparing" | "ready";
+  stage: "received" | "preparing" | "ready" | "dispatched";
   openedAt: string;
   closedAt?: string;
   totalAmount: number;
   paymentMode: string;
   paymentStatus: string;
   customerCoords?: { lat: number; lng: number } | null;
+  dispatch?: {
+    riderName?: string;
+    riderPhone?: string;
+    dispatchedAt?: string;
+    stage?: string;
+  } | null;
   items: {
     name: string;
     qty: number;
@@ -133,6 +139,19 @@ export default function WaiterPortalPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+
+  // Rider Dispatch & Order Cancellation State
+  const [dispatchModalOrder, setDispatchModalOrder] = useState<OnlineOrderTicket | null>(null);
+  const [riderNameInput, setRiderNameInput] = useState("");
+  const [riderPhoneInput, setRiderPhoneInput] = useState("");
+  const [savedRiders, setSavedRiders] = useState<Array<{ id: string; name: string; phone: string }>>([
+    { id: "r1", name: "Rider 1 (In-house)", phone: "" },
+    { id: "r2", name: "Rider 2 (In-house)", phone: "" },
+  ]);
+  const [isDispatchingRider, setIsDispatchingRider] = useState(false);
+  const [cancelModalOrder, setCancelModalOrder] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [cancelReasonText, setCancelReasonText] = useState("Item out of stock");
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
 
   // Audio & Escalation State
   const [soundMutedState, setSoundMutedState] = useState(false);
@@ -517,6 +536,102 @@ export default function WaiterPortalPage() {
       alert(err.message || "Failed to settle online order");
     } finally {
       setIsSettlingOnlineId(null);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // DISPATCH ONLINE ORDER TO RIDER (WhatsApp Integration)
+  // ─────────────────────────────────────────────────────────────
+  const handleDispatchRider = async (
+    order: OnlineOrderTicket,
+    riderName: string,
+    riderPhone: string
+  ) => {
+    if (!riderName.trim()) {
+      alert("Please enter rider name.");
+      return;
+    }
+
+    setIsDispatchingRider(true);
+    try {
+      // 1. Record dispatch in backend
+      await fetch("/api/delivery/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "dispatch_rider",
+          orderId: order.id,
+          riderName: riderName.trim(),
+          riderPhone: riderPhone.trim(),
+        }),
+      });
+
+      // 2. Build pre-formatted WhatsApp briefing
+      const cleanPhone = riderPhone.replace(/[^0-9]/g, "");
+      const itemsList = order.items.map((it) => `• ${it.qty}x ${it.name}`).join("\n");
+      const navLink = order.customerCoords
+        ? `https://www.google.com/maps/dir/?api=1&destination=${order.customerCoords.lat},${order.customerCoords.lng}`
+        : order.deliveryAddress
+        ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.deliveryAddress)}`
+        : "";
+
+      const whatsappText = `🛵 *DELIVERY DISPATCH — ${restaurantName}*\n` +
+        `━━━━━━━━━━━━━━━━━\n` +
+        `🧾 *Order*: ${order.orderNumber}\n` +
+        `👤 *Customer*: ${order.customerName}\n` +
+        `📞 *Customer Phone*: ${order.customerPhone || "N/A"}\n` +
+        `📍 *Delivery Address*: ${order.deliveryAddress || "N/A"}\n` +
+        (navLink ? `🗺️ *GPS Navigation*: ${navLink}\n` : "") +
+        `━━━━━━━━━━━━━━━━━\n` +
+        `🍲 *Food Items*:\n${itemsList}\n` +
+        `━━━━━━━━━━━━━━━━━\n` +
+        `💰 *Bill Total*: ₹${order.totalAmount} (${order.paymentStatus === "paid" ? "✅ Paid Online (Do Not Collect)" : "💵 Collect Cash on Delivery"})\n` +
+        `━━━━━━━━━━━━━━━━━\n` +
+        `_Please pick up order and deliver safely!_`;
+
+      const waUrl = cleanPhone
+        ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(whatsappText)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+
+      window.open(waUrl, "_blank");
+
+      setDispatchModalOrder(null);
+      await fetchDashboardData(true);
+    } catch (err: any) {
+      alert(err.message || "Failed to dispatch rider.");
+    } finally {
+      setIsDispatchingRider(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // CANCEL ORDER (Staff Action with Reason)
+  // ─────────────────────────────────────────────────────────────
+  const handleCancelOrder = async (orderId: string, reason: string) => {
+    setIsCancellingOrder(true);
+    try {
+      const res = await fetch("/api/orders/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          reason,
+          cancelledBy: "staff",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to cancel order");
+
+      setCancelModalOrder(null);
+      await fetchDashboardData(true);
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([30, 50, 30]);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to cancel order");
+    } finally {
+      setIsCancellingOrder(false);
     }
   };
 
@@ -1503,8 +1618,55 @@ export default function WaiterPortalPage() {
                             </span>
                           </div>
 
+                          {/* Rider Dispatch Control for Home Delivery */}
+                          {ord.type === "delivery" && (
+                            <div className="pt-2 border-t border-slate-800/80">
+                              {ord.dispatch?.riderName ? (
+                                <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                                  <div className="flex items-center gap-2 min-w-0 text-xs">
+                                    <span className="text-base">🛵</span>
+                                    <div className="min-w-0">
+                                      <span className="text-[10px] text-emerald-400 font-bold uppercase block font-mono">
+                                        Assigned Rider
+                                      </span>
+                                      <span className="text-white font-bold truncate block">
+                                        {ord.dispatch.riderName}{" "}
+                                        {ord.dispatch.riderPhone && `(${ord.dispatch.riderPhone})`}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDispatchModalOrder(ord);
+                                      setRiderNameInput(ord.dispatch?.riderName || "");
+                                      setRiderPhoneInput(ord.dispatch?.riderPhone || "");
+                                    }}
+                                    className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                    <i className="fa-brands fa-whatsapp text-xs" />
+                                    <span>Resend</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDispatchModalOrder(ord);
+                                    setRiderNameInput("");
+                                    setRiderPhoneInput("");
+                                  }}
+                                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                                >
+                                  <i className="fa-brands fa-whatsapp text-base text-emerald-200" />
+                                  <span>Assign & WhatsApp Delivery Rider</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+
                           {/* Quick 1-Tap Settle Buttons */}
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 gap-2 pt-1">
                             <button
                               type="button"
                               disabled={isSettlingThis}
@@ -1531,6 +1693,30 @@ export default function WaiterPortalPage() {
                                 <i className="fa-solid fa-qrcode text-xs" />
                               )}
                               <span>UPI Settled</span>
+                            </button>
+                          </div>
+
+                          {/* Cancel / Reject Order Action */}
+                          <div className="pt-1 flex items-center justify-between text-xs">
+                            <Link
+                              href="/delivery"
+                              target="_blank"
+                              className="text-[11px] text-slate-400 hover:text-emerald-400 font-medium flex items-center gap-1 transition-colors"
+                            >
+                              <span>Rider Screen</span>
+                              <i className="fa-solid fa-arrow-up-right-from-square text-[9px]" />
+                            </Link>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCancelModalOrder({ id: ord.id, orderNumber: ord.orderNumber });
+                                setCancelReasonText("Item out of stock");
+                              }}
+                              className="text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-1 cursor-pointer py-1"
+                            >
+                              <i className="fa-solid fa-ban text-[10px]" />
+                              <span>Cancel / Reject Order</span>
                             </button>
                           </div>
                         </div>
@@ -2061,6 +2247,205 @@ export default function WaiterPortalPage() {
           mode={transferModal.mode}
           onSuccess={() => fetchDashboardData(true)}
         />
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          10. RIDER WHATSAPP DISPATCH MODAL
+         ───────────────────────────────────────────────────────────── */}
+      {dispatchModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 text-left shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+                  🛵
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Dispatch to Delivery Rider
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    Order #{dispatchModalOrder.orderNumber} · {dispatchModalOrder.customerName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDispatchModalOrder(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 flex items-center justify-center text-xs transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Select Saved Rider */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1.5">
+                Quick Select Saved Rider
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {savedRiders.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      setRiderNameInput(r.name);
+                      if (r.phone) setRiderPhoneInput(r.phone);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      riderNameInput === r.name
+                        ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm"
+                        : "bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800"
+                    }`}
+                  >
+                    🛵 {r.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rider Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1">
+                  Rider Name <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rahul Rider"
+                  value={riderNameInput}
+                  onChange={(e) => setRiderNameInput(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-hidden focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1">
+                  WhatsApp Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 9876543210"
+                  value={riderPhoneInput}
+                  onChange={(e) => setRiderPhoneInput(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-hidden focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Briefing Preview Card */}
+            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/90 text-xs space-y-1.5 font-sans">
+              <div className="flex justify-between text-slate-400 text-[11px]">
+                <span>Customer: <strong className="text-white">{dispatchModalOrder.customerName}</strong></span>
+                <span>Phone: <strong className="text-white">{dispatchModalOrder.customerPhone || "N/A"}</strong></span>
+              </div>
+              <div className="text-[11px] text-slate-300">
+                <span className="text-slate-500 block text-[10px] uppercase font-mono">Address:</span>
+                <span className="line-clamp-2">{dispatchModalOrder.deliveryAddress || "N/A"}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t border-slate-800 text-slate-400 text-[11px]">
+                <span>{dispatchModalOrder.items.length} Food items</span>
+                <span className="font-bold text-white">
+                  Amount: ₹{dispatchModalOrder.totalAmount} ({dispatchModalOrder.paymentStatus === "paid" ? "Paid" : "Collect Cash"})
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDispatchModalOrder(null)}
+                className="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                disabled={isDispatchingRider || !riderNameInput.trim()}
+                onClick={() => handleDispatchRider(dispatchModalOrder, riderNameInput, riderPhoneInput)}
+                className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+              >
+                {isDispatchingRider ? (
+                  <i className="fa-solid fa-circle-notch fa-spin text-sm" />
+                ) : (
+                  <i className="fa-brands fa-whatsapp text-base text-emerald-200" />
+                )}
+                <span>Send on WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          11. CANCEL / REJECT ORDER MODAL (Staff Action)
+         ───────────────────────────────────────────────────────────── */}
+      {cancelModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-5 text-left shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg shrink-0">
+                ❌
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white">Cancel / Reject Order?</h3>
+                <p className="text-[11px] text-slate-400 font-mono">Order #{cancelModalOrder.orderNumber}</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block">
+                Select Reason
+              </label>
+              <div className="space-y-1.5">
+                {[
+                  "Item out of stock",
+                  "Customer requested cancellation",
+                  "Delivery address out of range / unreachable",
+                  "Kitchen closed / cannot fulfill",
+                ].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setCancelReasonText(r)}
+                    className={`w-full p-2.5 rounded-xl text-xs font-semibold text-left border transition-all cursor-pointer ${
+                      cancelReasonText === r
+                        ? "bg-rose-950/60 border-rose-500/60 text-rose-200 shadow-xs"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isCancellingOrder}
+                onClick={() => setCancelModalOrder(null)}
+                className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                disabled={isCancellingOrder}
+                onClick={() => handleCancelOrder(cancelModalOrder.id, cancelReasonText)}
+                className="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md"
+              >
+                {isCancellingOrder ? (
+                  <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+                ) : (
+                  <i className="fa-solid fa-ban text-xs" />
+                )}
+                <span>Cancel Order</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

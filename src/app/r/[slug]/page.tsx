@@ -118,6 +118,10 @@ export default function OnlineOrderingPage({
   const [submitError, setSubmitError] = useState("");
   const [placedOrder, setPlacedOrder] = useState<PlacedOrderSummary | null>(null);
   const [recentOrder, setRecentOrder] = useState<PlacedOrderSummary | null>(null);
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
+  const [customerCancelReason, setCustomerCancelReason] = useState("Placed by mistake");
+  const [orderCancelledNotice, setOrderCancelledNotice] = useState<string | null>(null);
 
   // Dynamic Theme Colors
   const themeStyles = useMemo(() => {
@@ -435,6 +439,37 @@ export default function OnlineOrderingPage({
     }
   };
 
+  const handleCustomerCancelOrder = async () => {
+    if (!placedOrder?.orderId) return;
+    setIsCancellingOrder(true);
+    try {
+      const res = await fetch("/api/orders/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: placedOrder.orderId,
+          reason: customerCancelReason,
+          cancelledBy: "customer",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to cancel order");
+
+      if (typeof window !== "undefined" && restaurant?.id) {
+        localStorage.removeItem(`od_online_order_${restaurant.id}`);
+      }
+      setShowCancelConfirmModal(false);
+      setPlacedOrder(null);
+      setRecentOrder(null);
+      setOrderCancelledNotice(`Your order #${placedOrder.orderNumber} has been cancelled.`);
+      setTimeout(() => setOrderCancelledNotice(null), 6000);
+    } catch (err: any) {
+      alert(err.message || "Unable to cancel order.");
+    } finally {
+      setIsCancellingOrder(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-stone-950 flex items-center justify-center p-4">
@@ -601,7 +636,86 @@ export default function OnlineOrderingPage({
               Track Order
             </button>
           </div>
+
+          {/* Cancel Order Option */}
+          <div className="pt-2 border-t border-stone-800/80">
+            <button
+              type="button"
+              onClick={() => setShowCancelConfirmModal(true)}
+              className="text-xs text-rose-400 hover:text-rose-300 font-semibold underline underline-offset-4 cursor-pointer transition-colors"
+            >
+              Need to cancel this order?
+            </button>
+          </div>
         </div>
+
+        {/* Customer Cancel Confirmation Modal */}
+        {showCancelConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="w-full max-w-sm bg-stone-900 border border-stone-800 rounded-3xl p-5 text-left shadow-2xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg shrink-0">
+                  ❌
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">Cancel Order?</h3>
+                  <p className="text-[11px] text-stone-400">Order #{placedOrder?.orderNumber}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-stone-400 uppercase font-mono block">
+                  Reason for cancellation
+                </label>
+                <div className="space-y-1.5">
+                  {[
+                    "Placed by mistake",
+                    "Want to change items or delivery address",
+                    "Delivery time is too long",
+                    "Other reason",
+                  ].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setCustomerCancelReason(r)}
+                      className={`w-full p-2.5 rounded-xl text-xs font-semibold text-left border transition-all cursor-pointer ${
+                        customerCancelReason === r
+                          ? "bg-rose-950/60 border-rose-500/60 text-rose-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isCancellingOrder}
+                  onClick={() => setShowCancelConfirmModal(false)}
+                  className="py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  disabled={isCancellingOrder}
+                  onClick={handleCustomerCancelOrder}
+                  className="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  {isCancellingOrder ? (
+                    <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+                  ) : (
+                    <i className="fa-solid fa-ban text-xs" />
+                  )}
+                  <span>Cancel Now</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -705,6 +819,23 @@ export default function OnlineOrderingPage({
               <span>View Bill & Status</span>
               <i className="fa-solid fa-arrow-right text-[10px]" />
             </div>
+          </div>
+        )}
+
+        {/* Order Cancelled Notification Banner */}
+        {orderCancelledNotice && (
+          <div className="bg-rose-950/80 border-b border-rose-500/40 px-4 py-2.5 flex items-center justify-between text-xs text-rose-200 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span className="font-semibold">{orderCancelledNotice}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOrderCancelledNotice(null)}
+              className="text-stone-400 hover:text-white p-1"
+            >
+              ✕
+            </button>
           </div>
         )}
       </header>

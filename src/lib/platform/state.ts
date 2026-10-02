@@ -156,6 +156,8 @@ export type PlatformState = {
   cashRegisters?: Record<string, CashRegisterState>;
   gstFilingStatuses?: Record<string, Record<string, "filed" | "due" | "upcoming" | "no_liability">>;
   deliverySettings?: Record<string, DeliverySettings>;
+  deliveryRiders?: Record<string, DeliveryRider[]>;
+  orderDispatches?: Record<string, OrderDispatchInfo>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -1009,6 +1011,108 @@ export function setDeliverySettings(
     updatedAt: new Date().toISOString(),
   };
   state.deliverySettings[restaurantId] = updated;
+  savePlatformState(state);
+  return updated;
+}
+
+// ─────────────────────────────────────────────────────────────
+// DELIVERY RIDERS & DISPATCH MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+export type DeliveryRider = {
+  id: string;
+  name: string;
+  phone: string;
+  vehicle?: string;
+  active: boolean;
+  createdAt?: string;
+};
+
+export type OrderDispatchInfo = {
+  orderId: string;
+  restaurantId?: string;
+  riderName?: string;
+  riderPhone?: string;
+  dispatchedAt?: string;
+  stage: "pending" | "dispatched" | "delivered" | "cancelled";
+  cancelledReason?: string;
+  cancelledBy?: "staff" | "customer";
+  cancelledAt?: string;
+  deliveredAt?: string;
+};
+
+export function getDeliveryRiders(restaurantId: string): DeliveryRider[] {
+  if (!restaurantId) return [];
+  const state = getPlatformState();
+  return (state.deliveryRiders && state.deliveryRiders[restaurantId]) || [];
+}
+
+export function saveDeliveryRider(
+  restaurantId: string,
+  rider: Omit<DeliveryRider, "id"> & { id?: string }
+): DeliveryRider[] {
+  if (!restaurantId) return [];
+  const state = getPlatformState();
+  if (!state.deliveryRiders) {
+    state.deliveryRiders = {};
+  }
+  const currentList = state.deliveryRiders[restaurantId] || [];
+  const riderId = rider.id || `rider_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  const existingIdx = currentList.findIndex((r) => r.id === riderId);
+  const updatedRider: DeliveryRider = {
+    id: riderId,
+    name: rider.name.trim(),
+    phone: rider.phone.trim(),
+    vehicle: rider.vehicle?.trim() || "Bike",
+    active: rider.active !== undefined ? rider.active : true,
+    createdAt: existingIdx >= 0 ? currentList[existingIdx].createdAt : new Date().toISOString(),
+  };
+
+  if (existingIdx >= 0) {
+    currentList[existingIdx] = updatedRider;
+  } else {
+    currentList.push(updatedRider);
+  }
+
+  state.deliveryRiders[restaurantId] = currentList;
+  savePlatformState(state);
+  return currentList;
+}
+
+export function deleteDeliveryRider(restaurantId: string, riderId: string): DeliveryRider[] {
+  if (!restaurantId) return [];
+  const state = getPlatformState();
+  if (!state.deliveryRiders || !state.deliveryRiders[restaurantId]) return [];
+  state.deliveryRiders[restaurantId] = state.deliveryRiders[restaurantId].filter((r) => r.id !== riderId);
+  savePlatformState(state);
+  return state.deliveryRiders[restaurantId];
+}
+
+export function getOrderDispatch(orderId: string): OrderDispatchInfo | null {
+  if (!orderId) return null;
+  const state = getPlatformState();
+  return (state.orderDispatches && state.orderDispatches[orderId]) || null;
+}
+
+export function setOrderDispatch(
+  orderId: string,
+  info: Partial<OrderDispatchInfo>
+): OrderDispatchInfo {
+  const state = getPlatformState();
+  if (!state.orderDispatches) {
+    state.orderDispatches = {};
+  }
+  const current = getOrderDispatch(orderId) || {
+    orderId,
+    stage: "pending" as const,
+  };
+  const updated: OrderDispatchInfo = {
+    ...current,
+    ...info,
+    orderId,
+  };
+  state.orderDispatches[orderId] = updated;
   savePlatformState(state);
   return updated;
 }
