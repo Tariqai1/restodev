@@ -49,6 +49,14 @@ const THEME_OPTIONS = [
     surface: "#f8fafc",
     border: "#e2e8f0",
   },
+  {
+    id: "purple" as const,
+    name: "Royal Purple",
+    desc: "Velvet Violet, Neon Plum & Black",
+    primary: "#9333ea",
+    surface: "#faf5ff",
+    border: "#e9d5ff",
+  },
 ];
 
 export default function StoreSettingsView({

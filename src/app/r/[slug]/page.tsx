@@ -45,6 +45,14 @@ interface CartItem {
   notes?: string;
 }
 
+interface PlacedOrderItem {
+  name: string;
+  portion: "half" | "full";
+  qty: number;
+  price: number;
+  is_veg: boolean;
+}
+
 interface PlacedOrderSummary {
   orderId: string;
   orderNumber: string;
@@ -57,6 +65,8 @@ interface PlacedOrderSummary {
   deliveryFee: number;
   total: number;
   estimatedPrepMinutes: number;
+  items: PlacedOrderItem[];
+  placedAt: string;
 }
 
 export default function OnlineOrderingPage({
@@ -75,8 +85,12 @@ export default function OnlineOrderingPage({
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Branding & Theme state
+  const [theme, setTheme] = useState<string>("purple");
+  const [branding, setBranding] = useState<{ logoUrl?: string; tagline?: string } | null>(null);
+
   // Customer selections
-  const [orderType, setOrderType] = useState<"delivery" | "pickup">("pickup");
+  const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [vegOnly, setVegOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,6 +98,7 @@ export default function OnlineOrderingPage({
   // Cart state: key is `itemId:portion`
   const [cart, setCart] = useState<Record<string, CartItem>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
 
   // Form fields
   const [customerName, setCustomerName] = useState("");
@@ -95,8 +110,91 @@ export default function OnlineOrderingPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [placedOrder, setPlacedOrder] = useState<PlacedOrderSummary | null>(null);
+  const [recentOrder, setRecentOrder] = useState<PlacedOrderSummary | null>(null);
 
-  // Fetch menu and settings
+  // Dynamic Theme Colors
+  const themeStyles = useMemo(() => {
+    switch (theme) {
+      case "amber":
+        return {
+          accentBg: "bg-amber-600 hover:bg-amber-700",
+          accentText: "text-amber-400",
+          accentBorder: "border-amber-500",
+          accentSoft: "bg-amber-500/10 text-amber-300 border-amber-500/30",
+          accentRing: "focus:border-amber-500 focus:ring-amber-500/20",
+          pillActive: "bg-amber-600 text-white border-amber-500 shadow-sm",
+        };
+      case "crimson":
+        return {
+          accentBg: "bg-rose-700 hover:bg-rose-800",
+          accentText: "text-rose-400",
+          accentBorder: "border-rose-600",
+          accentSoft: "bg-rose-500/10 text-rose-300 border-rose-500/30",
+          accentRing: "focus:border-rose-500 focus:ring-rose-500/20",
+          pillActive: "bg-rose-700 text-white border-rose-600 shadow-sm",
+        };
+      case "saffron":
+        return {
+          accentBg: "bg-orange-600 hover:bg-orange-700",
+          accentText: "text-orange-400",
+          accentBorder: "border-orange-500",
+          accentSoft: "bg-orange-500/10 text-orange-300 border-orange-500/30",
+          accentRing: "focus:border-orange-500 focus:ring-orange-500/20",
+          pillActive: "bg-orange-600 text-white border-orange-500 shadow-sm",
+        };
+      case "emerald":
+        return {
+          accentBg: "bg-emerald-600 hover:bg-emerald-700",
+          accentText: "text-emerald-400",
+          accentBorder: "border-emerald-500",
+          accentSoft: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
+          accentRing: "focus:border-emerald-500 focus:ring-emerald-500/20",
+          pillActive: "bg-emerald-600 text-white border-emerald-500 shadow-sm",
+        };
+      case "charcoal":
+        return {
+          accentBg: "bg-amber-500 hover:bg-amber-600 !text-stone-950 font-bold",
+          accentText: "text-amber-400",
+          accentBorder: "border-amber-500",
+          accentSoft: "bg-amber-500/10 text-amber-300 border-amber-500/30",
+          accentRing: "focus:border-amber-500 focus:ring-amber-500/20",
+          pillActive: "bg-amber-500 !text-stone-950 border-amber-400 shadow-sm",
+        };
+      default: // purple
+        return {
+          accentBg: "bg-purple-600 hover:bg-purple-700",
+          accentText: "text-purple-400",
+          accentBorder: "border-purple-500",
+          accentSoft: "bg-purple-500/10 text-purple-300 border-purple-500/30",
+          accentRing: "focus:border-purple-500 focus:ring-purple-500/20",
+          pillActive: "bg-purple-600 text-white border-purple-500 shadow-sm",
+        };
+    }
+  }, [theme]);
+
+  // ─────────────────────────────────────────────────────────────
+  // SCROLL LOCK EFFECT: Locks background body scroll when modal is open
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const isModalActive = isCheckoutOpen || isTrackOrderOpen;
+    if (isModalActive) {
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+      const originalTouchAction = document.body.style.touchAction;
+
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.documentElement.style.overflow = originalHtmlOverflow;
+        document.body.style.touchAction = originalTouchAction;
+      };
+    }
+  }, [isCheckoutOpen, isTrackOrderOpen]);
+
+  // Load Storefront data
   useEffect(() => {
     async function loadStorefront() {
       try {
@@ -120,12 +218,35 @@ export default function OnlineOrderingPage({
         setCategories(data.categories || []);
         setMenuItems(data.menuItems || []);
 
+        // Load theme and branding
+        if (data.theme) setTheme(data.theme);
+        if (data.branding) {
+          setBranding(data.branding);
+          if (data.branding.theme) setTheme(data.branding.theme);
+        }
+
         // Pick preferred default order type
         if (data.deliverySettings) {
-          if (data.deliverySettings.deliveryEnabled && !data.deliverySettings.pickupEnabled) {
+          if (data.deliverySettings.deliveryEnabled) {
             setOrderType("delivery");
           } else if (data.deliverySettings.pickupEnabled) {
             setOrderType("pickup");
+          }
+        }
+
+        // Restore recent active order from localStorage (within 24 hours)
+        if (typeof window !== "undefined" && data.restaurant?.id) {
+          try {
+            const saved = localStorage.getItem(`od_online_order_${data.restaurant.id}`);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              const elapsedHours = (Date.now() - new Date(parsed.placedAt || 0).getTime()) / (1000 * 60 * 60);
+              if (elapsedHours < 24) {
+                setRecentOrder(parsed);
+              }
+            }
+          } catch {
+            // ignore
           }
         }
       } catch (err: any) {
@@ -223,7 +344,7 @@ export default function OnlineOrderingPage({
       return;
     }
     if (orderType === "delivery" && !deliveryAddress.trim()) {
-      setSubmitError("Please provide your delivery address.");
+      setSubmitError("Please provide your complete delivery address.");
       return;
     }
     if (
@@ -265,7 +386,7 @@ export default function OnlineOrderingPage({
         throw new Error(data.message || "Failed to place order.");
       }
 
-      setPlacedOrder({
+      const summary: PlacedOrderSummary = {
         orderId: data.orderId,
         orderNumber: data.orderNumber,
         orderType: data.orderType,
@@ -277,7 +398,23 @@ export default function OnlineOrderingPage({
         deliveryFee: data.deliveryFee,
         total: data.total,
         estimatedPrepMinutes: data.estimatedPrepMinutes,
-      });
+        items: cartItemsList.map((it) => ({
+          name: it.dish.name,
+          portion: it.portion,
+          qty: it.qty,
+          price: it.portion === "half" ? it.dish.half_price : it.dish.price,
+          is_veg: it.dish.is_veg,
+        })),
+        placedAt: new Date().toISOString(),
+      };
+
+      setPlacedOrder(summary);
+      setRecentOrder(summary);
+
+      // Persist in localStorage for customer order tracking
+      if (typeof window !== "undefined" && restaurant?.id) {
+        localStorage.setItem(`od_online_order_${restaurant.id}`, JSON.stringify(summary));
+      }
 
       setCart({});
       setIsCheckoutOpen(false);
@@ -290,7 +427,7 @@ export default function OnlineOrderingPage({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-stone-950 flex items-center justify-center p-4">
         <FoodChefLoader message="Loading restaurant menu..." />
       </div>
     );
@@ -332,84 +469,128 @@ export default function OnlineOrderingPage({
             <span>Store Manager / Turn On Online Store</span>
           </Link>
         </div>
-
-        <div className="mt-6 p-3 rounded-xl bg-stone-900/80 border border-stone-800 text-[11px] text-stone-400 max-w-xs">
-          <i className="fa-solid fa-qrcode text-stone-300 mr-1.5" />
-          <span>Table QR ordering is active on the dining floor.</span>
-        </div>
       </div>
     );
   }
 
-  // 2. Order Placed Success Screen
+  // 2. Order Placed Full Confirmation Screen
   if (placedOrder) {
     return (
       <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-        <div className="max-w-md w-full bg-stone-900 border border-stone-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-3xl mx-auto shadow-lg animate-bounce">
+        <div className="max-w-md w-full bg-stone-900 border border-stone-800 rounded-3xl p-5 sm:p-7 text-center shadow-2xl space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl mx-auto shadow-lg animate-bounce">
             <i className="fa-solid fa-check" />
           </div>
 
           <div>
             <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-              Order Confirmed
+              Order Confirmed & Sent to Kitchen
             </span>
-            <h2 className="text-2xl font-black text-white tracking-tight mt-2">
+            <h2 className="text-2xl font-black text-white tracking-tight mt-1.5">
               {placedOrder.orderNumber}
             </h2>
             <p className="text-xs text-stone-400 mt-1">
               Thank you, <strong className="text-stone-200">{placedOrder.customerName}</strong>! Your{" "}
-              <strong className="text-purple-300 uppercase">{placedOrder.orderType}</strong> order has been sent to the kitchen.
+              <strong className={`${themeStyles.accentText} uppercase`}>{placedOrder.orderType}</strong> order is being prepared.
             </p>
           </div>
 
-          {/* Details Card */}
+          {/* Kitchen Timeline Tracker */}
+          <div className="p-3 rounded-2xl bg-stone-950/70 border border-stone-800/80">
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="text-stone-400 font-medium">Estimated Time:</span>
+              <span className={`font-mono font-bold ${themeStyles.accentText}`}>
+                ~{placedOrder.estimatedPrepMinutes} mins
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold">
+              <div className="p-1.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex flex-col items-center gap-1">
+                <i className="fa-solid fa-receipt text-xs" />
+                <span>Received</span>
+              </div>
+              <div className={`p-1.5 rounded-lg ${themeStyles.accentSoft} flex flex-col items-center gap-1 animate-pulse`}>
+                <i className="fa-solid fa-fire-burner text-xs" />
+                <span>Cooking</span>
+              </div>
+              <div className="p-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-500 flex flex-col items-center gap-1">
+                <i className={`fa-solid ${placedOrder.orderType === "delivery" ? "fa-motorcycle" : "fa-bag-shopping"} text-xs`} />
+                <span>{placedOrder.orderType === "delivery" ? "On The Way" : "Ready"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Itemized Order Breakdown */}
           <div className="p-4 rounded-2xl bg-stone-950/60 border border-stone-800/80 text-left text-xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-stone-400">Order Type</span>
-              <span className="font-bold text-white uppercase flex items-center gap-1">
-                <i className={`fa-solid ${placedOrder.orderType === "delivery" ? "fa-motorcycle text-amber-400" : "fa-bag-shopping text-blue-400"}`} />
-                <span>{placedOrder.orderType}</span>
-              </span>
+            <span className="text-[11px] font-bold uppercase text-stone-400 block font-mono">
+              Items Ordered ({placedOrder.items.length})
+            </span>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {placedOrder.items.map((it, idx) => (
+                <div key={idx} className="flex justify-between items-center text-xs">
+                  <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                    <span className={`w-2 h-2 rounded-xs shrink-0 ${it.is_veg ? "bg-emerald-500" : "bg-rose-500"}`} />
+                    <span className="text-stone-200 truncate">
+                      {it.qty}× {it.name} {it.portion === "half" ? "(Half)" : ""}
+                    </span>
+                  </div>
+                  <span className="font-mono text-stone-300 shrink-0">
+                    ₹{it.price * it.qty}
+                  </span>
+                </div>
+              ))}
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-stone-400">Estimated Ready Time</span>
-              <span className="font-mono font-bold text-purple-300">
-                ~{placedOrder.estimatedPrepMinutes} minutes
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-stone-400">Contact Mobile</span>
-              <span className="font-mono text-stone-200 font-semibold">
-                {placedOrder.customerPhone}
-              </span>
+            <div className="pt-2 border-t border-stone-800 space-y-1 text-stone-400 text-[11px]">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span className="font-mono">₹{placedOrder.subtotal}</span>
+              </div>
+              {placedOrder.deliveryFee > 0 && (
+                <div className="flex justify-between">
+                  <span>Delivery Fee</span>
+                  <span className="font-mono">₹{placedOrder.deliveryFee}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>GST (5%)</span>
+                <span className="font-mono">₹{placedOrder.taxAmount}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-stone-800 font-bold text-white text-sm">
+                <span>Total Amount</span>
+                <span className="font-mono text-emerald-400">₹{placedOrder.total}</span>
+              </div>
             </div>
 
             {placedOrder.deliveryAddress && (
               <div className="pt-2 border-t border-stone-800">
-                <span className="text-stone-400 block text-[11px] mb-0.5">Delivery Address:</span>
-                <span className="text-stone-200 font-medium leading-relaxed block">
+                <span className="text-stone-400 block text-[10px] uppercase font-mono">Delivery Address:</span>
+                <span className="text-stone-200 font-medium leading-relaxed block text-xs mt-0.5">
                   {placedOrder.deliveryAddress}
                 </span>
               </div>
             )}
-
-            <div className="pt-2 border-t border-stone-800 flex items-center justify-between text-sm font-bold text-white">
-              <span>Total Payable</span>
-              <span className="font-mono text-emerald-400">₹{placedOrder.total}</span>
-            </div>
           </div>
 
-          {/* Action button */}
-          <button
-            type="button"
-            onClick={() => setPlacedOrder(null)}
-            className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer"
-          >
-            Order More Items
-          </button>
+          {/* Action buttons */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setPlacedOrder(null)}
+              className="py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold transition-all cursor-pointer"
+            >
+              Order More
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPlacedOrder(null);
+                setIsTrackOrderOpen(true);
+              }}
+              className={`py-2.5 rounded-xl ${themeStyles.accentBg} text-white text-xs font-bold transition-all shadow-md cursor-pointer`}
+            >
+              Track Order
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -417,64 +598,133 @@ export default function OnlineOrderingPage({
 
   // 3. Main Online Ordering Storefront
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans select-none pb-28">
-      {/* Top Banner Header */}
-      <header className="sticky top-0 z-30 px-4 py-3 bg-stone-900/90 border-b border-stone-800 backdrop-blur-md">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono block">
-              Direct Online Store
-            </span>
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-white truncate">
-              {restaurant?.name || "Restaurant"}
-            </h1>
-            <div className="flex items-center gap-2 text-[10px] text-stone-400 mt-0.5">
-              <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Accepting Orders</span>
-              </span>
-              <span>•</span>
-              <span>~{deliverySettings?.estimatedPrepMinutes || 25}m prep</span>
+    <div
+      data-theme={theme}
+      className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans select-none pb-28"
+    >
+      {/* Top Banner Header with Logo and Theme Branding */}
+      <header className="sticky top-0 z-30 px-3.5 sm:px-5 py-3 bg-stone-900/95 border-b border-stone-800 backdrop-blur-md">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          {/* Logo & Restaurant Title */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {branding?.logoUrl ? (
+              <img
+                src={branding.logoUrl}
+                alt={restaurant?.name || "Logo"}
+                className="w-10 h-10 rounded-xl object-cover border border-stone-800 shadow-md shrink-0 bg-stone-900"
+              />
+            ) : (
+              <div
+                className={`w-10 h-10 rounded-xl ${themeStyles.accentBg} flex items-center justify-center text-white font-black text-base shadow-md shrink-0`}
+              >
+                {(restaurant?.name || "R")[0].toUpperCase()}
+              </div>
+            )}
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${themeStyles.accentText}`}>
+                  Direct Online Store
+                </span>
+                {recentOrder && (
+                  <button
+                    type="button"
+                    onClick={() => setIsTrackOrderOpen(true)}
+                    className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse cursor-pointer"
+                  >
+                    <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                    <span>My Order</span>
+                  </button>
+                )}
+              </div>
+              <h1 className="text-sm sm:text-base font-black tracking-tight text-white truncate">
+                {restaurant?.name || "Restaurant"}
+              </h1>
+              {branding?.tagline ? (
+                <p className="text-[10px] text-stone-400 truncate max-w-[180px] sm:max-w-xs">
+                  {branding.tagline}
+                </p>
+              ) : (
+                <div className="flex items-center gap-2 text-[10px] text-stone-400 mt-0.5">
+                  <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Accepting Orders</span>
+                  </span>
+                  <span>•</span>
+                  <span>~{deliverySettings?.estimatedPrepMinutes || 25}m prep</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Delivery / Pickup Mode Switcher */}
-          <div className="flex bg-stone-950 p-1 rounded-xl border border-stone-800 text-xs font-bold shrink-0">
-            {deliverySettings?.pickupEnabled && (
+          {/* Delivery / Pickup Mode Switcher & My Order Trigger */}
+          <div className="flex items-center gap-2 shrink-0">
+            {recentOrder && (
               <button
                 type="button"
-                onClick={() => setOrderType("pickup")}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  orderType === "pickup"
-                    ? "bg-purple-600 text-white shadow-xs"
-                    : "text-stone-400 hover:text-white"
-                }`}
+                onClick={() => setIsTrackOrderOpen(true)}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${themeStyles.accentSoft}`}
               >
-                <i className="fa-solid fa-bag-shopping text-[11px]" />
-                <span>Pickup</span>
+                <i className="fa-solid fa-clock-rotate-left" />
+                <span>Track {recentOrder.orderNumber}</span>
               </button>
             )}
 
-            {deliverySettings?.deliveryEnabled && (
-              <button
-                type="button"
-                onClick={() => setOrderType("delivery")}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  orderType === "delivery"
-                    ? "bg-purple-600 text-white shadow-xs"
-                    : "text-stone-400 hover:text-white"
-                }`}
-              >
-                <i className="fa-solid fa-motorcycle text-[11px]" />
-                <span>Delivery</span>
-              </button>
-            )}
+            <div className="flex bg-stone-950 p-1 rounded-xl border border-stone-800 text-xs font-bold">
+              {deliverySettings?.deliveryEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setOrderType("delivery")}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    orderType === "delivery"
+                      ? themeStyles.pillActive
+                      : "text-stone-400 hover:text-white"
+                  }`}
+                >
+                  <i className="fa-solid fa-motorcycle text-[11px]" />
+                  <span>Delivery</span>
+                </button>
+              )}
+
+              {deliverySettings?.pickupEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setOrderType("pickup")}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    orderType === "pickup"
+                      ? themeStyles.pillActive
+                      : "text-stone-400 hover:text-white"
+                  }`}
+                >
+                  <i className="fa-solid fa-bag-shopping text-[11px]" />
+                  <span>Pickup</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content Container */}
-      <main className="max-w-2xl mx-auto w-full px-4 pt-4 space-y-4">
+      <main className="max-w-3xl mx-auto w-full px-3.5 sm:px-5 pt-4 space-y-4">
+        {/* Floating Active Order Notice for Mobile */}
+        {recentOrder && (
+          <div
+            onClick={() => setIsTrackOrderOpen(true)}
+            className={`p-2.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all active:scale-[0.99] ${themeStyles.accentSoft}`}
+          >
+            <div className="flex items-center gap-2 text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="font-bold">Active Order {recentOrder.orderNumber}</span>
+              <span className="text-stone-400">• ~{recentOrder.estimatedPrepMinutes}m prep</span>
+            </div>
+            <span className="text-[11px] font-bold underline flex items-center gap-1">
+              <span>View Order</span>
+              <i className="fa-solid fa-chevron-right text-[9px]" />
+            </span>
+          </div>
+        )}
+
         {/* Notice Banner */}
         {orderType === "delivery" && deliverySettings?.deliveryFee ? (
           <div className="p-2.5 rounded-xl bg-amber-950/30 border border-amber-600/30 text-amber-300 text-xs flex items-center justify-between">
@@ -494,7 +744,7 @@ export default function OnlineOrderingPage({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search dishes..."
-              className="w-full h-10 px-3 pl-9 rounded-xl bg-stone-900 border border-stone-800 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-purple-500"
+              className={`w-full h-10 px-3 pl-9 rounded-xl bg-stone-900 border border-stone-800 text-xs text-white placeholder-stone-500 focus:outline-none ${themeStyles.accentRing}`}
             />
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-stone-500 text-xs" />
           </div>
@@ -517,13 +767,13 @@ export default function OnlineOrderingPage({
 
         {/* Categories Horizontal Bar */}
         {categories.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
             <button
               type="button"
               onClick={() => setSelectedCategory("all")}
               className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-colors cursor-pointer border ${
                 selectedCategory === "all"
-                  ? "bg-purple-600 text-white border-purple-500 shadow-xs"
+                  ? themeStyles.pillActive
                   : "bg-stone-900 text-stone-400 border-stone-800 hover:border-stone-700"
               }`}
             >
@@ -536,7 +786,7 @@ export default function OnlineOrderingPage({
                 onClick={() => setSelectedCategory(c.id)}
                 className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-colors cursor-pointer border ${
                   selectedCategory === c.id
-                    ? "bg-purple-600 text-white border-purple-500 shadow-xs"
+                    ? themeStyles.pillActive
                     : "bg-stone-900 text-stone-400 border-stone-800 hover:border-stone-700"
                 }`}
               >
@@ -626,12 +876,12 @@ export default function OnlineOrderingPage({
                         <button
                           type="button"
                           onClick={() => addToCart(dish, "full")}
-                          className="px-3 py-1 rounded-lg text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                          className={`px-3 py-1 rounded-lg text-xs font-bold text-white shadow-2xs active:scale-95 transition-all cursor-pointer ${themeStyles.accentBg}`}
                         >
                           ADD +
                         </button>
                       ) : (
-                        <div className="flex items-center rounded-lg border border-purple-500/50 bg-stone-950 overflow-hidden text-xs font-bold font-mono">
+                        <div className="flex items-center rounded-lg border border-stone-700 bg-stone-950 overflow-hidden text-xs font-bold font-mono">
                           <button
                             type="button"
                             onClick={() => removeFromCart(dish.id, "full")}
@@ -643,7 +893,7 @@ export default function OnlineOrderingPage({
                           <button
                             type="button"
                             onClick={() => addToCart(dish, "full")}
-                            className="px-2 py-0.5 text-purple-400 hover:text-white"
+                            className={`px-2 py-0.5 hover:text-white ${themeStyles.accentText}`}
                           >
                             +
                           </button>
@@ -657,7 +907,7 @@ export default function OnlineOrderingPage({
                             <button
                               type="button"
                               onClick={() => addToCart(dish, "half")}
-                              className="text-[10px] text-purple-400 hover:text-purple-300 font-bold underline cursor-pointer"
+                              className={`text-[10px] font-bold underline cursor-pointer hover:opacity-80 ${themeStyles.accentText}`}
                             >
                               + Half ₹{dish.half_price}
                             </button>
@@ -674,7 +924,7 @@ export default function OnlineOrderingPage({
                               <button
                                 type="button"
                                 onClick={() => addToCart(dish, "half")}
-                                className="px-1.5 py-0.5 text-purple-400"
+                                className={`px-1.5 py-0.5 ${themeStyles.accentText}`}
                               >
                                 +
                               </button>
@@ -691,17 +941,17 @@ export default function OnlineOrderingPage({
         </div>
       </main>
 
-      {/* Floating Bottom Cart Bar */}
+      {/* Floating Bottom Cart Bar (Thumb-optimized & Safe-area padded) */}
       {totalItemCount > 0 && (
-        <div className="fixed bottom-0 inset-x-0 p-4 bg-gradient-to-t from-stone-950 via-stone-950/95 to-transparent z-40">
-          <div className="max-w-2xl mx-auto">
+        <div className="fixed bottom-0 inset-x-0 p-3 sm:p-4 bg-gradient-to-t from-stone-950 via-stone-950/95 to-transparent z-40">
+          <div className="max-w-3xl mx-auto">
             <button
               type="button"
               onClick={() => setIsCheckoutOpen(true)}
-              className="w-full py-3.5 px-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center justify-between shadow-xl active:scale-[0.99] transition-all cursor-pointer"
+              className={`w-full py-3.5 px-4 rounded-2xl text-white font-bold flex items-center justify-between shadow-2xl active:scale-[0.99] transition-all cursor-pointer ${themeStyles.accentBg}`}
             >
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-xs font-mono">
+                <span className="w-6 h-6 rounded-lg bg-black/25 flex items-center justify-center text-xs font-mono font-bold">
                   {totalItemCount}
                 </span>
                 <span className="text-xs uppercase tracking-wider">
@@ -721,11 +971,22 @@ export default function OnlineOrderingPage({
         </div>
       )}
 
-      {/* Slide-Up Checkout Drawer Modal */}
+      {/* ─────────────────────────────────────────────────────────────
+          4. MODAL: Slide-Up Checkout Drawer (Background Scroll-Locked)
+         ───────────────────────────────────────────────────────────── */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-stone-900 border border-stone-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
-            {/* Header */}
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCheckoutOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-lg bg-stone-900 border border-stone-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200 overscroll-contain"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with Grab Handle for mobile */}
+            <div className="w-12 h-1 bg-stone-700 rounded-full mx-auto mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-stone-800 shrink-0">
               <div className="flex items-center gap-2">
                 <i className={`fa-solid ${orderType === "delivery" ? "fa-motorcycle text-amber-400" : "fa-bag-shopping text-blue-400"}`} />
@@ -742,8 +1003,11 @@ export default function OnlineOrderingPage({
               </button>
             </div>
 
-            {/* Scrollable Form Body */}
-            <form onSubmit={handlePlaceOrder} className="flex-1 overflow-y-auto space-y-4 py-3 pr-1 text-xs">
+            {/* Scrollable Form Body with overscroll containment */}
+            <form
+              onSubmit={handlePlaceOrder}
+              className="flex-1 overflow-y-auto space-y-4 py-3 pr-1 text-xs overscroll-contain"
+            >
               {submitError && (
                 <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-200 font-semibold flex items-center gap-2">
                   <i className="fa-solid fa-circle-exclamation shrink-0" />
@@ -763,7 +1027,7 @@ export default function OnlineOrderingPage({
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full h-10 px-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none focus:border-purple-500"
+                    className={`w-full h-10 px-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none ${themeStyles.accentRing}`}
                   />
                 </div>
 
@@ -777,7 +1041,7 @@ export default function OnlineOrderingPage({
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="10-digit mobile number for order updates"
-                    className="w-full h-10 px-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none focus:border-purple-500 font-mono"
+                    className={`w-full h-10 px-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none font-mono ${themeStyles.accentRing}`}
                   />
                 </div>
 
@@ -792,7 +1056,7 @@ export default function OnlineOrderingPage({
                       value={deliveryAddress}
                       onChange={(e) => setDeliveryAddress(e.target.value)}
                       placeholder="Flat / House #, Building name, Street, Landmark"
-                      className="w-full p-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none focus:border-purple-500 resize-none"
+                      className={`w-full p-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none resize-none ${themeStyles.accentRing}`}
                     />
                   </div>
                 )}
@@ -806,7 +1070,7 @@ export default function OnlineOrderingPage({
                     value={orderNotes}
                     onChange={(e) => setOrderNotes(e.target.value)}
                     placeholder="Less spicy, extra napkins, leave at door..."
-                    className="w-full h-10 px-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none focus:border-purple-500"
+                    className={`w-full h-10 px-3 rounded-xl bg-stone-950 border border-stone-800 text-white placeholder-stone-500 focus:outline-none ${themeStyles.accentRing}`}
                   />
                 </div>
               </div>
@@ -860,7 +1124,7 @@ export default function OnlineOrderingPage({
                     onClick={() => setPaymentMode("cash")}
                     className={`p-2.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                       paymentMode === "cash"
-                        ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                        ? themeStyles.pillActive
                         : "bg-stone-950 text-stone-400 border-stone-800"
                     }`}
                   >
@@ -873,7 +1137,7 @@ export default function OnlineOrderingPage({
                     onClick={() => setPaymentMode("upi")}
                     className={`p-2.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                       paymentMode === "upi"
-                        ? "bg-purple-600 text-white border-purple-500 shadow-2xs"
+                        ? themeStyles.pillActive
                         : "bg-stone-950 text-stone-400 border-stone-800"
                     }`}
                   >
@@ -887,11 +1151,128 @@ export default function OnlineOrderingPage({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg active:scale-98 cursor-pointer disabled:opacity-50 mt-2"
+                className={`w-full py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg active:scale-98 cursor-pointer disabled:opacity-50 mt-2 ${themeStyles.accentBg}`}
               >
                 {isSubmitting ? "Placing Order..." : `Confirm & Place Order · ₹${grandTotal}`}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          5. MODAL: Customer Order History & Tracking (Background Scroll-Locked)
+         ───────────────────────────────────────────────────────────── */}
+      {isTrackOrderOpen && recentOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsTrackOrderOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-stone-900 border border-stone-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200 overscroll-contain"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Grab Handle */}
+            <div className="w-12 h-1 bg-stone-700 rounded-full mx-auto mb-3 sm:hidden" />
+            <div className="flex items-center justify-between pb-3 border-b border-stone-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <i className={`fa-solid ${themeStyles.accentText} fa-bag-shopping`} />
+                <h3 className="font-bold text-base text-white">Your Order Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTrackOrderOpen(false)}
+                className="w-8 h-8 rounded-lg bg-stone-800 text-stone-400 hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                <i className="fa-solid fa-xmark text-sm" />
+              </button>
+            </div>
+
+            {/* Scrollable details */}
+            <div className="flex-1 overflow-y-auto space-y-4 py-3 text-xs overscroll-contain">
+              {/* Order Number & Header */}
+              <div className="p-3.5 rounded-2xl bg-stone-950/70 border border-stone-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono text-stone-400 uppercase font-bold block">
+                    Order Number
+                  </span>
+                  <span className="text-base font-black text-white font-mono">
+                    {recentOrder.orderNumber}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
+                    In Kitchen
+                  </span>
+                  <span className="text-[10px] text-stone-400 block mt-0.5">
+                    ~{recentOrder.estimatedPrepMinutes}m prep
+                  </span>
+                </div>
+              </div>
+
+              {/* Dishes list */}
+              <div className="p-3.5 rounded-2xl bg-stone-950/50 border border-stone-800 space-y-2">
+                <span className="text-[11px] font-bold uppercase text-stone-400 block font-mono">
+                  Dishes in this order ({recentOrder.items?.length || 0})
+                </span>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {(recentOrder.items || []).map((it, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                        <span className={`w-2 h-2 rounded-xs shrink-0 ${it.is_veg ? "bg-emerald-500" : "bg-rose-500"}`} />
+                        <span className="text-stone-200 truncate font-medium">
+                          {it.qty}× {it.name} {it.portion === "half" ? "(Half)" : ""}
+                        </span>
+                      </div>
+                      <span className="font-mono text-stone-300 shrink-0 font-semibold">
+                        ₹{it.price * it.qty}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-stone-800 space-y-1 text-stone-400 text-[11px]">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span className="font-mono">₹{recentOrder.subtotal}</span>
+                  </div>
+                  {recentOrder.deliveryFee > 0 && (
+                    <div className="flex justify-between">
+                      <span>Delivery Fee</span>
+                      <span className="font-mono">₹{recentOrder.deliveryFee}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>GST (5%)</span>
+                    <span className="font-mono">₹{recentOrder.taxAmount}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t border-stone-800 font-bold text-white text-sm">
+                    <span>Total Paid / Payable</span>
+                    <span className="font-mono text-emerald-400">₹{recentOrder.total}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery details if any */}
+              {recentOrder.deliveryAddress && (
+                <div className="p-3 rounded-xl bg-stone-950/40 border border-stone-800">
+                  <span className="text-[10px] text-stone-400 font-mono uppercase block">Delivery Address:</span>
+                  <span className="text-stone-200 font-medium leading-relaxed block text-xs mt-0.5">
+                    {recentOrder.deliveryAddress}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsTrackOrderOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs cursor-pointer mt-1"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

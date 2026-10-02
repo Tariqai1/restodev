@@ -558,9 +558,16 @@ export default function WaiterPortalPage() {
     return set;
   }, [waiterCalls]);
 
+  const isPhysicalTable = (num?: string | null) => {
+    if (!num) return false;
+    const n = num.trim().toUpperCase();
+    return !n.startsWith("DEL-") && !n.startsWith("PU-") && !n.includes("ONLINE");
+  };
+
   // Filtered Tables
   const filteredTables = useMemo(() => {
     return tables.filter((t) => {
+      if (!isPhysicalTable(t.table_number)) return false;
       const ord = tableOrderMap.get(t.id) || tableOrderMap.get(t.table_number);
       const isOccupied = Boolean(ord) || t.status === "occupied";
       const isCalling = callingTableNumbers.has(t.table_number.trim().toUpperCase());
@@ -586,7 +593,8 @@ export default function WaiterPortalPage() {
   }, [tables, tableOrderMap, callingTableNumbers, floorFilter, searchQuery]);
 
   // Metrics
-  const occupiedCount = tables.filter(
+  const physicalTables = useMemo(() => tables.filter((t) => isPhysicalTable(t.table_number)), [tables]);
+  const occupiedCount = physicalTables.filter(
     (t) => Boolean(tableOrderMap.get(t.id)) || t.status === "occupied"
   ).length;
   const callsCount = waiterCalls.length;

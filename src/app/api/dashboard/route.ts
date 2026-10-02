@@ -159,7 +159,14 @@ export async function GET() {
       return ord?.restaurant_id === targetRestoId;
     });
 
-    const tables = tablesRes.data || [];
+    const isPhysicalTable = (num?: string | null) => {
+      if (!num) return false;
+      const n = num.trim().toUpperCase();
+      return !n.startsWith("DEL-") && !n.startsWith("PU-") && !n.includes("ONLINE");
+    };
+
+    const rawTables = tablesRes.data || [];
+    const tables = rawTables.filter((t) => isPhysicalTable(t.table_number));
     const openOrders = ordersRes.data || [];
     const paidBills = targetBills.filter((b) => b.payment_status === "paid");
     const todayRevenue = paidBills.reduce((sum, b) => sum + (Number(b.total) || 0), 0);

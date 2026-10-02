@@ -305,16 +305,23 @@ export default function AdminPage() {
           }
         }
 
-        // Map tables
+        // Map tables (physical dining tables only)
         if (Array.isArray(data.tables)) {
+          const isPhysical = (num?: string) => {
+            if (!num) return false;
+            const n = num.trim().toUpperCase();
+            return !n.startsWith("DEL-") && !n.startsWith("PU-") && !n.includes("ONLINE");
+          };
           setTables(
-            data.tables.map((t: any) => ({
-              id: t.id,
-              table_number: t.table_number || t.name || "T01",
-              status: t.is_occupied || t.occupied ? "occupied" : "available",
-              qr_token: t.qr_token || "",
-              active_bill_amount: t.active_bill_amount || 0,
-            }))
+            data.tables
+              .filter((t: any) => isPhysical(t.table_number || t.name))
+              .map((t: any) => ({
+                id: t.id,
+                table_number: t.table_number || t.name || "T01",
+                status: t.is_occupied || t.occupied ? "occupied" : "available",
+                qr_token: t.qr_token || "",
+                active_bill_amount: t.active_bill_amount || 0,
+              }))
           );
         }
 

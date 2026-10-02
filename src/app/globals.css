@@ -213,6 +213,46 @@ html, body {
   --shadow-lg: 0 10px 24px -4px rgba(0, 0, 0, 0.7);
 }
 
+[data-theme="purple"] {
+  /* Royal Velvet Purple Theme */
+  --brand-primary: #9333EA;
+  --brand-primary-hover: #7E22CE;
+  --brand-primary-soft: #FAF5FF;
+  --brand-dark: #3B0764;
+  --brand-dark-card: #581C87;
+
+  --paper: #18141F;
+  --paper-dim: #241D30;
+  --ink: #FAF5FF;
+  --ink-soft: #C084FC;
+  --hairline: #3B2D4F;
+  
+  --rust: #A855F7;
+  --rust-text: #FFFFFF;
+  --sage: #10B981;
+  --brick: #F43F5E;
+  --ink-blue: #818CF8;
+  --dark-surface: #130F1A;
+
+  /* Operational tokens */
+  --paper-bg: var(--paper);
+  --card-bg: #201A2B;
+  --sidebar-bg: var(--dark-surface);
+  --border-color: var(--hairline);
+  --ink-dark: var(--ink);
+  --ink-muted: var(--ink-soft);
+  
+  --brand-rust: var(--rust);
+  --status-sage: var(--sage);
+  --status-brick: var(--brick);
+  --status-blue: var(--ink-blue);
+  --status-amber: #FCD34D;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 24px -4px rgba(0, 0, 0, 0.7);
+}
+
 * { box-sizing: border-box; }
 
 body {
