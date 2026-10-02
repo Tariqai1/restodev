@@ -52,6 +52,10 @@ export default function MapLocationPicker({
   const [areaText, setAreaText] = useState("");
   const [landmark, setLandmark] = useState("");
   const [addressTag, setAddressTag] = useState<"home" | "work" | "other">("home");
+  const [gpsNotice, setGpsNotice] = useState<{
+    type: "info" | "warning" | "error";
+    message: string;
+  } | null>(null);
 
   // Serviceability state
   const serviceCheck = checkDeliveryServiceability(
@@ -93,14 +97,12 @@ export default function MapLocationPicker({
       // Add Zoom Control to bottom-right
       L.control.zoom({ position: "bottomright" }).addTo(map);
 
-      // CartoDB Voyager clean modern map tiles (Swiggy / Zepto style)
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        {
-          attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-          maxZoom: 19,
-        }
-      ).addTo(map);
+      // OpenStreetMap clean tiles (100% free, no API key, zero watermarks)
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+        subdomains: ["a", "b", "c"],
+      }).addTo(map);
 
       // Draw Delivery Radius Circle around restaurant
       circleLayerRef.current = L.circle([restoCoords.lat, restoCoords.lng], {
@@ -172,37 +174,67 @@ export default function MapLocationPicker({
   // ─────────────────────────────────────────────────────────────
   const handleDetectGps = () => {
     if (!navigator.geolocation) {
-      alert("GPS Geolocation is not supported by your browser.");
+      setGpsNotice({
+        type: "warning",
+        message: "GPS Geolocation is not supported by your browser. Please drag the pin on the map to your address.",
+      });
       return;
     }
 
     setIsLocatingGps(true);
+    setGpsNotice(null);
+
+    const applyPosition = async (pos: GeolocationPosition) => {
+      const userLat = pos.coords.latitude;
+      const userLng = pos.coords.longitude;
+      const newCoords = { lat: userLat, lng: userLng };
+
+      setCurrentCoords(newCoords);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([userLat, userLng], 16, { animate: true, duration: 1.2 });
+      }
+
+      setIsGeocoding(true);
+      try {
+        const geo = await reverseGeocodeCoords(userLat, userLng);
+        setAreaText(geo.road ? `${geo.road}, ${geo.suburb || geo.city}` : geo.formattedAddress);
+      } finally {
+        setIsGeocoding(false);
+        setIsLocatingGps(false);
+      }
+    };
+
+    // Phase 1: Try GPS with 6s timeout & cached positions accepted up to 60s
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const userLat = pos.coords.latitude;
-        const userLng = pos.coords.longitude;
-        const newCoords = { lat: userLat, lng: userLng };
-
-        setCurrentCoords(newCoords);
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([userLat, userLng], 16, { animate: true, duration: 1.2 });
-        }
-
-        setIsGeocoding(true);
-        try {
-          const geo = await reverseGeocodeCoords(userLat, userLng);
-          setAreaText(geo.road ? `${geo.road}, ${geo.suburb || geo.city}` : geo.formattedAddress);
-        } finally {
-          setIsGeocoding(false);
-          setIsLocatingGps(false);
-        }
+      (pos) => {
+        applyPosition(pos);
       },
       (err) => {
-        console.warn("[GPS Error]", err);
-        setIsLocatingGps(false);
-        alert("Unable to fetch your current GPS position. Please drag the map manually.");
+        console.warn("[GPS Phase 1 High Accuracy Failed, trying Phase 2 network fallback]", err);
+        // Phase 2 fallback: standard network / cellular / wifi location with cached positions up to 5 mins
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            applyPosition(pos);
+          },
+          (fallbackErr) => {
+            console.warn("[GPS Phase 2 Fallback Failed]", fallbackErr);
+            setIsLocatingGps(false);
+            if (fallbackErr.code === 1 /* PERMISSION_DENIED */) {
+              setGpsNotice({
+                type: "warning",
+                message: "Location permission is blocked. Please enable location permissions in your browser or drag the map pin to your doorstep.",
+              });
+            } else {
+              setGpsNotice({
+                type: "info",
+                message: "Unable to detect exact satellite GPS. Please drag the pin on the map to your address.",
+              });
+            }
+          },
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
   };
 
@@ -211,12 +243,18 @@ export default function MapLocationPicker({
   // ─────────────────────────────────────────────────────────────
   const handleConfirm = () => {
     if (!serviceCheck.isServiceable) {
-      alert(serviceCheck.message);
+      setGpsNotice({
+        type: "error",
+        message: serviceCheck.message,
+      });
       return;
     }
 
     if (!flatNo.trim()) {
-      alert("Please enter your House / Flat / Floor Number.");
+      setGpsNotice({
+        type: "warning",
+        message: "Please enter your House / Flat / Floor Number.",
+      });
       return;
     }
 
@@ -267,6 +305,34 @@ export default function MapLocationPicker({
             ✕
           </button>
         </div>
+
+        {/* GPS / Validation Status Banner */}
+        {gpsNotice && (
+          <div
+            className={`px-4 py-2.5 text-xs flex items-center justify-between gap-2 border-b shrink-0 transition-all ${
+              gpsNotice.type === "error"
+                ? "bg-rose-50 border-rose-200 text-rose-800"
+                : gpsNotice.type === "warning"
+                ? "bg-amber-50 border-amber-200 text-amber-900"
+                : "bg-blue-50 border-blue-200 text-blue-900"
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="shrink-0 text-sm">
+                {gpsNotice.type === "error" ? "⚠️" : gpsNotice.type === "warning" ? "📍" : "ℹ️"}
+              </span>
+              <span className="text-[11px] font-semibold leading-tight">{gpsNotice.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGpsNotice(null)}
+              className="p-1 rounded-md text-stone-400 hover:text-stone-700 shrink-0 cursor-pointer"
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Interactive Map Area with Floating Center Pin */}
         <div className="relative w-full h-64 sm:h-72 bg-stone-100 shrink-0">
