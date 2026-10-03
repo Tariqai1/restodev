@@ -158,6 +158,8 @@ export type PlatformState = {
   deliverySettings?: Record<string, DeliverySettings>;
   deliveryRiders?: Record<string, DeliveryRider[]>;
   orderDispatches?: Record<string, OrderDispatchInfo>;
+  dishChannelVisibilities?: Record<string, "all" | "online_only" | "dine_in_only">;
+  dishGalleryImages?: Record<string, string[]>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -199,6 +201,8 @@ let memoryState: PlatformState = {
   dishHalfPortions: {},
   dishHalfPrices: {},
   pendingOrderApprovals: {},
+  dishChannelVisibilities: {},
+  dishGalleryImages: {},
 };
 
 function ensureDataDir() {
@@ -280,6 +284,8 @@ export function getPlatformState(): PlatformState {
         pendingOrderApprovals: parsed.pendingOrderApprovals || {},
         deliverySettings: parsed.deliverySettings || {},
         deliveryRiders: parsed.deliveryRiders || {},
+        dishChannelVisibilities: parsed.dishChannelVisibilities || {},
+        dishGalleryImages: parsed.dishGalleryImages || {},
       };
     } else {
       savePlatformState(memoryState);
@@ -742,6 +748,47 @@ export function setDishHalfPrice(dishId: string, price: number): void {
   state.dishHalfPrices[dishId] = price;
   savePlatformState(state);
 }
+
+export type DishChannelVisibility = "all" | "online_only" | "dine_in_only";
+
+export function getDishChannelVisibility(dishId: string): DishChannelVisibility {
+  if (!dishId) return "all";
+  const state = getPlatformState();
+  if (state.dishChannelVisibilities && dishId in state.dishChannelVisibilities) {
+    return state.dishChannelVisibilities[dishId];
+  }
+  return "all";
+}
+
+export function setDishChannelVisibility(dishId: string, channel: DishChannelVisibility): void {
+  if (!dishId) return;
+  const state = getPlatformState();
+  if (!state.dishChannelVisibilities) {
+    state.dishChannelVisibilities = {};
+  }
+  state.dishChannelVisibilities[dishId] = channel;
+  savePlatformState(state);
+}
+
+export function getDishGalleryImages(dishId: string): string[] {
+  if (!dishId) return [];
+  const state = getPlatformState();
+  if (state.dishGalleryImages && dishId in state.dishGalleryImages) {
+    return state.dishGalleryImages[dishId] || [];
+  }
+  return [];
+}
+
+export function setDishGalleryImages(dishId: string, images: string[]): void {
+  if (!dishId) return;
+  const state = getPlatformState();
+  if (!state.dishGalleryImages) {
+    state.dishGalleryImages = {};
+  }
+  state.dishGalleryImages[dishId] = images;
+  savePlatformState(state);
+}
+
 
 export function registerPendingOrderBatch(
   batch: Omit<PendingOrderApprovalBatch, "id" | "status" | "createdAt">

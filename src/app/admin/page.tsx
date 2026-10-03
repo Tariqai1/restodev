@@ -108,6 +108,8 @@ interface MenuItem {
   half_price?: number;
   photo_url?: string | null;
   photo_urls?: string[];
+  images?: string[];
+  channel_visibility?: "all" | "online_only" | "dine_in_only";
   special_tag?: string;
 }
 
@@ -208,6 +210,7 @@ export default function AdminPage() {
   const [halfPricingMode, setHalfPricingMode] = useState<"percentage" | "fixed">("percentage");
   const [halfPercentage, setHalfPercentage] = useState<number>(60);
   const [dishImages, setDishImages] = useState<string[]>([]);
+  const [dishChannelVisibility, setDishChannelVisibilityState] = useState<"all" | "online_only" | "dine_in_only">("all");
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [customImageUrl, setCustomImageUrl] = useState("");
@@ -642,6 +645,7 @@ export default function AdminPage() {
     setHalfPercentage(60);
     setDishHalfPrice("");
     setDishImages([]);
+    setDishChannelVisibilityState("all");
     setUploadError("");
     setCustomImageUrl("");
     setIsAddDishOpen(true);
@@ -656,6 +660,7 @@ export default function AdminPage() {
     setDishIsVeg(dish.is_veg);
     setDishDesc(dish.description || "");
     setDishHasHalf(Boolean(dish.has_half_portion));
+    setDishChannelVisibilityState(dish.channel_visibility || "all");
     if (dish.half_price) {
       setDishHalfPrice(String(dish.half_price));
       const full = Number(dish.price) || 0;
@@ -678,6 +683,11 @@ export default function AdminPage() {
     }
     const imgs: string[] = [];
     if (dish.photo_url) imgs.push(dish.photo_url);
+    if (Array.isArray(dish.images)) {
+      dish.images.forEach((u) => {
+        if (u && !imgs.includes(u)) imgs.push(u);
+      });
+    }
     if (Array.isArray(dish.photo_urls)) {
       dish.photo_urls.forEach((u) => {
         if (u && !imgs.includes(u)) imgs.push(u);
@@ -771,6 +781,8 @@ export default function AdminPage() {
             hasHalfPortion: dishHasHalf,
             halfPrice: calculatedHalfPrice,
             photoUrl: primaryPhoto || null,
+            channelVisibility: dishChannelVisibility,
+            images: dishImages,
           }),
         });
 
@@ -791,6 +803,8 @@ export default function AdminPage() {
                     has_half_portion: dishHasHalf,
                     half_price: calculatedHalfPrice,
                     photo_url: primaryPhoto || null,
+                    images: dishImages,
+                    channel_visibility: dishChannelVisibility,
                   }
                 : d
             )
@@ -809,6 +823,8 @@ export default function AdminPage() {
                     has_half_portion: dishHasHalf,
                     half_price: calculatedHalfPrice,
                     photo_url: primaryPhoto || null,
+                    images: dishImages,
+                    channel_visibility: dishChannelVisibility,
                   }
                 : d
             )
@@ -827,6 +843,8 @@ export default function AdminPage() {
             hasHalfPortion: dishHasHalf,
             halfPrice: calculatedHalfPrice,
             photoUrl: primaryPhoto || null,
+            channelVisibility: dishChannelVisibility,
+            images: dishImages,
           }),
         });
 
@@ -845,6 +863,8 @@ export default function AdminPage() {
             has_half_portion: dishHasHalf,
             half_price: calculatedHalfPrice,
             photo_url: primaryPhoto || null,
+            images: dishImages,
+            channel_visibility: dishChannelVisibility,
           };
           setMenuItems((prev) => [newDish, ...prev]);
         } else {
@@ -859,6 +879,8 @@ export default function AdminPage() {
             has_half_portion: dishHasHalf,
             half_price: calculatedHalfPrice,
             photo_url: primaryPhoto || null,
+            images: dishImages,
+            channel_visibility: dishChannelVisibility,
           };
           setMenuItems((prev) => [newDish, ...prev]);
         }
@@ -1693,6 +1715,32 @@ export default function AdminPage() {
                         )}
                       </div>
                     ),
+                  },
+                  {
+                    key: "channel",
+                    header: "Channel",
+                    render: (r) => {
+                      const ch = r.channel_visibility || "all";
+                      if (ch === "online_only") {
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <i className="fa-solid fa-motorcycle text-[9px]" /> Online Only
+                          </span>
+                        );
+                      }
+                      if (ch === "dine_in_only") {
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                            <i className="fa-solid fa-chair text-[9px]" /> Table Only
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
+                          <i className="fa-solid fa-globe text-[9px]" /> Table &amp; Online
+                        </span>
+                      );
+                    },
                   },
                   {
                     key: "is_available",
@@ -2754,6 +2802,52 @@ export default function AdminPage() {
                   Non-Vegetarian
                 </span>
               </label>
+            </div>
+          </div>
+
+          {/* AVAILABILITY CHANNELS (Online Only vs Table Only vs Both) */}
+          <div className="border border-slate-200 bg-slate-50/80 rounded-xl p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">
+                  <i className="fa-solid fa-store" />
+                </div>
+                <div>
+                  <span className="font-bold text-slate-800 text-xs block">
+                    Where to Show this Dish? (Availability Channel)
+                  </span>
+                  <span className="text-[11px] text-slate-500 block">
+                    Table QR Menu, Online Delivery Storefront, or Both
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[
+                { id: "all", label: "Table & Online", sub: "Dine-In + Delivery", icon: "fa-globe" },
+                { id: "online_only", label: "Online Only", sub: "Delivery & Pickup", icon: "fa-motorcycle" },
+                { id: "dine_in_only", label: "Table Only", sub: "Dine-In Exclusive", icon: "fa-chair" },
+              ].map((ch) => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => setDishChannelVisibilityState(ch.id as any)}
+                  className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
+                    dishChannelVisibility === ch.id
+                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-purple-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold mb-1">
+                    <i className={`fa-solid ${ch.icon} text-[11px]`} />
+                    <span>{ch.label}</span>
+                  </div>
+                  <span className={`text-[10px] ${dishChannelVisibility === ch.id ? "text-purple-100" : "text-slate-400"}`}>
+                    {ch.sub}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 

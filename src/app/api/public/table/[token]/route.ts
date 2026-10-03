@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getRestaurantTheme, getRestaurantFeatures, getOrderPrepTime, getRestaurantOfferConfig, getRestaurantBranding, getRestaurantUpsellConfig, isTableAwaitingApproval, getDishHalfPortion } from "@/lib/platform/state";
+import { getRestaurantTheme, getRestaurantFeatures, getOrderPrepTime, getRestaurantOfferConfig, getRestaurantBranding, getRestaurantUpsellConfig, isTableAwaitingApproval, getDishHalfPortion, getDishChannelVisibility, getDishGalleryImages } from "@/lib/platform/state";
 
 
 export async function GET(
@@ -298,10 +298,13 @@ export async function GET(
       },
       restaurant: restaurant || { name: "Order Desk Restaurant" },
       categories,
-      items: items.map((it) => ({
-        ...it,
-        has_half_portion: getDishHalfPortion(it.id) ?? undefined,
-      })),
+      items: items
+        .filter((it) => getDishChannelVisibility(it.id) !== "online_only")
+        .map((it) => ({
+          ...it,
+          has_half_portion: getDishHalfPortion(it.id) ?? undefined,
+          images: getDishGalleryImages(it.id).length > 0 ? getDishGalleryImages(it.id) : (it.photo_url ? [it.photo_url] : []),
+        })),
       activeOrder: validOpenOrder ? { ...validOpenOrder, prepEstimate } : null,
       isApprovalPending: approvalPending,
       cancelledItems,

@@ -9,6 +9,8 @@ import {
   getPlatformState,
   getDishHalfPortion,
   getDishHalfPrice,
+  getDishChannelVisibility,
+  getDishGalleryImages,
 } from "@/lib/platform/state";
 
 export async function GET(
@@ -134,26 +136,31 @@ export async function GET(
 
     const categories = categoriesRes.data || [];
     const rawItems = itemsRes.data || [];
-    const formattedItems = rawItems.map((m: any) => {
-      const halfPortionConfig = getDishHalfPortion(m.id);
-      const halfPriceConfig = getDishHalfPrice(m.id);
-      const fullPrice = Number(m.price) || 0;
-      const halfPrice = halfPriceConfig ? Number(halfPriceConfig) : Math.round(fullPrice * 0.6);
+    const formattedItems = rawItems
+      .filter((m: any) => getDishChannelVisibility(m.id) !== "dine_in_only")
+      .map((m: any) => {
+        const halfPortionConfig = getDishHalfPortion(m.id);
+        const halfPriceConfig = getDishHalfPrice(m.id);
+        const fullPrice = Number(m.price) || 0;
+        const halfPrice = halfPriceConfig ? Number(halfPriceConfig) : Math.round(fullPrice * 0.6);
+        const gallery = getDishGalleryImages(m.id);
+        const allImages = gallery.length > 0 ? gallery : (m.photo_url ? [m.photo_url] : []);
 
-      return {
-        id: m.id,
-        category_id: m.category_id,
-        name: m.name,
-        price: fullPrice,
-        description: m.description,
-        is_veg: Boolean(m.is_veg),
-        photo_url: m.photo_url || null,
-        has_half_portion: halfPortionConfig !== null ? Boolean(halfPortionConfig) : false,
-        half_price: halfPrice,
-        is_available: Boolean(m.is_available),
-        is_bestseller: Boolean(m.is_bestseller),
-      };
-    });
+        return {
+          id: m.id,
+          category_id: m.category_id,
+          name: m.name,
+          price: fullPrice,
+          description: m.description,
+          is_veg: Boolean(m.is_veg),
+          photo_url: m.photo_url || null,
+          images: allImages,
+          has_half_portion: halfPortionConfig !== null ? Boolean(halfPortionConfig) : false,
+          half_price: halfPrice,
+          is_available: Boolean(m.is_available),
+          is_bestseller: Boolean(m.is_bestseller),
+        };
+      });
 
     // 4. Fetch Theme and Branding
     const theme = getRestaurantTheme(restaurantId);

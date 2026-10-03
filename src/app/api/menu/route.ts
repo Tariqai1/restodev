@@ -10,6 +10,11 @@ import {
   setDishHalfPortion,
   getDishHalfPrice,
   setDishHalfPrice,
+  getDishChannelVisibility,
+  setDishChannelVisibility,
+  getDishGalleryImages,
+  setDishGalleryImages,
+  DishChannelVisibility,
 } from "@/lib/platform/state";
 
 export async function GET() {
@@ -56,6 +61,9 @@ export async function GET() {
   const itemsWithTags = (itemsResult.data ?? []).map((item) => {
     const halfPortionConfig = getDishHalfPortion(item.id);
     const halfPriceConfig = getDishHalfPrice(item.id);
+    const channelVis = getDishChannelVisibility(item.id);
+    const gallery = getDishGalleryImages(item.id);
+    const allImages = gallery.length > 0 ? gallery : (item.photo_url ? [item.photo_url] : []);
     return {
       ...item,
       special_tag: getDishSpecialTag(item.id) || (item.is_bestseller ? "Chef's Special" : null),
@@ -64,6 +72,8 @@ export async function GET() {
         halfPriceConfig !== null
           ? halfPriceConfig
           : Math.round(Number(item.price) * 0.6),
+      channel_visibility: channelVis,
+      images: allImages,
     };
   });
 
@@ -95,11 +105,13 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json().catch(() => ({}));
-  const { categoryId, name, description, price, costPrice, isVeg, isBestseller, photoUrl, hasHalfPortion, halfPrice } = body;
+  const { categoryId, name, description, price, costPrice, isVeg, isBestseller, photoUrl, hasHalfPortion, halfPrice, channelVisibility, images } = body;
 
   if (!name || price === undefined) {
     return NextResponse.json({ message: "Name and Price are required" }, { status: 400 });
   }
+
+  const primaryPhoto = Array.isArray(images) && images.length > 0 ? images[0] : photoUrl;
 
   const { data: newItem, error } = await admin
     .from("menu_items")
@@ -112,7 +124,7 @@ export async function POST(request: Request) {
       cost_price: costPrice ? Number(costPrice) : null,
       is_veg: Boolean(isVeg),
       is_bestseller: Boolean(isBestseller) || Boolean(body.specialTag),
-      photo_url: photoUrl ? photoUrl.trim() : null,
+      photo_url: primaryPhoto ? String(primaryPhoto).trim() : null,
       is_available: true,
     })
     .select("id, category_id, name, description, price, cost_price, is_veg, is_available, is_bestseller, photo_url, created_at")
@@ -135,6 +147,14 @@ export async function POST(request: Request) {
     setDishHalfPrice(newItem.id, Number(halfPrice));
   }
 
+  if (channelVisibility !== undefined) {
+    setDishChannelVisibility(newItem.id, channelVisibility as DishChannelVisibility);
+  }
+
+  if (Array.isArray(images)) {
+    setDishGalleryImages(newItem.id, images);
+  }
+
   return NextResponse.json(
     {
       ok: true,
@@ -143,6 +163,8 @@ export async function POST(request: Request) {
         special_tag: specialTagVal,
         has_half_portion: hasHalfPortion !== undefined ? Boolean(hasHalfPortion) : undefined,
         half_price: halfPrice !== undefined ? Number(halfPrice) : Math.round(Number(newItem.price) * 0.6),
+        channel_visibility: (channelVisibility as DishChannelVisibility) || "all",
+        images: Array.isArray(images) ? images : (newItem.photo_url ? [newItem.photo_url] : []),
       },
     },
     { status: 201 }
@@ -166,11 +188,13 @@ export async function PATCH(request: Request) {
 
   const admin = createAdminClient();
   const body = await request.json().catch(() => ({}));
-  const { itemId, name, description, categoryId, price, costPrice, isVeg, isBestseller, isAvailable, photoUrl, specialTag, hasHalfPortion, halfPrice } = body;
+  const { itemId, name, description, categoryId, price, costPrice, isVeg, isBestseller, isAvailable, photoUrl, specialTag, hasHalfPortion, halfPrice, channelVisibility, images } = body;
 
   if (!itemId) {
     return NextResponse.json({ message: "itemId is required" }, { status: 400 });
   }
+
+  const primaryPhoto = Array.isArray(images) && images.length > 0 ? images[0] : photoUrl;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = String(name).trim();
@@ -185,7 +209,7 @@ export async function PATCH(request: Request) {
     updates.is_bestseller = Boolean(specialTag);
   }
   if (isAvailable !== undefined) updates.is_available = Boolean(isAvailable);
-  if (photoUrl !== undefined) updates.photo_url = photoUrl ? String(photoUrl).trim() : null;
+  if (primaryPhoto !== undefined) updates.photo_url = primaryPhoto ? String(primaryPhoto).trim() : null;
 
   const { data: updated, error } = await admin
     .from("menu_items")
@@ -211,11 +235,31 @@ export async function PATCH(request: Request) {
     setDishHalfPrice(itemId, Number(halfPrice));
   }
 
+  if (channelVisibility !== undefined) {
+    setDishChannelVisibility(itemId, channelVisibility as DishChannelVisibility);
+  }
+
+  if (Array.isArray(images)) {
+    setDishGalleryImages(itemId, images);
+  }
+
   const finalTag = specialTag !== undefined ? specialTag : (getDishSpecialTag(updated.id) || (updated.is_bestseller ? "Chef's Special" : null));
   const finalHalf = hasHalfPortion !== undefined ? Boolean(hasHalfPortion) : (getDishHalfPortion(itemId) ?? undefined);
   const finalHalfPrice = halfPrice !== undefined ? Number(halfPrice) : (getDishHalfPrice(itemId) ?? Math.round(Number(updated.price) * 0.6));
+  const finalChannel = channelVisibility !== undefined ? channelVisibility : getDishChannelVisibility(itemId);
+  const finalImages = Array.isArray(images) ? images : getDishGalleryImages(itemId);
 
-  return NextResponse.json({ ok: true, item: { ...updated, special_tag: finalTag, has_half_portion: finalHalf, half_price: finalHalfPrice } });
+  return NextResponse.json({
+    ok: true,
+    item: {
+      ...updated,
+      special_tag: finalTag,
+      has_half_portion: finalHalf,
+      half_price: finalHalfPrice,
+      channel_visibility: finalChannel,
+      images: finalImages.length > 0 ? finalImages : (updated.photo_url ? [updated.photo_url] : []),
+    },
+  });
 }
 
 export async function DELETE(request: Request) {
