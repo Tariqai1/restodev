@@ -16,6 +16,7 @@ export type MenuItem = {
   is_bestseller: boolean;
   has_half_portion?: boolean;
   photo_url: string | null;
+  images?: string[];
 };
 
 export type Category = {

@@ -21,10 +21,18 @@ export default function DishPreviewModal({
   onRemoveFromCart,
   onSetNotes,
 }: Props) {
+  const [currentImgIdx, setCurrentImgIdx] = React.useState(0);
+
   if (!dish) return null;
 
   const spice = getSpiciness(dish.name, dish.description);
   const qtyInCart = cartItem?.qty || 0;
+
+  const gallery = (dish.images && dish.images.length > 0)
+    ? dish.images
+    : (dish.photo_url ? [dish.photo_url] : []);
+  const currentImg = gallery[currentImgIdx] || dish.photo_url;
+  const hasMultiple = gallery.length > 1;
 
   return (
     <div
@@ -36,13 +44,13 @@ export default function DishPreviewModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Hero Image Container */}
-        <div className="relative w-full h-56 bg-stone-900 flex-shrink-0">
-          {dish.photo_url ? (
+        <div className="relative w-full h-56 bg-stone-900 flex-shrink-0 select-none">
+          {currentImg ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={dish.photo_url}
+              src={currentImg}
               alt={dish.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-all duration-200"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-6xl bg-amber-50">
@@ -54,17 +62,63 @@ export default function DishPreviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center font-bold text-sm cursor-pointer shadow-md hover:bg-black/80 transition-colors"
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center font-bold text-sm cursor-pointer shadow-md hover:bg-black/80 transition-colors z-10"
             title="Close preview"
           >
             ✕
           </button>
 
           {/* Dietary Pill */}
-          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-xs text-white text-[11px] font-bold">
+          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-xs text-white text-[11px] font-bold z-10">
             <span className={dish.is_veg ? "veg-indicator" : "nonveg-indicator"} />
             <span>{dish.is_veg ? "Vegetarian" : "Non-Veg"}</span>
           </div>
+
+          {/* Carousel Controls */}
+          {hasMultiple && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImgIdx((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
+                }}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs cursor-pointer hover:bg-black/80 z-10"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImgIdx((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs cursor-pointer hover:bg-black/80 z-10"
+              >
+                ›
+              </button>
+
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-xs text-[10px] font-mono text-white font-bold z-10">
+                {currentImgIdx + 1} / {gallery.length}
+              </div>
+
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
+                {gallery.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentImgIdx(idx);
+                    }}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === currentImgIdx ? "w-4 bg-white" : "w-1.5 bg-white/40"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Dish Info Content */}

@@ -14,6 +14,8 @@ interface MenuItem {
   description?: string;
   is_veg: boolean;
   photo_url: string | null;
+  images?: string[];
+  is_bestseller?: boolean;
   has_half_portion: boolean;
   half_price: number;
 }
@@ -123,6 +125,11 @@ export default function OnlineOrderingPage({
   const [customerCancelReason, setCustomerCancelReason] = useState("Placed by mistake");
   const [orderCancelledNotice, setOrderCancelledNotice] = useState<string | null>(null);
 
+  // Dish Tap-to-View HD Sheet state
+  const [selectedPreviewDish, setSelectedPreviewDish] = useState<MenuItem | null>(null);
+  const [previewImageIdx, setPreviewImageIdx] = useState(0);
+  const [previewPortion, setPreviewPortion] = useState<"full" | "half">("full");
+
   // Dynamic Theme Colors
   const themeStyles = useMemo(() => {
     switch (theme) {
@@ -187,7 +194,7 @@ export default function OnlineOrderingPage({
   // SCROLL LOCK EFFECT: Locks background body scroll when modal is open
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const isModalActive = isCheckoutOpen || isTrackOrderOpen;
+    const isModalActive = isCheckoutOpen || isTrackOrderOpen || Boolean(selectedPreviewDish);
     if (isModalActive) {
       const originalBodyOverflow = document.body.style.overflow;
       const originalHtmlOverflow = document.documentElement.style.overflow;
@@ -203,7 +210,7 @@ export default function OnlineOrderingPage({
         document.body.style.touchAction = originalTouchAction;
       };
     }
-  }, [isCheckoutOpen, isTrackOrderOpen]);
+  }, [isCheckoutOpen, isTrackOrderOpen, selectedPreviewDish]);
 
   // Load Storefront data
   useEffect(() => {
@@ -928,13 +935,27 @@ export default function OnlineOrderingPage({
               const fullQty = cart[fullKey]?.qty || 0;
               const halfQty = cart[halfKey]?.qty || 0;
 
+              const gallery = (dish.images && dish.images.length > 0)
+                ? dish.images
+                : (dish.photo_url ? [dish.photo_url] : []);
+              const mainPhoto = gallery[0] || dish.photo_url;
+              const hasMultiplePhotos = gallery.length > 1;
+
               return (
                 <div
                   key={dish.id}
-                  className="p-3.5 rounded-2xl bg-stone-900 border border-stone-800 flex gap-3 items-center justify-between"
+                  className="p-3.5 sm:p-4 rounded-2xl bg-stone-900 border border-stone-800 hover:border-stone-700/80 transition-all flex gap-3.5 items-start justify-between group/card"
                 >
-                  <div className="flex-1 min-w-0 pr-2">
-                    <div className="flex items-center gap-1.5 mb-1">
+                  {/* Left: Dish Info - tap to view HD preview */}
+                  <div
+                    className="flex-1 min-w-0 pr-1 cursor-pointer select-none"
+                    onClick={() => {
+                      setSelectedPreviewDish(dish);
+                      setPreviewImageIdx(0);
+                      setPreviewPortion("full");
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                       <span
                         className={`w-2.5 h-2.5 rounded-xs border flex items-center justify-center p-0.5 ${
                           dish.is_veg ? "border-emerald-500" : "border-rose-500"
@@ -946,23 +967,23 @@ export default function OnlineOrderingPage({
                           }`}
                         />
                       </span>
-                      <span className="text-[10px] font-bold uppercase text-stone-400">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
                         {dish.is_veg ? "Pure Veg" : "Non-Veg"}
                       </span>
+                      {dish.is_bestseller && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <i className="fa-solid fa-star text-[8px]" />
+                          <span>Bestseller</span>
+                        </span>
+                      )}
                     </div>
 
-                    <h3 className="font-bold text-sm text-white tracking-tight leading-snug">
+                    <h3 className="font-bold text-sm sm:text-base text-white tracking-tight leading-snug group-hover/card:text-amber-300 transition-colors">
                       {dish.name}
                     </h3>
 
-                    {dish.description && (
-                      <p className="text-[11px] text-stone-400 line-clamp-2 mt-0.5 leading-relaxed">
-                        {dish.description}
-                      </p>
-                    )}
-
-                    <div className="mt-2 flex items-baseline gap-2">
-                      <span className="font-mono font-bold text-sm text-white">
+                    <div className="mt-1.5 flex items-baseline gap-2">
+                      <span className="font-mono font-bold text-sm sm:text-base text-white">
                         ₹{dish.price}
                       </span>
                       {dish.has_half_portion && (
@@ -971,47 +992,86 @@ export default function OnlineOrderingPage({
                         </span>
                       )}
                     </div>
+
+                    {dish.description && (
+                      <p className="text-[11px] sm:text-xs text-stone-400 line-clamp-2 mt-1.5 leading-relaxed">
+                        {dish.description}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Right side: Photo & Add buttons */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    {dish.photo_url ? (
-                      <img
-                        src={dish.photo_url}
-                        alt={dish.name}
-                        className="w-16 h-16 rounded-xl object-cover border border-stone-800"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-xl bg-stone-950 border border-stone-800 flex items-center justify-center text-xl text-stone-600">
-                        <i className="fa-solid fa-bowl-food" />
+                  {/* Right side: HD Photo (w-24 h-24 / sm:w-28 sm:h-28) & Add buttons */}
+                  <div className="flex flex-col items-center gap-2 shrink-0">
+                    <div
+                      className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-stone-800 bg-stone-950 cursor-pointer shadow-sm group hover:scale-[1.02] transition-transform select-none"
+                      onClick={() => {
+                        setSelectedPreviewDish(dish);
+                        setPreviewImageIdx(0);
+                        setPreviewPortion("full");
+                      }}
+                      title="Tap to view photo"
+                    >
+                      {mainPhoto ? (
+                        <img
+                          src={mainPhoto}
+                          alt={dish.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl text-stone-600">
+                          <i className="fa-solid fa-bowl-food" />
+                        </div>
+                      )}
+
+                      {/* Multi-Photo Count Badge */}
+                      {hasMultiplePhotos && (
+                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-[9px] font-mono text-white flex items-center gap-1 font-bold shadow-xs pointer-events-none">
+                          <i className="fa-solid fa-camera text-[8px]" />
+                          <span>{gallery.length}</span>
+                        </div>
+                      )}
+
+                      {/* Tap to View HD icon cue */}
+                      <div className="absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 backdrop-blur-xs text-white/90 flex items-center justify-center text-[9px] opacity-80 pointer-events-none">
+                        <i className="fa-solid fa-expand" />
                       </div>
-                    )}
+                    </div>
 
                     {/* Add / Stepper controls */}
-                    <div className="flex flex-col gap-1 items-end">
+                    <div className="flex flex-col gap-1 items-center w-full">
                       {/* Full Portion Stepper */}
                       {fullQty === 0 ? (
                         <button
                           type="button"
-                          onClick={() => addToCart(dish, "full")}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold text-white shadow-2xs active:scale-95 transition-all cursor-pointer ${themeStyles.accentBg}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(dish, "full");
+                          }}
+                          className={`w-full max-w-[100px] py-1.5 px-3 rounded-xl text-xs font-extrabold text-white shadow-2xs active:scale-95 transition-all cursor-pointer text-center ${themeStyles.accentBg}`}
                         >
                           ADD +
                         </button>
                       ) : (
-                        <div className="flex items-center rounded-lg border border-stone-700 bg-stone-950 overflow-hidden text-xs font-bold font-mono">
+                        <div className="flex items-center rounded-xl border border-stone-700 bg-stone-950 overflow-hidden text-xs font-bold font-mono shadow-xs">
                           <button
                             type="button"
-                            onClick={() => removeFromCart(dish.id, "full")}
-                            className="px-2 py-0.5 text-stone-400 hover:text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFromCart(dish.id, "full");
+                            }}
+                            className="w-7 h-7 flex items-center justify-center text-stone-300 hover:text-white active:bg-stone-800"
                           >
                             −
                           </button>
-                          <span className="px-2 text-white">{fullQty}</span>
+                          <span className="px-2 text-white font-bold">{fullQty}</span>
                           <button
                             type="button"
-                            onClick={() => addToCart(dish, "full")}
-                            className={`px-2 py-0.5 hover:text-white ${themeStyles.accentText}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(dish, "full");
+                            }}
+                            className={`w-7 h-7 flex items-center justify-center active:bg-stone-800 ${themeStyles.accentText}`}
                           >
                             +
                           </button>
@@ -1024,7 +1084,10 @@ export default function OnlineOrderingPage({
                           {halfQty === 0 ? (
                             <button
                               type="button"
-                              onClick={() => addToCart(dish, "half")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(dish, "half");
+                              }}
                               className={`text-[10px] font-bold underline cursor-pointer hover:opacity-80 ${themeStyles.accentText}`}
                             >
                               + Half ₹{dish.half_price}
@@ -1033,16 +1096,22 @@ export default function OnlineOrderingPage({
                             <div className="flex items-center rounded-lg border border-stone-700 bg-stone-950 text-[10px] font-bold font-mono">
                               <button
                                 type="button"
-                                onClick={() => removeFromCart(dish.id, "half")}
-                                className="px-1.5 py-0.5 text-stone-400"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFromCart(dish.id, "half");
+                                }}
+                                className="px-1.5 py-0.5 text-stone-400 active:bg-stone-800"
                               >
                                 −
                               </button>
                               <span className="px-1 text-stone-200">{halfQty}H</span>
                               <button
                                 type="button"
-                                onClick={() => addToCart(dish, "half")}
-                                className={`px-1.5 py-0.5 ${themeStyles.accentText}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addToCart(dish, "half");
+                                }}
+                                className={`px-1.5 py-0.5 active:bg-stone-800 ${themeStyles.accentText}`}
                               >
                                 +
                               </button>
@@ -1472,6 +1541,287 @@ export default function OnlineOrderingPage({
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          HD DISH DETAIL SHEET (Swiggy / Zomato Style)
+         ───────────────────────────────────────────────────────────── */}
+      {selectedPreviewDish && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center items-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedPreviewDish(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-stone-900 border border-stone-800 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Drag Handle */}
+            <div className="pt-2.5 pb-1 sm:hidden flex justify-center bg-stone-900">
+              <div className="w-12 h-1 bg-stone-700 rounded-full" />
+            </div>
+
+            {/* Hero Image / Carousel */}
+            {(() => {
+              const gallery = (selectedPreviewDish.images && selectedPreviewDish.images.length > 0)
+                ? selectedPreviewDish.images
+                : (selectedPreviewDish.photo_url ? [selectedPreviewDish.photo_url] : []);
+              const currentImg = gallery[previewImageIdx] || selectedPreviewDish.photo_url;
+              const hasMultiple = gallery.length > 1;
+
+              return (
+                <div className="relative w-full h-64 sm:h-72 bg-stone-950 shrink-0 select-none overflow-hidden group">
+                  {currentImg ? (
+                    <img
+                      src={currentImg}
+                      alt={selectedPreviewDish.name}
+                      className="w-full h-full object-cover transition-all duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-stone-600 gap-2">
+                      <i className="fa-solid fa-bowl-food text-5xl" />
+                      <span className="text-xs text-stone-500">No photo available</span>
+                    </div>
+                  )}
+
+                  {/* Gradient overlay for readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-black/40 pointer-events-none" />
+
+                  {/* Top Close Button */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPreviewDish(null)}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs font-bold cursor-pointer backdrop-blur-xs transition-transform active:scale-90 z-10"
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
+
+                  {/* Top Left Badges: Veg/Non-Veg & Bestseller */}
+                  <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
+                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1.5 shadow-md ${
+                      selectedPreviewDish.is_veg ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/40" : "bg-rose-950/80 text-rose-300 border border-rose-500/40"
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${selectedPreviewDish.is_veg ? "bg-emerald-400" : "bg-rose-400"}`} />
+                      <span>{selectedPreviewDish.is_veg ? "Pure Veg" : "Non-Veg"}</span>
+                    </span>
+
+                    {selectedPreviewDish.is_bestseller && (
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/90 text-stone-950 flex items-center gap-1 shadow-md">
+                        <i className="fa-solid fa-star text-[10px]" />
+                        <span>Bestseller</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Multi-image Navigation Controls */}
+                  {hasMultiple && (
+                    <>
+                      {/* Prev Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewImageIdx((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
+                        }}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs cursor-pointer backdrop-blur-xs transition-transform active:scale-90"
+                      >
+                        <i className="fa-solid fa-chevron-left" />
+                      </button>
+
+                      {/* Next Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewImageIdx((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs cursor-pointer backdrop-blur-xs transition-transform active:scale-90"
+                      >
+                        <i className="fa-solid fa-chevron-right" />
+                      </button>
+
+                      {/* Image Counter Badge */}
+                      <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-xs text-[10px] font-mono text-white font-bold flex items-center gap-1.5 shadow-md">
+                        <i className="fa-solid fa-images text-[9px]" />
+                        <span>{previewImageIdx + 1} / {gallery.length}</span>
+                      </div>
+
+                      {/* Dot Indicators */}
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                        {gallery.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImageIdx(idx);
+                            }}
+                            className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                              idx === previewImageIdx ? "w-5 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Scrollable Dish Details */}
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              {/* Dish Name & Base Price */}
+              <div>
+                <h2 className="font-heading font-bold text-xl sm:text-2xl text-white tracking-tight leading-snug">
+                  {selectedPreviewDish.name}
+                </h2>
+
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="font-mono font-bold text-xl text-emerald-400">
+                    ₹{previewPortion === "half" ? selectedPreviewDish.half_price : selectedPreviewDish.price}
+                  </span>
+                  <span className="text-[11px] text-stone-400 font-medium">
+                    + 5% GST
+                  </span>
+                </div>
+              </div>
+
+              {/* Portion Selector (Full vs Half) if enabled */}
+              {selectedPreviewDish.has_half_portion && (
+                <div className="p-3 rounded-2xl bg-stone-950/70 border border-stone-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-stone-300">Choose Portion Size</span>
+                    <span className="text-[10px] text-stone-500 uppercase font-mono">Customizable</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPortion("full")}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        previewPortion === "full"
+                          ? `${themeStyles.accentBorder} bg-white/5 shadow-inner`
+                          : "border-stone-800 hover:border-stone-700 bg-stone-900/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">Full Portion</span>
+                        <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                          previewPortion === "full" ? themeStyles.accentBorder : "border-stone-700"
+                        }`}>
+                          {previewPortion === "full" && (
+                            <span className={`w-2 h-2 rounded-full ${themeStyles.accentBg}`} />
+                          )}
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-sm text-emerald-400 mt-1">
+                        ₹{selectedPreviewDish.price}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPortion("half")}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        previewPortion === "half"
+                          ? `${themeStyles.accentBorder} bg-white/5 shadow-inner`
+                          : "border-stone-800 hover:border-stone-700 bg-stone-900/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">Half Portion</span>
+                        <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                          previewPortion === "half" ? themeStyles.accentBorder : "border-stone-700"
+                        }`}>
+                          {previewPortion === "half" && (
+                            <span className={`w-2 h-2 rounded-full ${themeStyles.accentBg}`} />
+                          )}
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-sm text-emerald-400 mt-1">
+                        ₹{selectedPreviewDish.half_price}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedPreviewDish.description ? (
+                <div className="space-y-1">
+                  <h4 className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">About This Dish</h4>
+                  <p className="text-xs sm:text-sm text-stone-300 leading-relaxed bg-stone-950/40 p-3 rounded-xl border border-stone-800/80">
+                    {selectedPreviewDish.description}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-stone-500 italic">Freshly prepared with authentic ingredients upon order.</p>
+              )}
+            </div>
+
+            {/* Sticky Action Footer */}
+            {(() => {
+              const currentKey = `${selectedPreviewDish.id}:${previewPortion}`;
+              const currentQty = cart[currentKey]?.qty || 0;
+              const currentPrice = previewPortion === "half" ? selectedPreviewDish.half_price : selectedPreviewDish.price;
+
+              return (
+                <div className="p-4 bg-stone-950 border-t border-stone-800 flex items-center gap-3">
+                  {currentQty === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => addToCart(selectedPreviewDish, previewPortion)}
+                      className={`flex-1 py-3.5 px-4 rounded-2xl font-bold text-white text-sm shadow-md active:scale-98 transition-all flex items-center justify-between cursor-pointer ${themeStyles.accentBg}`}
+                    >
+                      <span>ADD TO ORDER ({previewPortion === "half" ? "Half" : "Full"})</span>
+                      <span className="font-mono">₹{currentPrice}</span>
+                    </button>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-between bg-stone-900 border border-stone-700 rounded-2xl p-1.5 px-3">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-stone-400 uppercase font-mono">In Cart ({previewPortion})</span>
+                        <span className="font-mono font-bold text-white text-sm">
+                          ₹{currentPrice * currentQty}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center rounded-xl border border-stone-700 bg-stone-950 overflow-hidden text-sm font-bold font-mono">
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(selectedPreviewDish.id, previewPortion)}
+                            className="w-9 h-9 flex items-center justify-center text-stone-300 hover:text-white active:bg-stone-800"
+                          >
+                            −
+                          </button>
+                          <span className="px-3 text-white font-bold">{currentQty}</span>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(selectedPreviewDish, previewPortion)}
+                            className={`w-9 h-9 flex items-center justify-center active:bg-stone-800 ${themeStyles.accentText}`}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPreviewDish(null);
+                            setIsCheckoutOpen(true);
+                          }}
+                          className={`py-2 px-3.5 rounded-xl font-bold text-xs text-white cursor-pointer ${themeStyles.accentBg}`}
+                        >
+                          Checkout →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

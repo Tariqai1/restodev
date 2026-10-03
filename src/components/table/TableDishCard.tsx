@@ -223,6 +223,13 @@ export default function TableDishCard({
               {foodEmoji}
             </div>
           )}
+
+          {item.images && item.images.length > 1 && (
+            <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-[9px] font-mono text-white flex items-center gap-1 font-bold pointer-events-none z-5">
+              <i className="fa-solid fa-camera text-[8px]" />
+              <span>{item.images.length}</span>
+            </div>
+          )}
         </div>
 
         {/* ADD / Stepper overlapping bottom */}
