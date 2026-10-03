@@ -52,6 +52,7 @@ import TableOrderHistory from "@/components/table/TableOrderHistory";
 import TableAiWaiterModal from "@/components/table/TableAiWaiterModal";
 import TableVoiceOrderModal from "@/components/table/TableVoiceOrderModal";
 import TableOnlineOrderBanner from "@/components/table/TableOnlineOrderBanner";
+import TableOfferPopupModal from "@/components/table/TableOfferPopupModal";
 
 const ScratchCardModal = dynamic(
   () => import("@/components/table/ScratchCardModal"),
@@ -1744,6 +1745,13 @@ export default function CustomerTableOrderingPage({
         onClose={() => setIsVoiceOrderOpen(false)}
         menuItems={items}
         onBatchAddToCart={handleBatchAddToCart}
+      />
+
+      {/* 11. Welcome Table Scan Offer Popup Modal */}
+      <TableOfferPopupModal
+        offerConfig={offerConfig}
+        restaurantName={restaurantName}
+        tableNumber={tableNumber}
       />
     </div>
   );

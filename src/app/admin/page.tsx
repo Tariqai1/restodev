@@ -29,6 +29,8 @@ import ApprovalsView from "@/components/admin/views/ApprovalsView";
 import StoreSettingsView from "@/components/admin/views/StoreSettingsView";
 import OnlineOrdersView from "@/components/admin/views/OnlineOrdersView";
 import CustomerDemandsView from "@/components/admin/views/CustomerDemandsView";
+import OfferStudioView from "@/components/admin/views/OfferStudioView";
+import BulkPriceModal from "@/components/admin/modals/BulkPriceModal";
 import {
   playOrderApprovalChime,
   playWaiterCallChime,
@@ -225,6 +227,7 @@ export default function AdminPage() {
   const [inlineCategoryMode, setInlineCategoryMode] = useState(false);
   const [inlineCategoryName, setInlineCategoryName] = useState("");
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const [isBulkPriceOpen, setIsBulkPriceOpen] = useState(false);
 
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
@@ -1364,6 +1367,7 @@ export default function AdminPage() {
     online_orders: { title: "Online Delivery & Takeaway", breadcrumb: ["Admin", "Operations", "Online Orders"] },
     approvals: { title: "Captain Approvals", breadcrumb: ["Admin", "Operations", "Approvals"] },
     menu_items: { title: "Dishes & Modifiers", breadcrumb: ["Admin", "Catalog", "Dishes"] },
+    offers: { title: "Offer & Promo Studio", breadcrumb: ["Admin", "Marketing", "Offers"] },
     menu_categories: { title: "Menu Categories", breadcrumb: ["Admin", "Catalog", "Categories"] },
     stockout: { title: "86 / Stock Out List", breadcrumb: ["Admin", "Catalog", "Stock Out"] },
     ai_studio: { title: "AI Copilot & OCR Hub", breadcrumb: ["Admin", "Catalog", "AI Studio"] },
@@ -1672,6 +1676,32 @@ export default function AdminPage() {
           {/* ======================================================== */}
           {(currentView === "menu_items" || currentView === "stockout") && (
             <div className="space-y-4">
+              {/* Quick Bulk Price Adjustment Bar (Only in menu_items) */}
+              {currentView === "menu_items" && (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-transparent border border-amber-200/80 rounded-2xl shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      <i className="fa-solid fa-bolt" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Bulk Rate &amp; Price Adjustment
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        Increase or decrease rates across the entire menu or specific categories (+10%, -5%, +₹20) with smart rounding.
+                      </span>
+                    </div>
+                  </div>
+                  <AdminButton
+                    variant="primary"
+                    size="sm"
+                    leftIcon="fa-wand-magic-sparkles"
+                    onClick={() => setIsBulkPriceOpen(true)}
+                  >
+                    Bulk Price Adjust
+                  </AdminButton>
+                </div>
+              )}
               <AdminTableFilters
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -2723,6 +2753,16 @@ export default function AdminPage() {
               }}
             />
           )}
+
+          {/* ======================================================== */}
+          {/* VIEW: OFFER & PROMO STUDIO                               */}
+          {/* ======================================================== */}
+          {currentView === "offers" && (
+            <OfferStudioView
+              restaurantId={restaurantId}
+              restaurantName={restaurantName}
+            />
+          )}
         </main>
       </div>
 
@@ -3575,6 +3615,17 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* ======================================================== */}
+      {/* MODAL: BULK & CATEGORY PRICE ADJUSTMENT */}
+      {/* ======================================================== */}
+      <BulkPriceModal
+        isOpen={isBulkPriceOpen}
+        onClose={() => setIsBulkPriceOpen(false)}
+        menuItems={menuItems}
+        categories={categories}
+        onPricesUpdated={fetchData}
+      />
     </div>
   );
 }

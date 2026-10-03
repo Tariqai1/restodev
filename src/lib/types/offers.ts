@@ -1,6 +1,13 @@
 export type RestaurantOfferConfig = {
   active: boolean;
   bannerText: string;
+  badge?: string;
+  headline?: string;
+  description?: string;
+  bannerUrl?: string | null;
+  buttonText?: string;
+  showOnTableScan?: boolean;
+  couponCode?: string;
   discountPercent: number;
   minOrderValue: number;
   bounceBackReward: string;
@@ -12,6 +19,13 @@ export type RestaurantOfferConfig = {
 export const DEFAULT_OFFER_CONFIG: RestaurantOfferConfig = {
   active: true,
   bannerText: "FLAT 20% OFF TODAY · Auto-applied on orders above ₹399",
+  badge: "TODAY'S SPECIAL",
+  headline: "Flat 20% OFF on Orders Above ₹399!",
+  description: "Exclusive dine-in special treat. Discount automatically applied at checkout.",
+  bannerUrl: null,
+  buttonText: "Claim Offer & View Menu 🎉",
+  showOnTableScan: true,
+  couponCode: "FLAT20",
   discountPercent: 20,
   minOrderValue: 399,
   bounceBackReward: "₹100 OFF on your next visit (Min order ₹499)",

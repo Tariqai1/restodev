@@ -13,6 +13,7 @@ export type AdminViewType =
   | "online_orders"
   | "approvals"
   | "menu_items"
+  | "offers"
   | "menu_categories"
   | "stockout"
   | "ai_studio"
@@ -74,6 +75,7 @@ const NAV_SECTIONS: NavSection[] = [
         icon: "fa-utensils",
         subItems: [
           { id: "menu_items", label: "Dishes & Items", icon: "fa-bowl-food" },
+          { id: "offers", label: "Offer & Promo Studio", icon: "fa-gift", badge: "POPUP" },
           { id: "menu_categories", label: "Categories", icon: "fa-layer-group" },
           { id: "customer_demands", label: "Customer Demand Insights", icon: "fa-lightbulb", badge: "AI" },
           { id: "stockout", label: "86 / Stock Out List", icon: "fa-ban" },
