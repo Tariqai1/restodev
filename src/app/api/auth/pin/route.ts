@@ -75,6 +75,13 @@ export async function GET(request: NextRequest) {
         restaurant = Array.isArray(staffWithResto.restaurants)
           ? (staffWithResto.restaurants[0] as unknown as { id: string; name: string })
           : (staffWithResto.restaurants as unknown as { id: string; name: string });
+      } else if (staffWithResto?.restaurant_id) {
+        const { data: rData } = await admin
+          .from("restaurants")
+          .select("id, name")
+          .eq("id", staffWithResto.restaurant_id)
+          .maybeSingle();
+        restaurant = rData;
       }
     }
 
@@ -157,24 +164,24 @@ export async function POST(request: NextRequest) {
       pin_hash: string;
     } | null = null;
 
+    // 1. If a specific staffId was provided, check them first
     if (staffId) {
-      const { data: staffMember, error } = await admin
+      const { data: staffMember } = await admin
         .from("staff_users")
-        .select("id, name, role, restaurant_id, pin_hash")
+        .select("id, name, role, restaurant_id, pin_hash, is_active")
         .eq("id", staffId)
-        .eq("is_active", true)
         .maybeSingle();
 
-      if (error || !staffMember) {
-        return NextResponse.json({ message: "Staff profile not found or inactive" }, { status: 404 });
+      if (staffMember && staffMember.is_active && staffMember.pin_hash) {
+        const isMatch = await bcrypt.compare(pin, staffMember.pin_hash).catch(() => false);
+        if (isMatch) {
+          matchedStaff = staffMember;
+        }
       }
+    }
 
-      const isMatch = await bcrypt.compare(pin, staffMember.pin_hash);
-      if (isMatch) {
-        matchedStaff = staffMember;
-      }
-    } else {
-      // Must scope to active restaurant that has staff
+    // 2. Fallback: match PIN against all active staff in the restaurant (or across all active staff)
+    if (!matchedStaff) {
       let targetRestoId: string | null = explicitRestoId || null;
       if (!targetRestoId) {
         const cookieStore = await cookies();
@@ -189,39 +196,46 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (!targetRestoId) {
-        const { data: staffWithResto } = await admin
-          .from("staff_users")
-          .select("restaurant_id")
-          .eq("is_active", true)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        targetRestoId = staffWithResto?.restaurant_id || null;
-      }
-
-      let query = admin
-        .from("staff_users")
-        .select("id, name, role, restaurant_id, pin_hash")
-        .eq("is_active", true);
-
+      // First check within the target restaurant if known
       if (targetRestoId) {
-        query = query.eq("restaurant_id", targetRestoId);
+        const { data: restoStaff } = await admin
+          .from("staff_users")
+          .select("id, name, role, restaurant_id, pin_hash")
+          .eq("restaurant_id", targetRestoId)
+          .eq("is_active", true);
+
+        if (restoStaff && restoStaff.length > 0) {
+          for (const s of restoStaff) {
+            if (s.pin_hash) {
+              const ok = await bcrypt.compare(pin, s.pin_hash).catch(() => false);
+              if (ok) {
+                matchedStaff = s;
+                break;
+              }
+            }
+          }
+        }
       }
 
-      const { data: staffList, error } = await query;
+      // If still not matched, check ALL active staff across the platform
+      if (!matchedStaff) {
+        const { data: allActiveStaff } = await admin
+          .from("staff_users")
+          .select("id, name, role, restaurant_id, pin_hash")
+          .eq("is_active", true);
 
-      if (error || !staffList || staffList.length === 0) {
-        return NextResponse.json({ message: "No active staff found for this station" }, { status: 404 });
+        if (allActiveStaff && allActiveStaff.length > 0) {
+          for (const s of allActiveStaff) {
+            if (s.pin_hash) {
+              const ok = await bcrypt.compare(pin, s.pin_hash).catch(() => false);
+              if (ok) {
+                matchedStaff = s;
+                break;
+              }
+            }
+          }
+        }
       }
-
-      const matchResults = await Promise.all(
-        staffList.map(async (s) => ({
-          staff: s,
-          isMatch: await bcrypt.compare(pin, s.pin_hash).catch(() => false),
-        }))
-      );
-      matchedStaff = matchResults.find((r) => r.isMatch)?.staff || null;
     }
 
     if (!matchedStaff) {

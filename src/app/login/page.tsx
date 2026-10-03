@@ -117,7 +117,7 @@ export default function TerminalLoginPage() {
           }),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
           throw new Error(data.message || "Incorrect PIN");
