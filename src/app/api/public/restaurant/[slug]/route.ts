@@ -167,10 +167,20 @@ export async function GET(
       });
 
     // 4. Fetch Theme and Branding
-    const theme = getRestaurantTheme(restaurantId);
-    const branding = getRestaurantBranding(restaurantId);
-    const features = getRestaurantFeatures(restaurantId);
-    const offers = getRestaurantOfferConfig(restaurantId);
+    let theme = getRestaurantTheme(restaurantId);
+    let branding = getRestaurantBranding(restaurantId);
+    let features = getRestaurantFeatures(restaurantId);
+    let offers = getRestaurantOfferConfig(restaurantId);
+
+    if (restaurant?.gstin?.startsWith("{")) {
+      try {
+        const meta = JSON.parse(restaurant.gstin);
+        if (meta.theme) theme = meta.theme;
+        if (meta.branding && typeof meta.branding === "object") branding = { ...branding, ...meta.branding };
+        if (meta.features) features = { ...features, ...meta.features };
+        if (meta.offerConfig) offers = { ...offers, ...meta.offerConfig };
+      } catch {}
+    }
 
     return NextResponse.json({
       ok: true,

@@ -229,8 +229,8 @@ export async function GET(
       }
     }
 
-    const theme = getRestaurantTheme(table.restaurant_id);
-    const branding = getRestaurantBranding(table.restaurant_id);
+    let theme = getRestaurantTheme(table.restaurant_id);
+    let branding = getRestaurantBranding(table.restaurant_id);
     let features = getRestaurantFeatures(table.restaurant_id);
     let cancelledItems: Array<{
       id: string;
@@ -247,11 +247,26 @@ export async function GET(
       cancelledAt: string;
     } | null = null;
 
+    let offerConfig = getRestaurantOfferConfig(table.restaurant_id);
+    let upsellConfig = getRestaurantUpsellConfig(table.restaurant_id);
+
     if (restaurant?.gstin?.startsWith("{")) {
       try {
         const meta = JSON.parse(restaurant.gstin);
+        if (meta.theme) {
+          theme = meta.theme;
+        }
+        if (meta.branding && typeof meta.branding === "object") {
+          branding = { ...branding, ...meta.branding };
+        }
         if (meta.features) {
           features = { ...features, ...meta.features };
+        }
+        if (meta.offerConfig) {
+          offerConfig = { ...offerConfig, ...meta.offerConfig };
+        }
+        if (meta.upsellConfig) {
+          upsellConfig = { ...upsellConfig, ...meta.upsellConfig };
         }
         const now = Date.now();
         if (Array.isArray(meta.cancelled_items)) {
@@ -277,8 +292,6 @@ export async function GET(
         }
       } catch {}
     }
-    const offerConfig = getRestaurantOfferConfig(table.restaurant_id);
-    const upsellConfig = getRestaurantUpsellConfig(table.restaurant_id);
     const prepEstimate = validOpenOrder ? getOrderPrepTime(validOpenOrder.id) : null;
     const approvalPending =
       isTableAwaitingApproval(table.id) ||
