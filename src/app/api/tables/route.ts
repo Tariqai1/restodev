@@ -141,3 +141,55 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ message: "Invalid action" }, { status: 400 });
 }
+
+export async function DELETE(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ message: "Staff authentication required" }, { status: 401 });
+  }
+
+  const staffContext = await resolveStaffContext(user);
+  if (!staffContext || (!staffContext.isSuperAdmin && !["admin", "owner", "manager"].includes(staffContext.role))) {
+    return NextResponse.json({ message: "Admin access required" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const tableId = searchParams.get("tableId");
+
+  if (!tableId) {
+    return NextResponse.json({ message: "tableId is required" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+
+  // Check if table has active running orders
+  const { data: activeOrders } = await admin
+    .from("orders")
+    .select("id")
+    .eq("table_id", tableId)
+    .in("status", ["placed", "preparing", "served"])
+    .limit(1);
+
+  if (activeOrders && activeOrders.length > 0) {
+    return NextResponse.json(
+      { message: "Is table par active order chal raha hai. Pehle bill settle ya order vacate karein." },
+      { status: 400 }
+    );
+  }
+
+  const { error } = await admin
+    .from("restaurant_tables")
+    .delete()
+    .eq("id", tableId)
+    .eq("restaurant_id", staffContext.restaurantId);
+
+  if (error) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, message: "Table removed successfully" });
+}

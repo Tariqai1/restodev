@@ -261,6 +261,56 @@ export default function AdminPage() {
     mode: "shift" | "join";
   }>({ isOpen: false, table: null, mode: "shift" });
 
+  // Add / Delete Table State & Handlers
+  const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
+  const [newTableNumberInput, setNewTableNumberInput] = useState("");
+  const [isAddingTable, setIsAddingTable] = useState(false);
+
+  const handleAddTable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const tableNum = newTableNumberInput.trim().toUpperCase();
+    if (!tableNum) return;
+    setIsAddingTable(true);
+    try {
+      const res = await fetch("/api/tables", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableNumber: tableNum }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Failed to add table");
+      } else {
+        setNewTableNumberInput("");
+        setIsAddTableModalOpen(false);
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      alert("Error adding table: " + (err?.message || err));
+    } finally {
+      setIsAddingTable(false);
+    }
+  };
+
+  const handleDeleteTable = async (tableId: string, tableNumber: string) => {
+    if (!confirm(`Kya aap Table ${tableNumber} ko permanently delete karna chahte hain?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/tables?tableId=${encodeURIComponent(tableId)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Failed to remove table");
+      } else {
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      alert("Error removing table: " + (err?.message || err));
+    }
+  };
+
   // Tracking refs to detect newly arrived items & trigger appropriate audio signatures
   const knownBatchIdsRef = React.useRef<Set<string>>(new Set());
   const knownCallIdsRef = React.useRef<Set<string>>(new Set());
@@ -2087,9 +2137,25 @@ export default function AdminPage() {
                     Floor Plan & Table Management
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Real-time occupancy, guest orders, and 1-tap table management
+                    Real-time occupancy, guest orders, and 1-tap table management ({tables.length} tables registered)
                   </p>
                 </div>
+                <AdminButton
+                  variant="primary"
+                  size="sm"
+                  leftIcon="fa-plus"
+                  onClick={() => {
+                    const existingNums = tables
+                      .map((t) => parseInt(t.table_number.replace(/\D/g, ""), 10))
+                      .filter((n) => !isNaN(n));
+                    const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 6;
+                    const nextNum = maxNum + 1;
+                    setNewTableNumberInput(nextNum < 10 ? `T0${nextNum}` : `T${nextNum}`);
+                    setIsAddTableModalOpen(true);
+                  }}
+                >
+                  Add Table
+                </AdminButton>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -2115,18 +2181,30 @@ export default function AdminPage() {
                           <span className="text-base font-bold text-slate-900">
                             Table {t.table_number}
                           </span>
-                          <AdminBadge
-                            variant={
-                              t.status === "occupied" || activeOrderForTable
-                                ? "cooking"
-                                : "active"
-                            }
-                            size="sm"
-                          >
-                            {t.status === "occupied" || activeOrderForTable
-                              ? "Occupied"
-                              : "Free"}
-                          </AdminBadge>
+                          <div className="flex items-center gap-1.5">
+                            <AdminBadge
+                              variant={
+                                t.status === "occupied" || activeOrderForTable
+                                  ? "cooking"
+                                  : "active"
+                              }
+                              size="sm"
+                            >
+                              {t.status === "occupied" || activeOrderForTable
+                                ? "Occupied"
+                                : "Free"}
+                            </AdminBadge>
+                            {!activeOrderForTable && t.status !== "occupied" && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTable(t.id, t.table_number)}
+                                className="w-6 h-6 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer"
+                                title={`Delete Table ${t.table_number}`}
+                              >
+                                <i className="fa-regular fa-trash-can text-xs" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Running Order Status Pill */}
@@ -3429,6 +3507,73 @@ export default function AdminPage() {
           mode={transferModal.mode}
           onSuccess={() => fetchData(true)}
         />
+      )}
+
+      {/* ======================================================== */}
+      {/* ADD NEW DINING TABLE MODAL */}
+      {/* ======================================================== */}
+      {isAddTableModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
+                  <i className="fa-solid fa-chair" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Add New Dining Table</h3>
+                  <p className="text-[11px] text-slate-500">Auto-generates live QR token & Standee</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddTableModalOpen(false)}
+                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddTable} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Table Number / Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. T07, T08, Rooftop 1"
+                  value={newTableNumberInput}
+                  onChange={(e) => setNewTableNumberInput(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent uppercase"
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  A unique QR code and digital menu link will be auto-generated.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <AdminButton
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => setIsAddTableModalOpen(false)}
+                >
+                  Cancel
+                </AdminButton>
+                <AdminButton
+                  variant="primary"
+                  size="sm"
+                  type="submit"
+                  disabled={isAddingTable}
+                  leftIcon={isAddingTable ? "fa-spinner fa-spin" : "fa-plus"}
+                >
+                  {isAddingTable ? "Creating..." : "Create Table"}
+                </AdminButton>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
