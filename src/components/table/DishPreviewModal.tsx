@@ -22,6 +22,21 @@ export default function DishPreviewModal({
   onSetNotes,
 }: Props) {
   const [currentImgIdx, setCurrentImgIdx] = React.useState(0);
+  const touchStartX = React.useRef<number | null>(null);
+  const touchStartY = React.useRef<number | null>(null);
+
+  // 100% Lock body scroll when preview modal is open
+  React.useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, []);
 
   if (!dish) return null;
 
@@ -34,23 +49,64 @@ export default function DishPreviewModal({
   const currentImg = gallery[currentImgIdx] || dish.photo_url;
   const hasMultiple = gallery.length > 1;
 
+  // Touch Swipe Gesture Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current !== null && touchStartY.current !== null) {
+      const diffX = touchStartX.current - e.touches[0].clientX;
+      const diffY = touchStartY.current - e.touches[0].clientY;
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        // Horizontal gesture in progress
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const diffX = touchStartX.current - e.changedTouches[0].clientX;
+    const diffY = touchStartY.current - e.changedTouches[0].clientY;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
+      if (diffX > 0) {
+        // Swiped Left -> Next image
+        setCurrentImgIdx((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
+      } else {
+        // Swiped Right -> Previous image
+        setCurrentImgIdx((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs overscroll-contain select-none"
       onClick={onClose}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl overflow-hidden bg-white shadow-2xl border border-stone-200 max-h-[90vh] flex flex-col"
+        className="w-full max-w-sm rounded-2xl overflow-hidden bg-white shadow-2xl border border-stone-200 max-h-[90vh] flex flex-col overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Hero Image Container */}
-        <div className="relative w-full h-56 bg-stone-900 flex-shrink-0 select-none">
+        {/* Hero Image Container with Touch Swipe Gesture */}
+        <div
+          className="relative w-full h-56 sm:h-64 bg-stone-900 flex-shrink-0 select-none overflow-hidden touch-pan-y"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {currentImg ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={currentImg}
               alt={dish.name}
-              className="w-full h-full object-cover transition-all duration-200"
+              className="w-full h-full object-cover transition-all duration-300 pointer-events-none"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-6xl bg-amber-50">
@@ -62,47 +118,55 @@ export default function DishPreviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center font-bold text-sm cursor-pointer shadow-md hover:bg-black/80 transition-colors z-10"
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center font-bold text-sm cursor-pointer shadow-md hover:bg-black/90 transition-transform active:scale-90 z-20"
             title="Close preview"
           >
             ✕
           </button>
 
           {/* Dietary Pill */}
-          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-xs text-white text-[11px] font-bold z-10">
+          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-xs text-white text-[11px] font-bold z-10">
             <span className={dish.is_veg ? "veg-indicator" : "nonveg-indicator"} />
             <span>{dish.is_veg ? "Vegetarian" : "Non-Veg"}</span>
           </div>
 
-          {/* Carousel Controls */}
+          {/* Carousel Controls (Tap buttons + Visual indicators) */}
           {hasMultiple && (
             <>
+              {/* Prev Button */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setCurrentImgIdx((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
                 }}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs cursor-pointer hover:bg-black/80 z-10"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/75 hover:bg-black/95 text-white flex items-center justify-center text-xs cursor-pointer shadow-lg active:scale-90 z-20 border border-white/20"
+                aria-label="Previous photo"
               >
-                ‹
+                <i className="fa-solid fa-chevron-left" />
               </button>
+
+              {/* Next Button */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setCurrentImgIdx((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs cursor-pointer hover:bg-black/80 z-10"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/75 hover:bg-black/95 text-white flex items-center justify-center text-xs cursor-pointer shadow-lg active:scale-90 z-20 border border-white/20"
+                aria-label="Next photo"
               >
-                ›
+                <i className="fa-solid fa-chevron-right" />
               </button>
 
-              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-xs text-[10px] font-mono text-white font-bold z-10">
-                {currentImgIdx + 1} / {gallery.length}
+              {/* Counter Badge */}
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/75 backdrop-blur-xs text-[10px] font-mono text-white font-bold z-10 flex items-center gap-1 shadow-sm">
+                <i className="fa-solid fa-camera text-[9px]" />
+                <span>{currentImgIdx + 1} / {gallery.length}</span>
               </div>
 
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
+              {/* Dot Indicators */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
                 {gallery.map((_, idx) => (
                   <button
                     key={idx}
@@ -111,8 +175,8 @@ export default function DishPreviewModal({
                       e.stopPropagation();
                       setCurrentImgIdx(idx);
                     }}
-                    className={`h-1.5 rounded-full transition-all ${
-                      idx === currentImgIdx ? "w-4 bg-white" : "w-1.5 bg-white/40"
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      idx === currentImgIdx ? "w-5 bg-white shadow-sm" : "w-1.5 bg-white/50 hover:bg-white/80"
                     }`}
                   />
                 ))}

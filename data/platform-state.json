@@ -701,5 +701,12 @@
       "longitude": 73.0229,
       "slug": "ebde73c4-c316-4101-9469-062c83319d7b"
     }
+  },
+  "dishGalleryImages": {
+    "891c806a-d5fd-495a-a482-1e063a8e82ff": [
+      "https://res.cloudinary.com/gksfzjxf/image/upload/v1791050495/order-desk/ee572972-7247-44c6-91c1-678aa72a45f3/mkuw5a6philrej6og7mw.jpg",
+      "https://res.cloudinary.com/gksfzjxf/image/upload/v1791050498/order-desk/ee572972-7247-44c6-91c1-678aa72a45f3/stovuuirhd0nvivqpqjn.jpg",
+      "https://res.cloudinary.com/gksfzjxf/image/upload/v1791050500/order-desk/ee572972-7247-44c6-91c1-678aa72a45f3/tjqf2ftd0rjtjk3awbhg.jpg"
+    ]
   }
 }

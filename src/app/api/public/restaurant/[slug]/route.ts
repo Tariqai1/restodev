@@ -144,7 +144,11 @@ export async function GET(
         const fullPrice = Number(m.price) || 0;
         const halfPrice = halfPriceConfig ? Number(halfPriceConfig) : Math.round(fullPrice * 0.6);
         const gallery = getDishGalleryImages(m.id);
-        const allImages = gallery.length > 0 ? gallery : (m.photo_url ? [m.photo_url] : []);
+        const allImages: string[] = [];
+        if (m.photo_url) allImages.push(m.photo_url);
+        gallery.forEach((img) => {
+          if (img && !allImages.includes(img)) allImages.push(img);
+        });
 
         return {
           id: m.id,

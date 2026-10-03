@@ -199,6 +199,45 @@ export default function CustomerTableOrderingPage({
   const [isVoiceOrderOpen, setIsVoiceOrderOpen] = useState<boolean>(false);
   const [quickAddNotice, setQuickAddNotice] = useState<string>("");
 
+  // Lock body scroll when any modal or drawer is open
+  useEffect(() => {
+    const isModalOpen = Boolean(
+      previewDish ||
+      isReviewOpen ||
+      isCallModalOpen ||
+      isHistoryOpen ||
+      isCategorySheetOpen ||
+      showUpiQrModal ||
+      isScratchModalOpen ||
+      isAiWaiterOpen ||
+      isVoiceOrderOpen ||
+      showDispatchModal
+    );
+
+    if (isModalOpen) {
+      const origOverflow = document.body.style.overflow;
+      const origTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+
+      return () => {
+        document.body.style.overflow = origOverflow;
+        document.body.style.touchAction = origTouchAction;
+      };
+    }
+  }, [
+    previewDish,
+    isReviewOpen,
+    isCallModalOpen,
+    isHistoryOpen,
+    isCategorySheetOpen,
+    showUpiQrModal,
+    isScratchModalOpen,
+    isAiWaiterOpen,
+    isVoiceOrderOpen,
+    showDispatchModal,
+  ]);
+
   const handleBatchAddToCart = (itemsToAdd: Array<{ dishId: string; qty: number; portion: PortionType }>) => {
     itemsToAdd.forEach((it) => {
       for (let i = 0; i < it.qty; i++) {

@@ -300,11 +300,20 @@ export async function GET(
       categories,
       items: items
         .filter((it) => getDishChannelVisibility(it.id) !== "online_only")
-        .map((it) => ({
-          ...it,
-          has_half_portion: getDishHalfPortion(it.id) ?? undefined,
-          images: getDishGalleryImages(it.id).length > 0 ? getDishGalleryImages(it.id) : (it.photo_url ? [it.photo_url] : []),
-        })),
+        .map((it) => {
+          const gallery = getDishGalleryImages(it.id);
+          const allImages: string[] = [];
+          if (it.photo_url) allImages.push(it.photo_url);
+          gallery.forEach((img) => {
+            if (img && !allImages.includes(img)) allImages.push(img);
+          });
+
+          return {
+            ...it,
+            has_half_portion: getDishHalfPortion(it.id) ?? undefined,
+            images: allImages,
+          };
+        }),
       activeOrder: validOpenOrder ? { ...validOpenOrder, prepEstimate } : null,
       isApprovalPending: approvalPending,
       cancelledItems,
