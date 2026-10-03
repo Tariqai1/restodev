@@ -105,6 +105,200 @@ function formatMenuWithDynamicCategories(
   };
 }
 
+function cleanDishBulletsFromMessage(msg: string): string {
+  if (!msg) return "";
+  const lines = msg.split("\n");
+  const filtered = lines.filter((line) => {
+    const l = line.trim();
+    if (!l) return false;
+    // Strip lines listing dishes/courses/prices so visual cards take center stage
+    if (
+      l.startsWith("-") ||
+      l.startsWith("*") ||
+      l.startsWith("•") ||
+      /^\d+[\.\)]\s/.test(l)
+    ) {
+      if (
+        l.includes("₹") ||
+        /starter|main|course|bread|rice|dessert|curry|roti|naan|tikka/i.test(l)
+      ) {
+        return false;
+      }
+    }
+    if (/^total\s*(price)?:/i.test(l)) {
+      return false;
+    }
+    return true;
+  });
+
+  let result = filtered.join(" ").replace(/\s+/g, " ").trim();
+  result = result.replace(/isme shaamil hai:?/i, "Ye dishes niche cards me di gayi hain:").trim();
+  return result || msg;
+}
+
+function buildCuratedCombo(
+  itemsList: any[],
+  categoriesMap: Map<string, string>,
+  pLower: string,
+  restoName: string,
+  dessertItems: any[],
+  bestsellerItems: any[]
+): { dishes: any[]; totalPrice: number; isAllVeg: boolean; comboLabel: string } | null {
+  const available = itemsList.filter((it) => it.is_available !== false);
+  if (available.length === 0) return null;
+
+  const isVegOnly = pLower.includes("veg") && !pLower.includes("non-veg") && !pLower.includes("nonveg");
+  const isNonVegOnly =
+    pLower.includes("non-veg") ||
+    pLower.includes("nonveg") ||
+    pLower.includes("chicken") ||
+    pLower.includes("mutton") ||
+    pLower.includes("fish");
+
+  let pool = available;
+  if (isVegOnly) {
+    pool = pool.filter((it) => it.is_veg);
+  }
+
+  // 1. Starter / Appetizer
+  const starterCandidates = pool.filter((it) => {
+    const cat = (categoriesMap.get(it.category_id) || it.category || "").toLowerCase();
+    const n = it.name.toLowerCase();
+    const isStarterCat =
+      cat.includes("starter") ||
+      cat.includes("snack") ||
+      cat.includes("appetizer") ||
+      cat.includes("tandoori") ||
+      cat.includes("kebab") ||
+      cat.includes("chinese");
+    const isStarterName =
+      n.includes("tikka") ||
+      n.includes("kebab") ||
+      n.includes("corn") ||
+      n.includes("crispy") ||
+      n.includes("roll") ||
+      n.includes("65") ||
+      n.includes("chilli") ||
+      n.includes("fry") ||
+      n.includes("dry") ||
+      n.includes("soup");
+    return isStarterCat || isStarterName;
+  });
+  let starter =
+    starterCandidates.find((it) => (isNonVegOnly ? !it.is_veg : true) && it.is_bestseller) ||
+    starterCandidates.find((it) => (isNonVegOnly ? !it.is_veg : true)) ||
+    starterCandidates[0];
+
+  // 2. Main Course / Curry
+  const mainCandidates = pool.filter((it) => {
+    if (starter && it.id === starter.id) return false;
+    const cat = (categoriesMap.get(it.category_id) || it.category || "").toLowerCase();
+    const n = it.name.toLowerCase();
+    const isMainCat =
+      cat.includes("main") ||
+      cat.includes("curry") ||
+      cat.includes("gravy") ||
+      cat.includes("special");
+    const isMainName =
+      n.includes("makhani") ||
+      n.includes("butter") ||
+      n.includes("kadhai") ||
+      n.includes("curry") ||
+      n.includes("handi") ||
+      n.includes("masala") ||
+      n.includes("korma") ||
+      n.includes("dal") ||
+      n.includes("paneer") ||
+      n.includes("kofta");
+    return isMainCat || isMainName;
+  });
+  let main =
+    mainCandidates.find((it) => (isNonVegOnly ? !it.is_veg : true) && it.is_bestseller) ||
+    mainCandidates.find((it) => (isNonVegOnly ? !it.is_veg : true)) ||
+    mainCandidates[0];
+
+  // 3. Bread or Rice
+  const breadRiceCandidates = pool.filter((it) => {
+    if (starter && it.id === starter.id) return false;
+    if (main && it.id === main.id) return false;
+    const cat = (categoriesMap.get(it.category_id) || it.category || "").toLowerCase();
+    const n = it.name.toLowerCase();
+    const isBreadCat =
+      cat.includes("bread") ||
+      cat.includes("roti") ||
+      cat.includes("rice") ||
+      cat.includes("biryani");
+    const isBreadName =
+      n.includes("naan") ||
+      n.includes("roti") ||
+      n.includes("kulcha") ||
+      n.includes("paratha") ||
+      n.includes("biryani") ||
+      n.includes("rice") ||
+      n.includes("pulao");
+    return isBreadCat || isBreadName;
+  });
+  let breadOrRice = breadRiceCandidates.find((it) => it.is_bestseller) || breadRiceCandidates[0];
+
+  // 4. Dessert or Beverage
+  let sweetOrDrink: any = null;
+  if (dessertItems.length > 0) {
+    sweetOrDrink = dessertItems[0];
+  } else {
+    const drinkCandidates = available.filter((it) => {
+      const cat = (categoriesMap.get(it.category_id) || it.category || "").toLowerCase();
+      const n = it.name.toLowerCase();
+      return (
+        cat.includes("beverage") ||
+        cat.includes("drink") ||
+        n.includes("chai") ||
+        n.includes("tea") ||
+        n.includes("lassi") ||
+        n.includes("soda") ||
+        n.includes("lime") ||
+        n.includes("shake")
+      );
+    });
+    sweetOrDrink = drinkCandidates[0];
+  }
+
+  // Assemble combo
+  const comboDishes: any[] = [];
+  if (starter) comboDishes.push(starter);
+  if (main && !comboDishes.some((d) => d.id === main.id)) comboDishes.push(main);
+  if (breadOrRice && !comboDishes.some((d) => d.id === breadOrRice.id)) comboDishes.push(breadOrRice);
+  if (sweetOrDrink && !comboDishes.some((d) => d.id === sweetOrDrink.id)) comboDishes.push(sweetOrDrink);
+
+  // If still fewer than 4, fill with bestsellers
+  for (const b of bestsellerItems) {
+    if (comboDishes.length >= 4) break;
+    if (!comboDishes.some((d) => d.id === b.id)) {
+      comboDishes.push(b);
+    }
+  }
+
+  // Fallback to pool if still fewer than 2
+  for (const p of pool) {
+    if (comboDishes.length >= 4) break;
+    if (!comboDishes.some((d) => d.id === p.id)) {
+      comboDishes.push(p);
+    }
+  }
+
+  if (comboDishes.length === 0) return null;
+
+  const totalPrice = comboDishes.reduce((sum, d) => sum + Number(d.price || 0), 0);
+  const isAllVeg = comboDishes.every((d) => d.is_veg);
+  const comboLabel = isAllVeg ? "Veg" : "Special";
+
+  return {
+    dishes: comboDishes,
+    totalPrice,
+    isAllVeg,
+    comboLabel,
+  };
+}
+
 export async function POST(req: NextRequest) {
   let guestPrompt = "";
   let itemsList: any[] = [];
@@ -219,6 +413,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 3. Direct Combo / Family Dinner / Thali Request Guardrail (< 20ms Response)
+    const isComboReq =
+      pLower.includes("combo") ||
+      pLower.includes("family") ||
+      pLower.includes("thali") ||
+      pLower.includes("dinner for") ||
+      pLower.includes("lunch for") ||
+      pLower.includes("meal for") ||
+      pLower.includes("2 log") ||
+      pLower.includes("4 log") ||
+      pLower.includes("do log") ||
+      pLower.includes("chaar log") ||
+      pLower.includes("couple");
+
+    if (isComboReq) {
+      const combo = buildCuratedCombo(itemsList, categoriesMap, pLower, restoName, dessertItems, bestsellerItems);
+      if (combo && combo.dishes.length >= 2) {
+        return NextResponse.json({
+          ok: true,
+          message: `Aapke parivaar ke liye hamare chef ne ye balanced ${combo.comboLabel} Dinner Combo chuna hai (Total: ₹${combo.totalPrice}). Niche diye button se aap pura combo 1 tap me cart me add kar sakte hain!`,
+          recommendedDishIds: combo.dishes.map((d) => d.id),
+          pairingTip: "Aap har dish ko alag se ya pure combo ko ek saath 1-click me cart me add kar sakte hain.",
+          followUpSuggestions: [
+            combo.isAllVeg ? "Non-veg combo dikhao" : "Pure veg combo dikhao",
+            "Kuch meetha bhi dikhao",
+            "Popular beverages",
+          ],
+        });
+      }
+    }
+
     // =========================================================================
     // LAYER 3: 5-STAR HUMAN DINING CAPTAIN AI (HIGH ACCURACY LLM)
     // =========================================================================
@@ -249,15 +474,18 @@ STRICT OPERATIONAL RULES:
 3. BAN ROBOTIC CLICHÉS:
    - DO NOT repeat phrases like "Yeh combination aapke taste buds ko khush kar dega" or "anokha vikalp" or "meetha sa thaal".
    - Speak genuinely, warmly, and naturally as an attentive restaurant host.
-4. RECOMMENDATION LIMIT:
-   - Recommend 2 to 3 dishes maximum with their exact IDs.
+4. NO BULLET LIST OF DISHES IN MESSAGE:
+   - DO NOT list dishes with bullets ("- Starter: ...") in "message". The application automatically renders interactive dish cards with direct "[ ADD + ]" buttons underneath your response.
+   - Your "message" must ONLY be a warm, mouthwatering 1-2 sentence hospitality greeting explaining why this selection suits their taste.
+5. RECOMMENDATION LIMIT:
+   - Recommend 2 to 4 dishes maximum and provide their exact IDs in "recommendedDishIds".
 
 RESTAURANT MENU (Grouped by Real Categories):
 ${menuText || "No active dishes listed."}
 
 RESPONSE SCHEMA (JSON ONLY):
 {
-  "message": "Direct, hospitable, mouthwatering 2-sentence response explaining why these dishes fit the guest's taste.",
+  "message": "Direct, hospitable, mouthwatering 1-2 sentence response explaining why these dishes fit the guest's taste (WITHOUT listing dish names as bullets).",
   "recommendedDishIds": ["<id1>", "<id2>"],
   "pairingTip": "Brief helpful pairing tip or null",
   "followUpSuggestions": ["<clean suggestion 1>", "<clean suggestion 2>", "<clean suggestion 3>"]
@@ -307,9 +535,16 @@ In followUpSuggestions: Use clean plain text only (NO emojis). Example: 'Kuch me
           (it) => it.is_available !== false && combined.includes(it.name.toLowerCase())
         );
         if (found.length > 0) {
-          validDishIds = found.slice(0, 3).map((it) => it.id);
+          validDishIds = found.slice(0, 4).map((it) => it.id);
         }
       }
+
+      // Universal Card Guarantee: If STILL empty, attach top bestsellers so [ ADD + ] cards are never missing
+      if (validDishIds.length === 0) {
+        validDishIds = bestsellerItems.slice(0, 2).map((it) => it.id);
+      }
+
+      const cleanMessage = cleanDishBulletsFromMessage(parsed.message);
 
       const cleanSuggestions = Array.isArray(parsed.followUpSuggestions)
         ? parsed.followUpSuggestions
@@ -323,23 +558,29 @@ In followUpSuggestions: Use clean plain text only (NO emojis). Example: 'Kuch me
 
       return NextResponse.json({
         ok: true,
-        message: parsed.message,
+        message: cleanMessage,
         recommendedDishIds: validDishIds,
-        pairingTip: parsed.pairingTip || null,
+        pairingTip: parsed.pairingTip || "Aap niche diye card se direct 1-tap me cart me add kar sakte hain.",
         followUpSuggestions: cleanSuggestions,
       });
     }
 
     // Fallback if plain text was returned
     const plainMsg = text.replace(/```(?:json)?/g, "").trim();
-    const fallbackMatched = itemsList.filter(
+    let fallbackMatched = itemsList.filter(
       (it) => it.is_available !== false && (plainMsg + " " + guestPrompt).toLowerCase().includes(it.name.toLowerCase())
     );
+    if (fallbackMatched.length === 0) {
+      fallbackMatched = bestsellerItems.slice(0, 3);
+    }
+    const cleanPlainMsg = cleanDishBulletsFromMessage(plainMsg);
 
     return NextResponse.json({
       ok: true,
-      message: plainMsg,
-      recommendedDishIds: fallbackMatched.slice(0, 3).map((it) => it.id),
+      message: cleanPlainMsg,
+      recommendedDishIds: fallbackMatched.slice(0, 4).map((it) => it.id),
+      pairingTip: "Aap niche diye card se direct 1-tap me cart me add kar sakte hain.",
+      followUpSuggestions: ["Kuch meetha bhi dikhao", "Popular beverages", "Mera bill status"],
     });
   } catch (error: any) {
     console.error("[AI Recommend Error]:", error?.message || error);
@@ -372,15 +613,16 @@ In followUpSuggestions: Use clean plain text only (NO emojis). Example: 'Kuch me
     }
 
     const selectedDishes = pool.slice(0, 3);
+    const finalDishes = selectedDishes.length > 0 ? selectedDishes : available.slice(0, 3);
 
     return NextResponse.json({
       ok: true,
       message:
-        selectedDishes.length > 0
+        finalDishes.length > 0
           ? `Aapke taste ke mutabiq ${restoName || "hamare restaurant"} ke ye popular chef specials perfect rahenge:`
           : `Aapke liye ${restoName || "hamare restaurant"} ke top recommendations yahan hain:`,
-      recommendedDishIds: selectedDishes.map((d: any) => d.id),
-      pairingTip: null,
+      recommendedDishIds: finalDishes.map((d: any) => d.id),
+      pairingTip: "Aap niche diye card se direct 1-tap me cart me add kar sakte hain.",
       followUpSuggestions: [
         "Kuch meetha bhi dikhao",
         "Popular beverages",

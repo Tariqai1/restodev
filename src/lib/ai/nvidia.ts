@@ -79,28 +79,41 @@ export function extractJsonFromResponse<T = any>(text: string): T | null {
     // 1. Try direct parse
     return JSON.parse(text);
   } catch (_) {
+    // Helper to sanitize raw unescaped newlines/tabs inside quotes
+    const tryParseSanitized = (str: string): T | null => {
+      try {
+        return JSON.parse(str);
+      } catch {
+        try {
+          const sanitized = str.replace(/:\s*"((?:[^"\\]|\\.)*)"/g, (_, val) => {
+            return ': "' + val.replace(/\r?\n/g, "\\n").replace(/\t/g, "\\t") + '"';
+          });
+          return JSON.parse(sanitized);
+        } catch {
+          return null;
+        }
+      }
+    };
+
     // 2. Try fenced block ```json ... ```
     const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (match && match[1]) {
-      try {
-        return JSON.parse(match[1]);
-      } catch (_) {}
+      const res = tryParseSanitized(match[1]);
+      if (res) return res;
     }
     // 3. Try finding first { or [
     const firstBrace = text.indexOf("{");
     const lastBrace = text.lastIndexOf("}");
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      try {
-        return JSON.parse(text.slice(firstBrace, lastBrace + 1));
-      } catch (_) {}
+      const res = tryParseSanitized(text.slice(firstBrace, lastBrace + 1));
+      if (res) return res;
     }
 
     const firstBracket = text.indexOf("[");
     const lastBracket = text.lastIndexOf("]");
     if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-      try {
-        return JSON.parse(text.slice(firstBracket, lastBracket + 1));
-      } catch (_) {}
+      const res = tryParseSanitized(text.slice(firstBracket, lastBracket + 1));
+      if (res) return res;
     }
 
     return null;
