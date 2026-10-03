@@ -129,6 +129,8 @@ export default function OnlineOrderingPage({
   const [selectedPreviewDish, setSelectedPreviewDish] = useState<MenuItem | null>(null);
   const [previewImageIdx, setPreviewImageIdx] = useState(0);
   const [previewPortion, setPreviewPortion] = useState<"full" | "half">("full");
+  const previewTouchStartX = React.useRef<number | null>(null);
+  const previewTouchStartY = React.useRef<number | null>(null);
 
   // Dynamic Theme Colors
   const themeStyles = useMemo(() => {
@@ -1546,23 +1548,26 @@ export default function OnlineOrderingPage({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          HD DISH DETAIL SHEET (Swiggy / Zomato Style)
+          HD DISH DETAIL SHEET (Swiggy / Zomato Gold Luxury Edition)
          ───────────────────────────────────────────────────────────── */}
       {selectedPreviewDish && (
         <div
-          className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center items-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center items-center bg-black/80 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-200 select-none overscroll-contain"
           onClick={() => setSelectedPreviewDish(null)}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
         >
           <div
-            className="w-full max-w-lg bg-stone-900 border border-stone-800 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+            className="w-full max-w-lg bg-[#18181b] border-t sm:border border-stone-800/80 rounded-t-[32px] sm:rounded-3xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300 overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Mobile Drag Handle */}
-            <div className="pt-2.5 pb-1 sm:hidden flex justify-center bg-stone-900">
-              <div className="w-12 h-1 bg-stone-700 rounded-full" />
+            {/* Top Grab Handle */}
+            <div className="pt-2.5 pb-1 flex justify-center bg-[#18181b]">
+              <div className="w-10 h-1 bg-stone-700/80 rounded-full" />
             </div>
 
-            {/* Hero Image / Carousel */}
+            {/* Inset Hero Image Carousel */}
             {(() => {
               const gallery = (selectedPreviewDish.images && selectedPreviewDish.images.length > 0)
                 ? selectedPreviewDish.images
@@ -1570,13 +1575,37 @@ export default function OnlineOrderingPage({
               const currentImg = gallery[previewImageIdx] || selectedPreviewDish.photo_url;
               const hasMultiple = gallery.length > 1;
 
+              const handlePreviewTouchStart = (e: React.TouchEvent) => {
+                previewTouchStartX.current = e.touches[0].clientX;
+                previewTouchStartY.current = e.touches[0].clientY;
+              };
+
+              const handlePreviewTouchEnd = (e: React.TouchEvent) => {
+                if (previewTouchStartX.current === null || previewTouchStartY.current === null) return;
+                const diffX = previewTouchStartX.current - e.changedTouches[0].clientX;
+                const diffY = previewTouchStartY.current - e.changedTouches[0].clientY;
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
+                  if (diffX > 0) {
+                    setPreviewImageIdx((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
+                  } else {
+                    setPreviewImageIdx((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
+                  }
+                }
+                previewTouchStartX.current = null;
+                previewTouchStartY.current = null;
+              };
+
               return (
-                <div className="relative w-full h-64 sm:h-72 bg-stone-950 shrink-0 select-none overflow-hidden group">
+                <div
+                  className="mx-3.5 mt-1 rounded-2xl overflow-hidden relative h-64 sm:h-72 bg-stone-950 border border-stone-800/70 shadow-lg shrink-0 touch-pan-y"
+                  onTouchStart={handlePreviewTouchStart}
+                  onTouchEnd={handlePreviewTouchEnd}
+                >
                   {currentImg ? (
                     <img
                       src={currentImg}
                       alt={selectedPreviewDish.name}
-                      className="w-full h-full object-cover transition-all duration-300"
+                      className="w-full h-full object-cover transition-all duration-300 pointer-events-none"
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-stone-600 gap-2">
@@ -1586,13 +1615,13 @@ export default function OnlineOrderingPage({
                   )}
 
                   {/* Gradient overlay for readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-black/40 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
 
-                  {/* Top Close Button */}
+                  {/* Top Close Button (Glassmorphic) */}
                   <button
                     type="button"
                     onClick={() => setSelectedPreviewDish(null)}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs font-bold cursor-pointer backdrop-blur-xs transition-transform active:scale-90 z-10"
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs font-bold cursor-pointer backdrop-blur-md transition-transform active:scale-90 z-20 border border-white/15 shadow-md"
                     aria-label="Close"
                   >
                     ✕
@@ -1600,16 +1629,18 @@ export default function OnlineOrderingPage({
 
                   {/* Top Left Badges: Veg/Non-Veg & Bestseller */}
                   <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1.5 shadow-md ${
-                      selectedPreviewDish.is_veg ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/40" : "bg-rose-950/80 text-rose-300 border border-rose-500/40"
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase backdrop-blur-md flex items-center gap-1.5 shadow-md border ${
+                      selectedPreviewDish.is_veg
+                        ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/40"
+                        : "bg-rose-950/80 text-rose-300 border-rose-500/40"
                     }`}>
-                      <span className={`w-2 h-2 rounded-full ${selectedPreviewDish.is_veg ? "bg-emerald-400" : "bg-rose-400"}`} />
+                      <span className={`w-2 h-2 rounded-full ${selectedPreviewDish.is_veg ? "bg-emerald-400" : "bg-rose-500"}`} />
                       <span>{selectedPreviewDish.is_veg ? "Pure Veg" : "Non-Veg"}</span>
                     </span>
 
                     {selectedPreviewDish.is_bestseller && (
-                      <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/90 text-stone-950 flex items-center gap-1 shadow-md">
-                        <i className="fa-solid fa-star text-[10px]" />
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 flex items-center gap-1 shadow-md">
+                        <i className="fa-solid fa-star text-[9px]" />
                         <span>Bestseller</span>
                       </span>
                     )}
@@ -1625,7 +1656,7 @@ export default function OnlineOrderingPage({
                           e.stopPropagation();
                           setPreviewImageIdx((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
                         }}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs cursor-pointer backdrop-blur-xs transition-transform active:scale-90"
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs cursor-pointer backdrop-blur-md transition-transform active:scale-90 border border-white/15 z-20"
                       >
                         <i className="fa-solid fa-chevron-left" />
                       </button>
@@ -1637,19 +1668,19 @@ export default function OnlineOrderingPage({
                           e.stopPropagation();
                           setPreviewImageIdx((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
                         }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs cursor-pointer backdrop-blur-xs transition-transform active:scale-90"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs cursor-pointer backdrop-blur-md transition-transform active:scale-90 border border-white/15 z-20"
                       >
                         <i className="fa-solid fa-chevron-right" />
                       </button>
 
                       {/* Image Counter Badge */}
-                      <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-xs text-[10px] font-mono text-white font-bold flex items-center gap-1.5 shadow-md">
-                        <i className="fa-solid fa-images text-[9px]" />
+                      <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-[10px] font-mono text-white font-bold flex items-center gap-1.5 shadow-md border border-white/10 z-10">
+                        <i className="fa-solid fa-camera text-[9px]" />
                         <span>{previewImageIdx + 1} / {gallery.length}</span>
                       </div>
 
                       {/* Dot Indicators */}
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
                         {gallery.map((_, idx) => (
                           <button
                             key={idx}
@@ -1659,7 +1690,7 @@ export default function OnlineOrderingPage({
                               setPreviewImageIdx(idx);
                             }}
                             className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                              idx === previewImageIdx ? "w-5 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"
+                              idx === previewImageIdx ? "w-5 bg-white shadow-sm" : "w-1.5 bg-white/40 hover:bg-white/70"
                             }`}
                           />
                         ))}
@@ -1671,50 +1702,72 @@ export default function OnlineOrderingPage({
             })()}
 
             {/* Scrollable Dish Details */}
-            <div className="p-5 overflow-y-auto space-y-4 flex-1">
-              {/* Dish Name & Base Price */}
+            <div className="px-5 py-4 overflow-y-auto space-y-4 flex-1">
+              {/* Dish Name & Price */}
               <div>
-                <h2 className="font-heading font-bold text-xl sm:text-2xl text-white tracking-tight leading-snug">
+                <h2 className="font-heading font-black text-2xl text-white tracking-tight leading-snug capitalize">
                   {selectedPreviewDish.name}
                 </h2>
 
-                <div className="mt-1 flex items-baseline gap-2">
-                  <span className="font-mono font-bold text-xl text-emerald-400">
+                <div className="mt-1.5 flex items-baseline gap-2.5">
+                  <span className="font-mono font-black text-2xl text-emerald-400">
                     ₹{previewPortion === "half" ? selectedPreviewDish.half_price : selectedPreviewDish.price}
                   </span>
-                  <span className="text-[11px] text-stone-400 font-medium">
-                    + 5% GST
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-stone-800/80 text-stone-400 border border-stone-700/60 uppercase tracking-wider">
+                    Inclusive of taxes
                   </span>
                 </div>
               </div>
 
+              {/* Highlights tags */}
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-800/60 border border-stone-700/50 text-[11px] font-medium text-stone-300">
+                  <span>🔥</span> Freshly Prepared
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-800/60 border border-stone-700/50 text-[11px] font-medium text-stone-300">
+                  <span>✨</span> Authentic Recipe
+                </span>
+                {selectedPreviewDish.is_veg ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-[11px] font-medium text-emerald-400">
+                    <span>🌱</span> 100% Vegetarian
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-950/40 border border-rose-800/40 text-[11px] font-medium text-rose-400">
+                    <span>🍗</span> Halal Prepared
+                  </span>
+                )}
+              </div>
+
+              {/* Description */}
+              {selectedPreviewDish.description && (
+                <div className="pt-2 border-t border-stone-800/60">
+                  <p className="text-sm text-stone-300 leading-relaxed font-normal">
+                    {selectedPreviewDish.description}
+                  </p>
+                </div>
+              )}
+
               {/* Portion Selector (Full vs Half) if enabled */}
               {selectedPreviewDish.has_half_portion && (
-                <div className="p-3 rounded-2xl bg-stone-950/70 border border-stone-800 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-stone-300">Choose Portion Size</span>
-                    <span className="text-[10px] text-stone-500 uppercase font-mono">Customizable</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="pt-2">
+                  <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-2">
+                    Select Portion
+                  </span>
+                  <div className="p-1 rounded-2xl bg-stone-900/90 border border-stone-800 grid grid-cols-2 gap-1.5 shadow-inner">
                     <button
                       type="button"
                       onClick={() => setPreviewPortion("full")}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`py-3 px-3.5 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between ${
                         previewPortion === "full"
-                          ? `${themeStyles.accentBorder} bg-white/5 shadow-inner`
-                          : "border-stone-800 hover:border-stone-700 bg-stone-900/50"
+                          ? "bg-stone-800 text-white shadow-sm border border-stone-700"
+                          : "text-stone-400 hover:text-stone-200"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white">Full Portion</span>
-                        <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                          previewPortion === "full" ? themeStyles.accentBorder : "border-stone-700"
-                        }`}>
-                          {previewPortion === "full" && (
-                            <span className={`w-2 h-2 rounded-full ${themeStyles.accentBg}`} />
-                          )}
-                        </span>
+                        <span className="text-xs font-bold">Full Portion</span>
+                        {previewPortion === "full" && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        )}
                       </div>
                       <span className="font-mono font-bold text-sm text-emerald-400 mt-1">
                         ₹{selectedPreviewDish.price}
@@ -1724,21 +1777,17 @@ export default function OnlineOrderingPage({
                     <button
                       type="button"
                       onClick={() => setPreviewPortion("half")}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`py-3 px-3.5 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between ${
                         previewPortion === "half"
-                          ? `${themeStyles.accentBorder} bg-white/5 shadow-inner`
-                          : "border-stone-800 hover:border-stone-700 bg-stone-900/50"
+                          ? "bg-stone-800 text-white shadow-sm border border-stone-700"
+                          : "text-stone-400 hover:text-stone-200"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white">Half Portion</span>
-                        <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                          previewPortion === "half" ? themeStyles.accentBorder : "border-stone-700"
-                        }`}>
-                          {previewPortion === "half" && (
-                            <span className={`w-2 h-2 rounded-full ${themeStyles.accentBg}`} />
-                          )}
-                        </span>
+                        <span className="text-xs font-bold">Half Portion</span>
+                        {previewPortion === "half" && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        )}
                       </div>
                       <span className="font-mono font-bold text-sm text-emerald-400 mt-1">
                         ₹{selectedPreviewDish.half_price}
@@ -1746,18 +1795,6 @@ export default function OnlineOrderingPage({
                     </button>
                   </div>
                 </div>
-              )}
-
-              {/* Description */}
-              {selectedPreviewDish.description ? (
-                <div className="space-y-1">
-                  <h4 className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">About This Dish</h4>
-                  <p className="text-xs sm:text-sm text-stone-300 leading-relaxed bg-stone-950/40 p-3 rounded-xl border border-stone-800/80">
-                    {selectedPreviewDish.description}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs text-stone-500 italic">Freshly prepared with authentic ingredients upon order.</p>
               )}
             </div>
 
@@ -1768,27 +1805,31 @@ export default function OnlineOrderingPage({
               const currentPrice = previewPortion === "half" ? selectedPreviewDish.half_price : selectedPreviewDish.price;
 
               return (
-                <div className="p-4 bg-stone-950 border-t border-stone-800 flex items-center gap-3">
+                <div className="p-4 pb-6 bg-stone-950/95 backdrop-blur-md border-t border-stone-800/80 flex items-center gap-3">
                   {currentQty === 0 ? (
                     <button
                       type="button"
                       onClick={() => addToCart(selectedPreviewDish, previewPortion)}
-                      className={`flex-1 py-3.5 px-4 rounded-2xl font-bold text-white text-sm shadow-md active:scale-98 transition-all flex items-center justify-between cursor-pointer ${themeStyles.accentBg}`}
+                      className="flex-1 py-4 px-5 rounded-2xl font-black text-white text-sm shadow-xl shadow-orange-500/20 active:scale-[0.98] transition-all flex items-center justify-between cursor-pointer bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 tracking-wider uppercase"
                     >
-                      <span>ADD TO ORDER ({previewPortion === "half" ? "Half" : "Full"})</span>
-                      <span className="font-mono">₹{currentPrice}</span>
+                      <span>ADD TO ORDER ({previewPortion})</span>
+                      <span className="font-mono text-base font-bold flex items-center gap-1.5">
+                        ₹{currentPrice} <i className="fa-solid fa-arrow-right text-xs" />
+                      </span>
                     </button>
                   ) : (
-                    <div className="flex-1 flex items-center justify-between bg-stone-900 border border-stone-700 rounded-2xl p-1.5 px-3">
+                    <div className="flex-1 flex items-center justify-between bg-stone-900 border border-stone-700 rounded-2xl p-2 px-3 shadow-inner">
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-stone-400 uppercase font-mono">In Cart ({previewPortion})</span>
-                        <span className="font-mono font-bold text-white text-sm">
+                        <span className="text-[10px] text-stone-400 uppercase font-mono tracking-wider">
+                          In Cart ({previewPortion})
+                        </span>
+                        <span className="font-mono font-bold text-white text-base">
                           ₹{currentPrice * currentQty}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center rounded-xl border border-stone-700 bg-stone-950 overflow-hidden text-sm font-bold font-mono">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex items-center rounded-xl border border-stone-700 bg-stone-950 overflow-hidden text-sm font-bold font-mono shadow-sm">
                           <button
                             type="button"
                             onClick={() => removeFromCart(selectedPreviewDish.id, previewPortion)}
@@ -1800,7 +1841,7 @@ export default function OnlineOrderingPage({
                           <button
                             type="button"
                             onClick={() => addToCart(selectedPreviewDish, previewPortion)}
-                            className={`w-9 h-9 flex items-center justify-center active:bg-stone-800 ${themeStyles.accentText}`}
+                            className="w-9 h-9 flex items-center justify-center text-amber-400 hover:text-amber-300 active:bg-stone-800"
                           >
                             +
                           </button>
@@ -1812,7 +1853,7 @@ export default function OnlineOrderingPage({
                             setSelectedPreviewDish(null);
                             setIsCheckoutOpen(true);
                           }}
-                          className={`py-2 px-3.5 rounded-xl font-bold text-xs text-white cursor-pointer ${themeStyles.accentBg}`}
+                          className="py-2.5 px-4 rounded-xl font-extrabold text-xs text-white cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-md active:scale-95 transition-all"
                         >
                           Checkout →
                         </button>
