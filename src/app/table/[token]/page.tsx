@@ -69,6 +69,7 @@ export default function CustomerTableOrderingPage({
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [restaurantName, setRestaurantName] = useState("Order Desk");
+  const [restaurantId, setRestaurantId] = useState("");
   const [tableNumber, setTableNumber] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -271,6 +272,7 @@ export default function CustomerTableOrderingPage({
         if (cached) {
           const parsed = JSON.parse(cached);
           if (parsed.restaurant?.name) setRestaurantName(parsed.restaurant.name);
+          if (parsed.restaurant?.id) setRestaurantId(parsed.restaurant.id);
           if (parsed.restaurant?.slug) setRestaurantSlug(parsed.restaurant.slug);
           if (parsed.table?.table_number)
             setTableNumber(parsed.table.table_number);
@@ -318,6 +320,7 @@ export default function CustomerTableOrderingPage({
         }
 
         setRestaurantName(data.restaurant?.name || "Order Desk");
+        if (data.restaurant?.id) setRestaurantId(data.restaurant.id);
         if (data.restaurant?.slug) setRestaurantSlug(data.restaurant.slug);
         setTableNumber(data.table?.table_number || "T--");
         setCategories(data.categories || []);
@@ -1724,6 +1727,8 @@ export default function CustomerTableOrderingPage({
         isOpen={isAiWaiterOpen}
         onClose={() => setIsAiWaiterOpen(false)}
         menuItems={items}
+        categories={categories}
+        restaurantId={restaurantId}
         restaurantName={restaurantName}
         tableNumber={tableNumber}
         features={features}

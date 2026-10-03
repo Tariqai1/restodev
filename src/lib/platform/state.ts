@@ -160,6 +160,7 @@ export type PlatformState = {
   orderDispatches?: Record<string, OrderDispatchInfo>;
   dishChannelVisibilities?: Record<string, "all" | "online_only" | "dine_in_only">;
   dishGalleryImages?: Record<string, string[]>;
+  customerDemands?: Record<string, CustomerDemandItem[]>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -1165,4 +1166,101 @@ export function setOrderDispatch(
   savePlatformState(state);
   return updated;
 }
+
+export type CustomerDemandItem = {
+  id: string;
+  restaurantId: string;
+  itemName: string;
+  categoryHint?: string;
+  count: number;
+  lastRequestedAt: string;
+  firstRequestedAt: string;
+  status: "pending" | "added_to_menu" | "dismissed";
+};
+
+export function recordCustomerDemand(
+  restaurantId: string,
+  itemName: string,
+  categoryHint?: string
+): CustomerDemandItem | null {
+  if (!restaurantId || !itemName) return null;
+  const cleanItem = itemName.trim().toLowerCase();
+  const state = getPlatformState();
+  if (!state.customerDemands) {
+    state.customerDemands = {};
+  }
+  if (!state.customerDemands[restaurantId]) {
+    state.customerDemands[restaurantId] = [];
+  }
+
+  const existing = state.customerDemands[restaurantId].find(
+    (d: CustomerDemandItem) => d.itemName.toLowerCase() === cleanItem
+  );
+
+  const now = new Date().toISOString();
+  if (existing) {
+    existing.count += 1;
+    existing.lastRequestedAt = now;
+    if (categoryHint && !existing.categoryHint) {
+      existing.categoryHint = categoryHint;
+    }
+    savePlatformState(state);
+    return existing;
+  }
+
+  const newDemand: CustomerDemandItem = {
+    id: `dem_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    restaurantId,
+    itemName: itemName.trim(),
+    categoryHint: categoryHint || "Special Request",
+    count: 1,
+    lastRequestedAt: now,
+    firstRequestedAt: now,
+    status: "pending",
+  };
+
+  state.customerDemands[restaurantId].unshift(newDemand);
+  savePlatformState(state);
+  return newDemand;
+}
+
+export function getCustomerDemands(restaurantId: string): CustomerDemandItem[] {
+  if (!restaurantId) return [];
+  const state = getPlatformState();
+  return (state.customerDemands && state.customerDemands[restaurantId]) || [];
+}
+
+export function updateCustomerDemandStatus(
+  restaurantId: string,
+  demandId: string,
+  status: "pending" | "added_to_menu" | "dismissed"
+): CustomerDemandItem[] {
+  if (!restaurantId || !demandId) return [];
+  const state = getPlatformState();
+  if (!state.customerDemands || !state.customerDemands[restaurantId]) return [];
+
+  state.customerDemands[restaurantId] = state.customerDemands[restaurantId].map(
+    (d: CustomerDemandItem) => (d.id === demandId ? { ...d, status } : d)
+  );
+
+  savePlatformState(state);
+  return state.customerDemands[restaurantId];
+}
+
+export function deleteCustomerDemand(
+  restaurantId: string,
+  demandId: string
+): CustomerDemandItem[] {
+  if (!restaurantId || !demandId) return [];
+  const state = getPlatformState();
+  if (!state.customerDemands || !state.customerDemands[restaurantId]) return [];
+
+  state.customerDemands[restaurantId] = state.customerDemands[restaurantId].filter(
+    (d: CustomerDemandItem) => d.id !== demandId
+  );
+
+  savePlatformState(state);
+  return state.customerDemands[restaurantId];
+}
+
 

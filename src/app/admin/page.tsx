@@ -28,6 +28,7 @@ import TableQRStudioView from "@/components/admin/views/TableQRStudioView";
 import ApprovalsView from "@/components/admin/views/ApprovalsView";
 import StoreSettingsView from "@/components/admin/views/StoreSettingsView";
 import OnlineOrdersView from "@/components/admin/views/OnlineOrdersView";
+import CustomerDemandsView from "@/components/admin/views/CustomerDemandsView";
 import {
   playOrderApprovalChime,
   playWaiterCallChime,
@@ -1316,6 +1317,7 @@ export default function AdminPage() {
     menu_categories: { title: "Menu Categories", breadcrumb: ["Admin", "Catalog", "Categories"] },
     stockout: { title: "86 / Stock Out List", breadcrumb: ["Admin", "Catalog", "Stock Out"] },
     ai_studio: { title: "AI Copilot & OCR Hub", breadcrumb: ["Admin", "Catalog", "AI Studio"] },
+    customer_demands: { title: "Customer Demand Insights", breadcrumb: ["Admin", "Catalog", "Demands"] },
     staff: { title: "Staff Roster", breadcrumb: ["Admin", "Staff", "Roster"] },
     roles: { title: "Roles & Permissions", breadcrumb: ["Admin", "Staff", "Roles"] },
     activity: { title: "Audit & Activity Logs", breadcrumb: ["Admin", "Staff", "Activity"] },
@@ -2627,6 +2629,20 @@ export default function AdminPage() {
               restaurantId={restaurantId}
               onGoToMenu={() => setCurrentView("menu_items")}
               onDataUpdated={fetchData}
+            />
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW: CUSTOMER DEMAND INSIGHTS (MISSING ITEMS FROM AI)   */}
+          {/* ======================================================== */}
+          {currentView === "customer_demands" && (
+            <CustomerDemandsView
+              restaurantId={restaurantId}
+              onOpenAddDishModal={(prefilledName) => {
+                setEditingDish(null);
+                setDishName(prefilledName || "");
+                setIsAddDishOpen(true);
+              }}
             />
           )}
         </main>

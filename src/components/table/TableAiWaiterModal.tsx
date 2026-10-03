@@ -8,6 +8,8 @@ interface TableAiWaiterModalProps {
   isOpen: boolean;
   onClose: () => void;
   menuItems: MenuItem[];
+  categories?: { id: string; name: string }[];
+  restaurantId?: string;
   restaurantName: string;
   tableNumber?: string;
   features?: RestaurantFeatures;
@@ -57,6 +59,8 @@ export default function TableAiWaiterModal({
   isOpen,
   onClose,
   menuItems,
+  categories = [],
+  restaurantId = "",
   restaurantName,
   tableNumber = "T--",
   features,
@@ -342,8 +346,14 @@ export default function TableAiWaiterModal({
         body: JSON.stringify({
           prompt: q,
           menuItems,
+          categories,
+          restaurantId,
           restaurantName,
-          chatHistory: messages.slice(-5).map((m) => ({ sender: m.sender, text: m.text })),
+          chatHistory: messages.slice(-5).map((m) => ({
+            sender: m.sender,
+            text: m.text,
+            recommendedDishIds: m.dishes?.map((d) => d.id),
+          })),
         }),
       });
 
@@ -569,6 +579,29 @@ export default function TableAiWaiterModal({
                       <div className="flex justify-between text-xs font-black text-stone-900 border-t border-dashed border-stone-300 pt-1.5">
                         <span>Total Payable</span>
                         <span>₹{msg.billSummary.grandTotal}</span>
+                      </div>
+
+                      {/* 1-Tap WhatsApp Share for Table Group */}
+                      <div className="pt-2 border-t border-stone-200 flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-stone-500 font-mono">Share with friends:</span>
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(
+                            `🍽️ *${restaurantName || "Order Desk"} - Table ${msg.billSummary.tableNumber}*\n\n` +
+                            `📋 Order Status: ${msg.billSummary.status === "open" ? "Cooking & Active" : msg.billSummary.status}\n` +
+                            `⏱️ Est. Prep: ${msg.billSummary.prepMinutes ? `${msg.billSummary.prepMinutes} mins` : "In Progress"}\n\n` +
+                            msg.billSummary.items.map((it) => `• ${it.qty}x ${it.name} - ₹${it.price}`).join("\n") +
+                            `\n\n💰 Items Total: ₹${msg.billSummary.subtotal}\n` +
+                            `🧾 GST: ₹${msg.billSummary.gst}\n` +
+                            `🏷️ *Grand Total: ₹${msg.billSummary.grandTotal}*`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition-all active:scale-95"
+                          title="Share bill & order details on WhatsApp"
+                        >
+                          <i className="fa-brands fa-whatsapp text-xs" />
+                          <span>WhatsApp Share</span>
+                        </a>
                       </div>
                     </div>
                   </div>

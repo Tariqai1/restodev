@@ -1,190 +1,272 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callNvidiaChat, extractJsonFromResponse } from "@/lib/ai/nvidia";
+import { recordCustomerDemand } from "@/lib/platform/state";
 
-interface MenuCategorized {
-  starters: any[];
-  mainsVeg: any[];
-  mainsNonVeg: any[];
-  biryaniRice: any[];
-  breads: any[];
-  desserts: any[];
-  beverages: any[];
-  bestsellers: any[];
+interface CategoryMeta {
+  id: string;
+  name: string;
 }
 
-function formatMenuForAI(items: any[]): { menuText: string; categorized: MenuCategorized } {
-  const cat: MenuCategorized = {
-    starters: [],
-    mainsVeg: [],
-    mainsNonVeg: [],
-    biryaniRice: [],
-    breads: [],
-    desserts: [],
-    beverages: [],
-    bestsellers: [],
-  };
+// Common food items guests often ask for that traditional Indian dine-in spots might not carry
+const OUT_OF_MENU_DETECTORS = [
+  { term: "pizza", label: "Pizza", hint: "Fast Food / Italian" },
+  { term: "burger", label: "Burger", hint: "Fast Food" },
+  { term: "momo", label: "Momos", hint: "Chinese / Fast Food" },
+  { term: "pasta", label: "Pasta", hint: "Italian" },
+  { term: "noodle", label: "Noodles / Chowmein", hint: "Chinese" },
+  { term: "chowmein", label: "Chowmein", hint: "Chinese" },
+  { term: "shawarma", label: "Shawarma", hint: "Middle Eastern" },
+  { term: "falooda", label: "Falooda", hint: "Dessert / Beverage" },
+  { term: "waffle", label: "Waffles", hint: "Dessert" },
+  { term: "pancake", label: "Pancakes", hint: "Breakfast / Dessert" },
+  { term: "sushi", label: "Sushi", hint: "Japanese" },
+  { term: "sandwich", label: "Sandwich", hint: "Fast Food" },
+  { term: "taco", label: "Tacos", hint: "Mexican" },
+  { term: "dosa", label: "Dosa", hint: "South Indian" },
+  { term: "idli", label: "Idli", hint: "South Indian" },
+  { term: "beer", label: "Beer / Alcohol", hint: "Bar & Spirits" },
+  { term: "wine", label: "Wine", hint: "Bar & Spirits" },
+  { term: "whisky", label: "Whisky / Liquor", hint: "Bar & Spirits" },
+  { term: "hookah", label: "Hookah / Sheesha", hint: "Lounge" },
+];
 
-  items.forEach((it) => {
-    if (it.is_available === false) return;
-    const n = it.name.toLowerCase();
-    const desc = it.description ? ` (${it.description.slice(0, 90)})` : "";
-    const line = `#${it.id} | ${it.name} | ₹${it.price} | ${it.is_veg ? "Veg" : "Non-Veg"}${desc}`;
+function isSweetOrDessert(item: any, categoriesMap: Map<string, string>): boolean {
+  const catName = (categoriesMap.get(item.category_id) || item.category || "").toLowerCase();
+  const n = (item.name || "").toLowerCase();
+  const desc = (item.description || "").toLowerCase();
 
-    if (it.is_bestseller) cat.bestsellers.push(it);
+  if (catName.includes("dessert") || catName.includes("sweet") || catName.includes("mithai") || catName.includes("ice cream")) {
+    return true;
+  }
 
-    if (
-      n.includes("dessert") ||
-      n.includes("gulab") ||
-      n.includes("halwa") ||
-      n.includes("rasmalai") ||
-      n.includes("brownie") ||
-      n.includes("ice cream") ||
-      n.includes("sweet") ||
-      n.includes("kheer")
-    ) {
-      cat.desserts.push(it);
-    } else if (
-      n.includes("chai") ||
-      n.includes("coffee") ||
-      n.includes("lassi") ||
-      n.includes("soda") ||
-      n.includes("mojito") ||
-      n.includes("shake") ||
-      n.includes("drink") ||
-      n.includes("cooler")
-    ) {
-      cat.beverages.push(it);
-    } else if (
-      n.includes("roti") ||
-      n.includes("naan") ||
-      n.includes("paratha") ||
-      n.includes("kulcha") ||
-      n.includes("bread")
-    ) {
-      cat.breads.push(it);
-    } else if (n.includes("biryani") || n.includes("pulao") || n.includes("rice")) {
-      cat.biryaniRice.push(it);
-    } else if (
-      n.includes("tikka") ||
-      n.includes("kebab") ||
-      n.includes("crispy") ||
-      n.includes("roll") ||
-      n.includes("chaap") ||
-      n.includes("lollipop") ||
-      n.includes("65") ||
-      n.includes("starter") ||
-      n.includes("finger")
-    ) {
-      cat.starters.push(it);
-    } else if (!it.is_veg) {
-      cat.mainsNonVeg.push(it);
-    } else {
-      cat.mainsVeg.push(it);
+  return (
+    n.includes("gulab") ||
+    n.includes("halwa") ||
+    n.includes("rasmalai") ||
+    n.includes("brownie") ||
+    n.includes("ice cream") ||
+    n.includes("kheer") ||
+    n.includes("kulfi") ||
+    n.includes("jalebi") ||
+    n.includes("pastry") ||
+    n.includes("cake") ||
+    n.includes("sweet lassi") ||
+    desc.includes("dessert") ||
+    desc.includes("sweet pudding")
+  );
+}
+
+function formatMenuWithDynamicCategories(
+  items: any[],
+  categories: CategoryMeta[]
+): {
+  menuText: string;
+  hasDesserts: boolean;
+  dessertItems: any[];
+  bestsellerItems: any[];
+  categoriesMap: Map<string, string>;
+} {
+  const categoriesMap = new Map<string, string>();
+  categories.forEach((c) => categoriesMap.set(c.id, c.name));
+
+  const available = items.filter((it) => it.is_available !== false);
+  const bestsellers = available.filter((it) => it.is_bestseller);
+  const dessertItems = available.filter((it) => isSweetOrDessert(it, categoriesMap));
+
+  // Group dishes by their actual DB Category Name
+  const grouped = new Map<string, any[]>();
+  available.forEach((it) => {
+    let catName = categoriesMap.get(it.category_id) || it.category;
+    if (!catName) {
+      if (isSweetOrDessert(it, categoriesMap)) catName = "Desserts & Sweets";
+      else if (it.is_veg) catName = "Vegetarian";
+      else catName = "Non-Vegetarian";
     }
+    if (!grouped.has(catName)) {
+      grouped.set(catName, []);
+    }
+    grouped.get(catName)!.push(it);
   });
 
   const sections: string[] = [];
-  if (cat.bestsellers.length > 0) {
-    sections.push(
-      `=== ⭐ TOP BESTSELLERS ===\n` +
-        cat.bestsellers.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | ${it.is_veg ? "Veg" : "Non-Veg"}`).join("\n")
+  grouped.forEach((dishes, catTitle) => {
+    const lines = dishes.map(
+      (it) => `${it.id} | ${it.name} | ₹${it.price} | ${it.is_veg ? "Veg" : "Non-Veg"}${it.description ? ` (${it.description.slice(0, 80)})` : ""}`
     );
-  }
-  if (cat.starters.length > 0) {
-    sections.push(
-      `=== 🍢 STARTERS & APPETIZERS ===\n` +
-        cat.starters.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | ${it.is_veg ? "Veg" : "Non-Veg"}`).join("\n")
-    );
-  }
-  if (cat.mainsVeg.length > 0) {
-    sections.push(
-      `=== 🍲 MAIN COURSE (VEG) ===\n` +
-        cat.mainsVeg.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | Veg`).join("\n")
-    );
-  }
-  if (cat.mainsNonVeg.length > 0) {
-    sections.push(
-      `=== 🍗 MAIN COURSE (NON-VEG) ===\n` +
-        cat.mainsNonVeg.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | Non-Veg`).join("\n")
-    );
-  }
-  if (cat.biryaniRice.length > 0) {
-    sections.push(
-      `=== 🍚 BIRYANI & RICE ===\n` +
-        cat.biryaniRice.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | ${it.is_veg ? "Veg" : "Non-Veg"}`).join("\n")
-    );
-  }
-  if (cat.breads.length > 0) {
-    sections.push(
-      `=== 🫓 BREADS & NAANS ===\n` +
-        cat.breads.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | Veg`).join("\n")
-    );
-  }
-  if (cat.desserts.length > 0) {
-    sections.push(
-      `=== 🍨 DESSERTS & SWEETS ===\n` +
-        cat.desserts.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | Veg`).join("\n")
-    );
-  }
-  if (cat.beverages.length > 0) {
-    sections.push(
-      `=== 🥤 BEVERAGES & COOLERS ===\n` +
-        cat.beverages.map((it) => `#${it.id} | ${it.name} | ₹${it.price} | Veg`).join("\n")
-    );
-  }
+    sections.push(`=== 📂 ${catTitle.toUpperCase()} ===\n${lines.join("\n")}`);
+  });
 
-  return { menuText: sections.join("\n\n"), categorized: cat };
+  return {
+    menuText: sections.join("\n\n"),
+    hasDesserts: dessertItems.length > 0,
+    dessertItems,
+    bestsellerItems: bestsellers.length > 0 ? bestsellers : available.slice(0, 4),
+    categoriesMap,
+  };
 }
 
 export async function POST(req: NextRequest) {
   let guestPrompt = "";
   let itemsList: any[] = [];
+  let categoriesList: CategoryMeta[] = [];
   let restoName = "";
+  let restaurantId = "";
   let chatHistory: any[] = [];
 
   try {
     const body = await req.json().catch(() => ({}));
-    guestPrompt = typeof body.prompt === "string" ? body.prompt : "";
+    guestPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     itemsList = Array.isArray(body.menuItems) ? body.menuItems : [];
+    categoriesList = Array.isArray(body.categories) ? body.categories : [];
     restoName = typeof body.restaurantName === "string" ? body.restaurantName : "";
+    restaurantId = typeof body.restaurantId === "string" ? body.restaurantId : "";
     chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
 
     if (!guestPrompt) {
       return NextResponse.json({ ok: false, error: "Prompt is required" }, { status: 400 });
     }
 
-    const { menuText, categorized } = formatMenuForAI(itemsList);
+    const {
+      menuText,
+      hasDesserts,
+      dessertItems,
+      bestsellerItems,
+      categoriesMap,
+    } = formatMenuWithDynamicCategories(itemsList, categoriesList);
+
+    const pLower = guestPrompt.toLowerCase();
+
+    // =========================================================================
+    // LAYER 2: INSTANT SUB-50ms INTENT GUARDRAILS (< 50ms Response)
+    // =========================================================================
+
+    // 1. Direct Out-of-Menu Check (Pizza, Burger, Momos, etc.)
+    for (const detector of OUT_OF_MENU_DETECTORS) {
+      if (pLower.includes(detector.term)) {
+        // Check if restaurant actually has this dish in its menu
+        const itemInMenu = itemsList.find(
+          (it) => it.name.toLowerCase().includes(detector.term) && it.is_available !== false
+        );
+
+        if (!itemInMenu) {
+          // Record unfulfilled demand for admin analytics
+          if (restaurantId) {
+            recordCustomerDemand(restaurantId, detector.label, detector.hint);
+          }
+
+          const topDishes = bestsellerItems.slice(0, 3);
+          return NextResponse.json({
+            ok: true,
+            message: `Nahi sir, hamare menu me ${detector.label} available nahi hai. Lekin agar aapko kuch mazedaar khana hai to hamare chef ke ye popular bestsellers try kar sakte hain:`,
+            recommendedDishIds: topDishes.map((d) => d.id),
+            pairingTip: "Aap hamare tandoori starters aur gravies ke saath Butter Naan try kijiye.",
+            followUpSuggestions: [
+              "Kuch meetha bhi dikhao",
+              "Popular beverages",
+              "Mera bill status",
+            ],
+          });
+        }
+      }
+    }
+
+    // 2. Direct Sweet / "Meetha" / Dessert Request Guardrail
+    const isAskingForSweet =
+      pLower.includes("meetha") ||
+      pLower.includes("sweet") ||
+      pLower.includes("dessert") ||
+      pLower.includes("mithai") ||
+      pLower.includes("ice cream") ||
+      pLower.includes("kheer") ||
+      pLower.includes("halwa");
+
+    if (isAskingForSweet) {
+      if (hasDesserts) {
+        const sweetRecommendations = dessertItems.slice(0, 3);
+        return NextResponse.json({
+          ok: true,
+          message: `Aapki sweet craving ke liye hamare paas ye behtareen desserts available hain:`,
+          recommendedDishIds: sweetRecommendations.map((d) => d.id),
+          pairingTip: "Khane ke baad hot dessert ya chilled ice cream meal ko complete karta hai.",
+          followUpSuggestions: [
+            "Popular beverages",
+            "Mera bill kitna hua",
+            "Thode aur options dikhaiye",
+          ],
+        });
+      } else {
+        // Log missing dessert demand
+        if (restaurantId) {
+          recordCustomerDemand(restaurantId, "Desserts & Sweets", "Desserts");
+        }
+        return NextResponse.json({
+          ok: true,
+          message: `Maafi chahenge sir, abhi hamare menu me desserts/meetha available nahi hai. Lekin agar aap chahein to meal ke baad hamari hot Masala Chai ya cold beverage enjoy kar sakte hain.`,
+          recommendedDishIds: itemsList
+            .filter((it) => {
+              const n = it.name.toLowerCase();
+              return n.includes("chai") || n.includes("tea") || n.includes("coffee") || n.includes("soda") || n.includes("lassi");
+            })
+            .slice(0, 2)
+            .map((it) => it.id),
+          pairingTip: null,
+          followUpSuggestions: [
+            "Popular beverages",
+            "Top bestsellers",
+            "Mera bill status",
+          ],
+        });
+      }
+    }
+
+    // =========================================================================
+    // LAYER 3: 5-STAR HUMAN DINING CAPTAIN AI (HIGH ACCURACY LLM)
+    // =========================================================================
+
+    const recentDishesIds: string[] = [];
+    if (chatHistory.length > 0) {
+      // Collect dishes previously shown to prevent repetition on "aur options"
+      chatHistory.forEach((h) => {
+        if (Array.isArray(h.recommendedDishIds)) {
+          recentDishesIds.push(...h.recommendedDishIds);
+        }
+      });
+    }
 
     const systemPrompt = `You are the master Head Chef & Senior Dining Concierge at "${restoName || "our restaurant"}".
-You speak in warm, delightful, appetite-whetting conversational Hinglish (a natural blend of Hindi and English, as spoken by top Indian restaurant captains).
+You speak in warm, delightful, natural, polite conversational Hinglish (friendly Indian restaurant dining captain).
 
 STRICT OPERATIONAL RULES:
-1. NEVER use the word "Namaste". Start with a warm greeting like "Welcome!", "Hello!", "Hey there!", or address the request directly.
-2. ONLY recommend dishes that exist in the RESTAURANT MENU below. Never make up or hallucinate dishes.
-3. UNDERSTAND MEAL COMPOSITION & PAIRING:
-   - If guest asks for dinner/lunch for multiple people (e.g., "2 people", "family", "combo"): Suggest a balanced meal pairing (1 Starter + 1 Main Curry + Breads/Rice + optional Dessert or Drink).
-   - If guest asks for something spicy: Recommend bold, spicy dishes (e.g. Kadhai Chicken, Veg Kolhapuri, Chicken Angara, Chicken 65, Honey Chilli Potato).
-   - If guest asks for mild/creamy/sweet: Recommend rich, gentle gravies (e.g. Dal Makhani, Butter Chicken, Malai Kofta, Shahi Paneer).
-   - If guest specifies a budget (e.g., "under ₹300", "under ₹500"): Select dishes whose prices fit within or match the budget.
-   - If guest asks a follow-up question referencing past recommendations: Use the conversation context to provide the best pairing, side dish, or answer.
+1. DIRECT & TRUTHFUL ANSWER FIRST:
+   - Answer the guest's specific inquiry directly and clearly.
+   - If guest asks about creamy gravies: Recommend curries like Butter Chicken, Paneer Butter Masala, Dal Makhani, Malai Kofta.
+   - If guest asks about spicy food: Recommend spicy curries/starters (e.g. Kadhai Chicken, Chicken Angara, Veg Kolhapuri, Chilli Chicken).
+   - If guest asks for dinner combo for 2 or family: Give a balanced pairing (1 Starter + 1 Main Curry + Breads/Rice).
+   - If guest asks "Thode aur options": Provide fresh, different dishes from other categories that were NOT shown before.
+2. CATEGORY TRUTHFULNESS:
+   - NEVER call savoury curries, dals, gravies, or breads "meetha" or "dessert"!
+   - ONLY recommend dishes that actually exist in the RESTAURANT MENU below. Never make up or hallucinate dishes.
+3. BAN ROBOTIC CLICHÉS:
+   - DO NOT repeat phrases like "Yeh combination aapke taste buds ko khush kar dega" or "anokha vikalp" or "meetha sa thaal".
+   - Speak genuinely, warmly, and naturally as an attentive restaurant host.
+4. RECOMMENDATION LIMIT:
+   - Recommend 2 to 3 dishes maximum with their exact IDs.
 
-RESTAURANT MENU:
-${menuText || "Menu items will be recommended generally."}
+RESTAURANT MENU (Grouped by Real Categories):
+${menuText || "No active dishes listed."}
 
-RESPONSE FORMAT:
-You MUST respond with a JSON object in this exact schema:
+RESPONSE SCHEMA (JSON ONLY):
 {
-  "message": "Enthusiastic, mouthwatering 2-3 sentence recommendation explaining the flavor profile and why these dishes are the perfect choice.",
-  "recommendedDishIds": ["<id1>", "<id2>", "<id3>"],
-  "pairingTip": "Optional pro-tip about culinary flavor notes or complementary drink/dessert (keep it brief and genuine, or null if none needed)",
-  "followUpSuggestions": ["<clean text reply 1>", "<clean text reply 2>", "<clean text reply 3>"]
+  "message": "Direct, hospitable, mouthwatering 2-sentence response explaining why these dishes fit the guest's taste.",
+  "recommendedDishIds": ["<id1>", "<id2>"],
+  "pairingTip": "Brief helpful pairing tip or null",
+  "followUpSuggestions": ["<clean suggestion 1>", "<clean suggestion 2>", "<clean suggestion 3>"]
 }
-CRITICAL: In followUpSuggestions, DO NOT use any emojis or icons. Use clean plain text only (e.g. 'Kuch meetha bhi dikhao', 'Popular beverages', 'Mera bill status', 'Thode spicy options'). DO NOT ask or suggest roti/naan repeatedly unless the guest explicitly requests bread pairing.
-Recommend 2 to 4 dishes maximum.`;
+In followUpSuggestions: Use clean plain text only (NO emojis). Example: 'Kuch meetha bhi dikhao', 'Popular beverages', 'Mera bill status'.`;
 
     const messagesToSend: any[] = [{ role: "system", content: systemPrompt }];
 
-    // Inject recent conversation history for multi-turn awareness
+    // Inject last 4 turns for context awareness
     if (chatHistory.length > 0) {
       chatHistory.slice(-4).forEach((h) => {
         if (h.sender === "user" && h.text) {
@@ -199,9 +281,9 @@ Recommend 2 to 4 dishes maximum.`;
 
     const { text } = await callNvidiaChat(messagesToSend, {
       model: "meta/llama-3.2-11b-vision-instruct",
-      temperature: 0.25,
-      max_tokens: 500,
-      timeoutMs: 14000,
+      temperature: 0.3,
+      max_tokens: 400,
+      timeoutMs: 12000,
     });
 
     const parsed = extractJsonFromResponse<{
@@ -212,6 +294,23 @@ Recommend 2 to 4 dishes maximum.`;
     }>(text);
 
     if (parsed && parsed.message) {
+      const rawDishIds = Array.isArray(parsed.recommendedDishIds) ? parsed.recommendedDishIds : [];
+      // Clean and validate dish IDs
+      let validDishIds = rawDishIds
+        .map((id) => (typeof id === "string" ? id.replace(/^[#\s]+/, "").trim() : ""))
+        .filter((id) => itemsList.some((it) => it.id === id));
+
+      // If model returned dish names or plain text in IDs, match them
+      if (validDishIds.length === 0) {
+        const combined = (parsed.message + " " + guestPrompt).toLowerCase();
+        const found = itemsList.filter(
+          (it) => it.is_available !== false && combined.includes(it.name.toLowerCase())
+        );
+        if (found.length > 0) {
+          validDishIds = found.slice(0, 3).map((it) => it.id);
+        }
+      }
+
       const cleanSuggestions = Array.isArray(parsed.followUpSuggestions)
         ? parsed.followUpSuggestions
             .map((s: string) =>
@@ -225,103 +324,67 @@ Recommend 2 to 4 dishes maximum.`;
       return NextResponse.json({
         ok: true,
         message: parsed.message,
-        recommendedDishIds: Array.isArray(parsed.recommendedDishIds) ? parsed.recommendedDishIds : [],
+        recommendedDishIds: validDishIds,
         pairingTip: parsed.pairingTip || null,
         followUpSuggestions: cleanSuggestions,
       });
     }
 
-    // Fallback if model returned plain text
+    // Fallback if plain text was returned
+    const plainMsg = text.replace(/```(?:json)?/g, "").trim();
+    const fallbackMatched = itemsList.filter(
+      (it) => it.is_available !== false && (plainMsg + " " + guestPrompt).toLowerCase().includes(it.name.toLowerCase())
+    );
+
     return NextResponse.json({
       ok: true,
-      message: text.replace(/```(?:json)?/g, "").trim(),
-      recommendedDishIds: [],
+      message: plainMsg,
+      recommendedDishIds: fallbackMatched.slice(0, 3).map((it) => it.id),
     });
   } catch (error: any) {
     console.error("[AI Recommend Error]:", error?.message || error);
 
-    // Smart Algorithmic Fallback Engine
+    // Smart Local Fallback Engine (Strictly respecting human dining protocol)
     const p = guestPrompt.toLowerCase();
-    const isVegReq =
-      p.includes("veg") &&
-      !p.includes("non-veg") &&
-      !p.includes("nonveg") &&
-      !p.includes("chicken") &&
-      !p.includes("mutton") &&
-      !p.includes("fish") &&
-      !p.includes("egg");
-    const isNonVegReq =
-      p.includes("non-veg") ||
-      p.includes("nonveg") ||
-      p.includes("chicken") ||
-      p.includes("mutton") ||
-      p.includes("fish") ||
-      p.includes("egg") ||
-      p.includes("meat");
-
-    const isSpicy = p.includes("spicy") || p.includes("mirch") || p.includes("chatpata") || p.includes("hot");
-    const isSweet = p.includes("sweet") || p.includes("meetha") || p.includes("dessert") || p.includes("ice cream");
-    const isCombo = p.includes("combo") || p.includes("family") || p.includes("dinner") || p.includes("lunch") || p.includes("log") || p.includes("people");
-
-    const budgetMatch = p.match(/(?:under|below|budget|mein|me|₹|\b)(\d{2,4})\b/);
-    const budget = budgetMatch ? Number(budgetMatch[1]) : 0;
-
     const available = itemsList.filter((it: any) => it.is_available !== false);
-    let selected: any[] = [];
 
-    if (isSweet) {
-      selected = available.filter((it: any) => {
+    const isVegOnly = p.includes("veg") && !p.includes("non-veg") && !p.includes("nonveg");
+    const isNonVegOnly = p.includes("non-veg") || p.includes("nonveg") || p.includes("chicken") || p.includes("mutton");
+    const isSpicy = p.includes("spicy") || p.includes("teekha") || p.includes("mirch");
+    const isCreamy = p.includes("creamy") || p.includes("gravy") || p.includes("curry") || p.includes("butter");
+
+    let pool = available;
+    if (isVegOnly) pool = pool.filter((it: any) => it.is_veg);
+    if (isNonVegOnly) pool = pool.filter((it: any) => !it.is_veg);
+
+    if (isSpicy) {
+      const spicyItems = pool.filter((it: any) => {
         const n = it.name.toLowerCase();
-        return n.includes("gulab") || n.includes("rasmalai") || n.includes("brownie") || n.includes("halwa") || n.includes("ice cream") || n.includes("lassi");
+        return n.includes("kadhai") || n.includes("angara") || n.includes("kolhapuri") || n.includes("tikka") || n.includes("65");
       });
-    } else if (isCombo) {
-      // Build a balanced combo: 1 Starter + 1 Main + 1 Bread/Rice
-      const starters = available.filter((it: any) =>
-        (isVegReq ? it.is_veg : isNonVegReq ? !it.is_veg : true) &&
-        (it.name.toLowerCase().includes("tikka") || it.name.toLowerCase().includes("kebab") || it.name.toLowerCase().includes("chaap") || it.name.toLowerCase().includes("crispy"))
-      );
-      const mains = available.filter((it: any) =>
-        (isVegReq ? it.is_veg : isNonVegReq ? !it.is_veg : true) &&
-        (it.name.toLowerCase().includes("butter") || it.name.toLowerCase().includes("kadhai") || it.name.toLowerCase().includes("dal") || it.name.toLowerCase().includes("rogan") || it.name.toLowerCase().includes("paneer"))
-      );
-      const breads = available.filter((it: any) =>
-        it.name.toLowerCase().includes("naan") || it.name.toLowerCase().includes("roti") || it.name.toLowerCase().includes("biryani")
-      );
-
-      if (starters[0]) selected.push(starters[0]);
-      if (mains[0]) selected.push(mains[0]);
-      if (breads[0]) selected.push(breads[0]);
-    } else {
-      let pool = available;
-      if (isVegReq) pool = pool.filter((it: any) => it.is_veg);
-      if (isNonVegReq) pool = pool.filter((it: any) => !it.is_veg);
-      if (budget > 0) pool = pool.filter((it: any) => Number(it.price) <= budget);
-
-      if (isSpicy) {
-        const spicyPool = pool.filter((it: any) => {
-          const n = it.name.toLowerCase();
-          return n.includes("tikka") || n.includes("kadhai") || n.includes("angara") || n.includes("kolhapuri") || n.includes("chilli") || n.includes("65");
-        });
-        if (spicyPool.length > 0) pool = spicyPool;
-      }
-
-      // Prioritize bestsellers
-      const bestsellers = pool.filter((it: any) => it.is_bestseller);
-      selected = bestsellers.length >= 2 ? bestsellers.slice(0, 3) : pool.slice(0, 3);
+      if (spicyItems.length > 0) pool = spicyItems;
+    } else if (isCreamy) {
+      const creamyItems = pool.filter((it: any) => {
+        const n = it.name.toLowerCase();
+        return n.includes("butter") || n.includes("makhani") || n.includes("kofta") || n.includes("korma") || n.includes("malai");
+      });
+      if (creamyItems.length > 0) pool = creamyItems;
     }
+
+    const selectedDishes = pool.slice(0, 3);
 
     return NextResponse.json({
       ok: true,
       message:
-        selected.length > 0
-          ? `Aapke taste aur craving ke hisaab se ${restoName || "humare restaurant"} ki ye best dishes perfect rahengi:`
-          : `Aapke liye ${restoName || "humare restaurant"} ke top chef recommendations yahan hain:`,
-      recommendedDishIds: selected.map((it: any) => it.id),
+        selectedDishes.length > 0
+          ? `Aapke taste ke mutabiq ${restoName || "hamare restaurant"} ke ye popular chef specials perfect rahenge:`
+          : `Aapke liye ${restoName || "hamare restaurant"} ke top recommendations yahan hain:`,
+      recommendedDishIds: selectedDishes.map((d: any) => d.id),
       pairingTip: null,
       followUpSuggestions: [
         "Kuch meetha bhi dikhao",
         "Popular beverages",
-        "Thode aur budget-friendly options",
+        "Mera bill status",
       ],
     });
   }
