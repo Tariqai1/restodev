@@ -57,7 +57,7 @@ export default function DeliveryPortalPage() {
 
   const fetchDeliveries = useCallback(async () => {
     try {
-      const res = await fetch("/api/delivery/orders");
+      const res = await fetch("/api/delivery/orders", { cache: "no-store" });
       const data = await res.json();
       if (res.ok && data.ok) {
         setActiveDeliveries(data.activeDeliveries || []);
@@ -92,6 +92,17 @@ export default function DeliveryPortalPage() {
       if (res.ok && data.ok) {
         setNotice("🛵 Out for delivery! Follow Google Maps GPS navigation.");
         setTimeout(() => setNotice(null), 4000);
+        setActiveDeliveries((prev) =>
+          prev.map((d) =>
+            d.id === orderId
+              ? {
+                  ...d,
+                  dispatchStage: "dispatched",
+                  dispatchedAt: new Date().toISOString(),
+                }
+              : d
+          )
+        );
         await fetchDeliveries();
       }
     } catch {
@@ -160,7 +171,19 @@ export default function DeliveryPortalPage() {
 
       setNotice("🎉 Order verified & successfully marked Delivered! Great job.");
       setTimeout(() => setNotice(null), 5000);
+      const completedOrder = selectedOrderForDelivery;
       setSelectedOrderForDelivery(null);
+      setActiveDeliveries((prev) => prev.filter((d) => d.id !== completedOrder.id));
+      setCompletedDeliveries((prev) => [
+        {
+          ...completedOrder,
+          dispatchStage: "delivered",
+          closedAt: new Date().toISOString(),
+          paymentStatus: "paid",
+          paymentCollectedMode: paymentChoice,
+        },
+        ...prev,
+      ]);
       await fetchDeliveries();
     } catch (err: any) {
       setPinError(err.message || "Failed to complete delivery.");

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOrderDispatch, setOrderDispatch } from "@/lib/platform/state";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function parseOnlineDetails(tbl?: string, notes?: string | null) {
   const isOnline =
     Boolean(tbl?.includes("DEL-")) ||
@@ -194,12 +197,19 @@ export async function GET(req: NextRequest) {
       })
       .map(formatRiderTicket);
 
-    return NextResponse.json({
-      ok: true,
-      restaurant: { id: targetRestoId, name: restoName, upiId: "orderdesk@icici" },
-      activeDeliveries,
-      completedDeliveries,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        restaurant: { id: targetRestoId, name: restoName, upiId: "orderdesk@icici" },
+        activeDeliveries,
+        completedDeliveries,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json({ message: err.message || "Failed to load rider orders" }, { status: 500 });
   }
