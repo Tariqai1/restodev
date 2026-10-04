@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 
 interface RiderItem {
@@ -55,7 +55,13 @@ export default function DeliveryPortalPage() {
   const [isSubmittingDelivery, setIsSubmittingDelivery] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
 
+  const inFlightRef = useRef(false);
+
   const fetchDeliveries = useCallback(async () => {
+    if (inFlightRef.current) return;
+    if (typeof document !== "undefined" && document.hidden) return;
+
+    inFlightRef.current = true;
     try {
       const res = await fetch("/api/delivery/orders", { cache: "no-store" });
       const data = await res.json();
@@ -70,14 +76,28 @@ export default function DeliveryPortalPage() {
     } catch (err) {
       console.error("Failed to load rider deliveries:", err);
     } finally {
+      inFlightRef.current = false;
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchDeliveries();
-    const interval = setInterval(fetchDeliveries, 8000);
-    return () => clearInterval(interval);
+    // Smart 15s interval for active tab
+    const interval = setInterval(fetchDeliveries, 15000);
+
+    // Instant refresh when user returns to this tab
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchDeliveries();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [fetchDeliveries]);
 
   const handleStartDelivery = async (orderId: string) => {

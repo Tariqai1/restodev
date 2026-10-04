@@ -249,6 +249,7 @@ export default function WaiterPortalPage() {
   const fetchDashboardData = useCallback(
     async (isInitial = false) => {
       if (pollingInFlightRef.current) return;
+      if (!isInitial && typeof document !== "undefined" && document.hidden) return;
       pollingInFlightRef.current = true;
 
       try {
@@ -325,9 +326,19 @@ export default function WaiterPortalPage() {
 
     const interval = setInterval(() => {
       fetchDashboardData(false);
-    }, 6500);
+    }, 8000);
 
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchDashboardData(false);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [fetchDashboardData, fetchMenuCatalog]);
 
   // Network Online/Offline Listeners
