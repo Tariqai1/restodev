@@ -785,7 +785,7 @@ export default function WaiterPortalPage() {
   const approvalsCount = pendingApprovals.length;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-black w-full max-w-full overflow-x-hidden">
       {/* ─────────────────────────────────────────────────────────────
           1. TOP NAVIGATION & IDENTITY BAR
          ───────────────────────────────────────────────────────────── */}

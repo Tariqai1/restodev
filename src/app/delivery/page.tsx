@@ -228,36 +228,36 @@ export default function DeliveryPortalPage() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans pb-16">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans pb-16 w-full max-w-full overflow-x-hidden">
       {/* Top App Header */}
-      <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/30 font-black">
+      <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between shadow-lg w-full">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-base sm:text-lg border border-emerald-500/30 font-black shrink-0">
             🛵
           </div>
-          <div>
-            <h1 className="text-sm font-extrabold text-white leading-tight">
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm font-extrabold text-white leading-tight truncate">
               {restaurant?.name || "Restaurant"} Rider Fleet
             </h1>
-            <p className="text-[10px] text-emerald-400 font-bold tracking-wider uppercase flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <p className="text-[9px] sm:text-[10px] text-emerald-400 font-bold tracking-wider uppercase flex items-center gap-1 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               Delivery Captain Portal
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             type="button"
             onClick={() => fetchDeliveries()}
-            className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition-colors cursor-pointer border border-slate-700"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition-colors cursor-pointer border border-slate-700 active:scale-95"
             title="Refresh Deliveries"
           >
             <i className={`fa-solid fa-arrows-rotate ${isLoading ? "fa-spin" : ""}`} />
           </button>
           <Link
             href="/waiter"
-            className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-slate-700 transition-colors"
+            className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[10px] sm:text-[11px] font-bold text-slate-300 border border-slate-700 transition-colors whitespace-nowrap active:scale-95"
           >
             Floor →
           </Link>
@@ -266,60 +266,66 @@ export default function DeliveryPortalPage() {
 
       {/* Notice Toast */}
       {notice && (
-        <div className="mx-4 mt-3 px-4 py-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
+        <div className="mx-3 sm:mx-4 mt-2.5 sm:mt-3 px-3.5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
           <span>{notice}</span>
         </div>
       )}
 
       {/* Main Container */}
-      <main className="max-w-xl w-full mx-auto p-4 flex-1 flex flex-col gap-4">
+      <main className="max-w-xl w-full mx-auto px-3 sm:px-4 py-3 sm:py-4 flex-1 flex flex-col gap-3 sm:gap-4 overflow-hidden">
         {/* Rider Shift Cash & Trips Summary Strip */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 p-3.5 rounded-3xl shadow-xl flex items-center justify-around gap-2 text-center">
-          <div className="flex-1 border-r border-slate-800/80 pr-2">
-            <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400 block font-bold">
-              💵 Cash In Hand
+        <div className="w-full bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 p-2.5 sm:p-3.5 rounded-2xl sm:rounded-3xl shadow-xl grid grid-cols-3 divide-x divide-slate-800/80 text-center">
+          <div className="px-1 sm:px-2 min-w-0">
+            <span className="text-[8px] sm:text-[9px] font-mono uppercase tracking-tight text-amber-400 block font-bold truncate">
+              💵 Cash Hand
             </span>
-            <span className="text-base sm:text-lg font-black font-mono text-white">
+            <span className="text-sm sm:text-base md:text-lg font-black font-mono text-white block mt-0.5 truncate">
               ₹{shiftSummary.cashInHand}
             </span>
-            <span className="text-[9px] text-slate-500 block truncate">Submit to Counter</span>
+            <span className="text-[8px] sm:text-[9px] text-slate-500 block truncate">
+              Counter Due
+            </span>
           </div>
 
-          <div className="flex-1 border-r border-slate-800/80 px-2">
-            <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-400 block font-bold">
+          <div className="px-1 sm:px-2 min-w-0">
+            <span className="text-[8px] sm:text-[9px] font-mono uppercase tracking-tight text-cyan-400 block font-bold truncate">
               📱 UPI Paid
             </span>
-            <span className="text-base sm:text-lg font-black font-mono text-white">
+            <span className="text-sm sm:text-base md:text-lg font-black font-mono text-white block mt-0.5 truncate">
               ₹{shiftSummary.upiTotal}
             </span>
-            <span className="text-[9px] text-slate-500 block truncate">Direct in Bank</span>
+            <span className="text-[8px] sm:text-[9px] text-slate-500 block truncate">
+              In Bank
+            </span>
           </div>
 
-          <div className="flex-1 pl-2">
-            <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400 block font-bold">
+          <div className="px-1 sm:px-2 min-w-0">
+            <span className="text-[8px] sm:text-[9px] font-mono uppercase tracking-tight text-emerald-400 block font-bold truncate">
               📦 Trips
             </span>
-            <span className="text-base sm:text-lg font-black font-mono text-white">
+            <span className="text-sm sm:text-base md:text-lg font-black font-mono text-white block mt-0.5 truncate">
               {shiftSummary.tripsCount}
             </span>
-            <span className="text-[9px] text-slate-500 block truncate">Delivered Today</span>
+            <span className="text-[8px] sm:text-[9px] text-slate-500 block truncate">
+              Delivered
+            </span>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
+        <div className="w-full grid grid-cols-2 gap-1.5 sm:gap-2 bg-slate-900 p-1 sm:p-1.5 rounded-2xl border border-slate-800">
           <button
             type="button"
             onClick={() => setActiveTab("active")}
-            className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-w-0 ${
               activeTab === "active"
                 ? "bg-emerald-500 text-slate-950 shadow-md font-black"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>Active Deliveries</span>
+            <span className="truncate">Active Deliveries</span>
             <span
-              className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+              className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === "active"
                   ? "bg-slate-950 text-emerald-400 font-bold"
                   : "bg-slate-800 text-slate-400"
@@ -332,15 +338,15 @@ export default function DeliveryPortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab("completed")}
-            className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-w-0 ${
               activeTab === "completed"
                 ? "bg-slate-100 text-slate-950 shadow-md font-black"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>Completed Today</span>
+            <span className="truncate">Completed Today</span>
             <span
-              className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+              className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === "completed"
                   ? "bg-slate-900 text-white font-bold"
                   : "bg-slate-800 text-slate-400"
@@ -354,8 +360,8 @@ export default function DeliveryPortalPage() {
         {/* Deliveries List */}
         {activeTab === "active" ? (
           activeDeliveries.length === 0 ? (
-            <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-8 space-y-3 bg-slate-900/40 my-auto">
-              <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-3xl mx-auto shadow-inner">
+            <div className="py-16 sm:py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-6 sm:p-8 space-y-3 bg-slate-900/40 my-auto">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl sm:text-3xl mx-auto shadow-inner">
                 🛵
               </div>
               <h3 className="text-sm font-black text-white">No Active Deliveries Right Now</h3>
@@ -364,7 +370,7 @@ export default function DeliveryPortalPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3.5 sm:space-y-4">
               {activeDeliveries.map((del) => {
                 const elapsedMins = Math.floor(
                   (Date.now() - new Date(del.openedAt).getTime()) / 60000
@@ -375,27 +381,27 @@ export default function DeliveryPortalPage() {
                 return (
                   <div
                     key={del.id}
-                    className={`rounded-3xl border bg-slate-900/95 p-4 sm:p-5 shadow-xl space-y-4 transition-all ${
+                    className={`rounded-2xl sm:rounded-3xl border bg-slate-900/95 p-3.5 sm:p-5 shadow-xl space-y-3.5 sm:space-y-4 transition-all w-full ${
                       isDispatched
                         ? "border-emerald-500/50 shadow-emerald-500/10 ring-1 ring-emerald-500/30"
                         : "border-slate-800 hover:border-slate-700"
                     }`}
                   >
                     {/* Order Header & Badges */}
-                    <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-black text-white bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-700">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5 sm:pb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono text-xs sm:text-sm font-black text-white bg-slate-800 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl border border-slate-700 shrink-0">
                           {del.orderNumber}
                         </span>
-                        <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 font-mono">
-                          <i className="fa-solid fa-clock text-[10px]" />
+                        <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 flex items-center gap-1 font-mono shrink-0">
+                          <i className="fa-solid fa-clock text-[9px] sm:text-[10px]" />
                           {elapsedMins}m ago
                         </span>
                       </div>
 
                       {/* Stage Pill */}
                       <span
-                        className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${
+                        className={`text-[9px] sm:text-[10px] font-extrabold uppercase px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border shrink-0 ${
                           isDispatched
                             ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
                             : del.kitchenStage === "ready"
@@ -406,19 +412,19 @@ export default function DeliveryPortalPage() {
                         {isDispatched
                           ? "🛵 Out for Delivery"
                           : del.kitchenStage === "ready"
-                          ? "✅ Food Ready to Pickup"
+                          ? "✅ Food Ready"
                           : "🍳 Kitchen Cooking"}
                       </span>
                     </div>
 
                     {/* Customer & Address Details */}
-                    <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800/80 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">
+                    <div className="bg-slate-950/70 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800/80 space-y-2 sm:space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[9px] sm:text-[10px] font-mono uppercase text-slate-400 block font-bold">
                             Customer
                           </span>
-                          <span className="text-sm font-bold text-white">
+                          <span className="text-xs sm:text-sm font-bold text-white block truncate">
                             {del.customerName}
                           </span>
                         </div>
@@ -426,20 +432,21 @@ export default function DeliveryPortalPage() {
                         {del.customerPhone && (
                           <a
                             href={`tel:${del.customerPhone}`}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs hover:bg-emerald-400 active:scale-95 transition-all shadow-md"
+                            className="shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-[11px] sm:text-xs hover:bg-emerald-400 active:scale-95 transition-all shadow-md"
                           >
-                            <i className="fa-solid fa-phone text-xs" />
-                            <span>Call {del.customerPhone}</span>
+                            <i className="fa-solid fa-phone text-[10px] sm:text-xs" />
+                            <span>Call</span>
+                            <span className="hidden sm:inline font-mono">{del.customerPhone}</span>
                           </a>
                         )}
                       </div>
 
                       {/* Address */}
                       <div className="pt-2 border-t border-slate-800/80">
-                        <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">
+                        <span className="text-[9px] sm:text-[10px] font-mono uppercase text-slate-400 block font-bold">
                           Delivery Doorstep
                         </span>
-                        <p className="text-xs text-slate-200 font-medium leading-relaxed mt-0.5">
+                        <p className="text-xs text-slate-200 font-medium leading-relaxed mt-0.5 break-words">
                           {del.deliveryAddress || "Address provided via map pin"}
                         </p>
                       </div>
@@ -448,25 +455,25 @@ export default function DeliveryPortalPage() {
                       <button
                         type="button"
                         onClick={() => openNavigation(del)}
-                        className="w-full mt-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                        className="w-full mt-1 py-2 sm:py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-extrabold text-[11px] sm:text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                       >
-                        <i className="fa-solid fa-location-arrow text-sm text-amber-300" />
-                        <span>Open Turn-by-Turn GPS Navigation</span>
+                        <i className="fa-solid fa-location-arrow text-xs sm:text-sm text-amber-300" />
+                        <span>Turn-by-Turn GPS Navigation</span>
                       </button>
                     </div>
 
                     {/* Food Items */}
                     <div className="space-y-1.5 text-xs text-slate-300">
-                      <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                      <span className="text-[9px] sm:text-[10px] font-mono uppercase text-slate-400 font-bold block">
                         Items to Deliver ({del.items.length})
                       </span>
-                      <div className="space-y-1 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/60 max-h-36 overflow-y-auto">
+                      <div className="space-y-1 bg-slate-950/40 p-2 sm:p-2.5 rounded-xl border border-slate-800/60 max-h-36 overflow-y-auto">
                         {del.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs">
-                            <span className="font-semibold text-slate-200">
+                          <div key={idx} className="flex justify-between items-center text-xs gap-2">
+                            <span className="font-semibold text-slate-200 truncate">
                               {it.qty}× {it.name}
                             </span>
-                            <span className="font-mono text-slate-400 text-[11px]">
+                            <span className="font-mono text-slate-400 text-[11px] shrink-0">
                               ₹{it.price * it.qty}
                             </span>
                           </div>
@@ -475,25 +482,25 @@ export default function DeliveryPortalPage() {
                     </div>
 
                     {/* Payment Status Pill Card */}
-                    <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                    <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">
+                        <span className="text-[9px] sm:text-[10px] font-mono uppercase text-slate-400 block font-bold">
                           Amount to Collect
                         </span>
-                        <span className="text-base font-black text-white font-mono">
+                        <span className="text-sm sm:text-base font-black text-white font-mono">
                           ₹{del.totalAmount}
                         </span>
                       </div>
 
                       <div>
                         {del.paymentStatus === "paid" ? (
-                          <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30 flex items-center gap-1.5">
-                            <i className="fa-solid fa-check" />
+                          <span className="text-[10px] sm:text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2 sm:px-2.5 py-1 rounded-xl border border-emerald-500/30 flex items-center gap-1 sm:gap-1.5">
+                            <i className="fa-solid fa-check text-[10px]" />
                             <span>Paid Online (Do Not Collect)</span>
                           </span>
                         ) : (
-                          <span className="text-xs font-black text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded-xl border border-amber-500/30 flex items-center gap-1.5 animate-pulse">
-                            <i className="fa-solid fa-money-bill-wave" />
+                          <span className="text-[10px] sm:text-xs font-black text-amber-400 bg-amber-950/60 px-2 sm:px-2.5 py-1 rounded-xl border border-amber-500/30 flex items-center gap-1 sm:gap-1.5 animate-pulse">
+                            <i className="fa-solid fa-money-bill-wave text-[10px]" />
                             <span>Pay on Delivery (Cash / UPI)</span>
                           </span>
                         )}
@@ -501,29 +508,29 @@ export default function DeliveryPortalPage() {
                     </div>
 
                     {/* Rider Action Controls */}
-                    <div className="pt-2">
+                    <div className="pt-1 sm:pt-2">
                       {!isDispatched ? (
                         <button
                           type="button"
                           disabled={isUpdating}
                           onClick={() => handleStartDelivery(del.id)}
-                          className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                          className="w-full py-3 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
                         >
                           {isUpdating ? (
                             <i className="fa-solid fa-circle-notch fa-spin text-sm" />
                           ) : (
-                            <i className="fa-solid fa-motorcycle text-base" />
+                            <i className="fa-solid fa-motorcycle text-sm sm:text-base" />
                           )}
-                          <span>Pick Up Food & Start Delivery</span>
+                          <span>Pick Up Food &amp; Start Delivery</span>
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={() => openDeliveryVerificationModal(del)}
-                          className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                          className="w-full py-3 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
                         >
-                          <i className="fa-solid fa-shield-check text-base" />
-                          <span>Arrived at Doorstep · Verify & Handover</span>
+                          <i className="fa-solid fa-shield-check text-sm sm:text-base" />
+                          <span>Arrived at Doorstep · Verify &amp; Handover</span>
                         </button>
                       )}
                     </div>
@@ -535,8 +542,8 @@ export default function DeliveryPortalPage() {
         ) : (
           /* Completed Deliveries Tab */
           completedDeliveries.length === 0 ? (
-            <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-8 space-y-3 bg-slate-900/40 my-auto">
-              <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-3xl mx-auto shadow-inner">
+            <div className="py-16 sm:py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-6 sm:p-8 space-y-3 bg-slate-900/40 my-auto">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl sm:text-3xl mx-auto shadow-inner">
                 📦
               </div>
               <h3 className="text-sm font-black text-white">No Completed Deliveries Yet</h3>
@@ -546,9 +553,9 @@ export default function DeliveryPortalPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between">
+              <div className="bg-slate-900 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold text-slate-400">Total Delivered Today:</span>
-                <span className="text-sm font-black text-emerald-400 font-mono">
+                <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono">
                   {completedDeliveries.length} Deliveries · ₹
                   {completedDeliveries.reduce((sum, d) => sum + d.totalAmount, 0)}
                 </span>
@@ -557,7 +564,7 @@ export default function DeliveryPortalPage() {
               {completedDeliveries.map((del) => (
                 <div
                   key={del.id}
-                  className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 space-y-2 text-xs"
+                  className="rounded-xl sm:rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3.5 sm:p-4 space-y-2 text-xs"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-black text-white text-xs bg-slate-800 px-2 py-0.5 rounded-lg">
@@ -568,7 +575,7 @@ export default function DeliveryPortalPage() {
                       Delivered
                     </span>
                   </div>
-                  <div className="text-slate-300">
+                  <div className="text-slate-300 break-words">
                     <strong className="text-white">{del.customerName}</strong> ·{" "}
                     {del.deliveryAddress}
                   </div>
@@ -596,43 +603,43 @@ export default function DeliveryPortalPage() {
          ───────────────────────────────────────────────────────────── */}
       {selectedOrderForDelivery && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom duration-200 max-h-[92vh] overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-md shadow-2xl flex flex-col gap-3.5 sm:gap-4 animate-in slide-in-from-bottom duration-200 max-h-[92vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 sm:pb-3">
               <div>
-                <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold tracking-wider block">
-                  Delivery Verification & Payment
+                <span className="text-[9px] sm:text-[10px] font-mono uppercase text-emerald-400 font-bold tracking-wider block">
+                  Delivery Verification &amp; Payment
                 </span>
-                <h3 className="text-base font-black text-white">
+                <h3 className="text-sm sm:text-base font-black text-white">
                   Order {selectedOrderForDelivery.orderNumber}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedOrderForDelivery(null)}
-                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer active:scale-95"
               >
                 ✕
               </button>
             </div>
 
             {/* Customer & Address Quick summary */}
-            <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs text-slate-300 space-y-1">
+            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-950/70 border border-slate-800 text-xs text-slate-300 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-white">{selectedOrderForDelivery.customerName}</span>
-                <span className="font-mono font-black text-emerald-400 text-sm">
+                <span className="font-bold text-white truncate mr-2">{selectedOrderForDelivery.customerName}</span>
+                <span className="font-mono font-black text-emerald-400 text-xs sm:text-sm shrink-0">
                   Total: ₹{selectedOrderForDelivery.totalAmount}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 truncate">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 break-words">
                 {selectedOrderForDelivery.deliveryAddress}
               </p>
             </div>
 
             {/* STEP 1: 4-Digit In-App Verification PIN */}
-            <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2.5">
+            <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-800 space-y-2 sm:space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-white flex items-center gap-1.5">
+                <span className="text-[11px] sm:text-xs font-black text-white flex items-center gap-1.5">
                   <i className="fa-solid fa-shield-halved text-amber-400 text-xs" />
                   <span>1. Customer Verification PIN</span>
                 </span>
@@ -649,8 +656,8 @@ export default function DeliveryPortalPage() {
               </div>
 
               {!isBypassPin ? (
-                <div className="space-y-2">
-                  <p className="text-[11px] text-slate-400">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <p className="text-[10px] sm:text-[11px] text-slate-400">
                     Customer se unke phone screen par dikh raha <strong className="text-white">4-Digit PIN</strong> maangein:
                   </p>
                   <input
@@ -659,13 +666,13 @@ export default function DeliveryPortalPage() {
                     maxLength={4}
                     value={enteredPin}
                     onChange={(e) => setEnteredPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    placeholder="Enter 4-digit PIN"
-                    className="w-full py-3 px-4 rounded-xl bg-slate-900 border-2 border-slate-700 text-white font-mono font-black text-2xl text-center tracking-[0.4em] focus:outline-none focus:border-emerald-500"
+                    placeholder="PIN"
+                    className="w-full py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl bg-slate-900 border-2 border-slate-700 text-white font-mono font-black text-xl sm:text-2xl text-center tracking-[0.25em] sm:tracking-[0.4em] focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               ) : (
-                <div className="space-y-2 animate-in fade-in">
-                  <p className="text-[11px] text-amber-300 font-semibold">
+                <div className="space-y-1.5 sm:space-y-2 animate-in fade-in">
+                  <p className="text-[10px] sm:text-[11px] text-amber-300 font-semibold">
                     Customer ka phone switch off hai ya PIN unavailable hai?
                   </p>
                   <input
@@ -680,51 +687,51 @@ export default function DeliveryPortalPage() {
             </div>
 
             {/* STEP 2: Doorstep Payment Collection */}
-            <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-3">
-              <span className="text-xs font-black text-white flex items-center gap-1.5">
+            <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-800 space-y-2.5 sm:space-y-3">
+              <span className="text-[11px] sm:text-xs font-black text-white flex items-center gap-1.5">
                 <i className="fa-solid fa-wallet text-cyan-400 text-xs" />
                 <span>2. Doorstep Payment Status</span>
               </span>
 
               {selectedOrderForDelivery.paymentStatus === "paid" ? (
-                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
-                  <i className="fa-solid fa-circle-check text-sm" />
+                <div className="p-2.5 sm:p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                  <i className="fa-solid fa-circle-check text-sm shrink-0" />
                   <span>Order is already PAID ONLINE. Do NOT collect money from customer.</span>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5 sm:space-y-3">
                   {/* Payment Mode Selector */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                     <button
                       type="button"
                       onClick={() => setPaymentChoice("cash")}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
+                      className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
                         paymentChoice === "cash"
                           ? "bg-amber-500 text-slate-950 border-amber-500 font-black shadow-md"
                           : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
                       }`}
                     >
                       <i className="fa-solid fa-money-bill-wave text-xs" />
-                      <span>Cash on Delivery</span>
+                      <span>Cash</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setPaymentChoice("upi")}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
+                      className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
                         paymentChoice === "upi"
                           ? "bg-cyan-500 text-slate-950 border-cyan-500 font-black shadow-md"
                           : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
                       }`}
                     >
                       <i className="fa-solid fa-qrcode text-xs" />
-                      <span>Show Direct UPI QR</span>
+                      <span>UPI QR</span>
                     </button>
                   </div>
 
                   {/* Cash Calculator Option */}
                   {paymentChoice === "cash" ? (
-                    <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <div className="p-2.5 sm:p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-400">Total to Collect:</span>
                         <span className="font-mono font-black text-white text-sm">
@@ -747,7 +754,7 @@ export default function DeliveryPortalPage() {
                       </div>
 
                       {/* Quick Cash Chips */}
-                      <div className="flex gap-1.5 pt-1">
+                      <div className="flex flex-wrap gap-1.5 pt-1">
                         <button
                           type="button"
                           onClick={() => setCashReceivedInput(String(selectedOrderForDelivery.totalAmount))}
@@ -773,7 +780,7 @@ export default function DeliveryPortalPage() {
 
                       {changeToReturn > 0 && (
                         <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between">
-                          <span>Return Change to Customer:</span>
+                          <span>Return Change:</span>
                           <span className="font-mono text-sm text-emerald-400 font-black">
                             ₹{changeToReturn}
                           </span>
@@ -782,9 +789,9 @@ export default function DeliveryPortalPage() {
                     </div>
                   ) : (
                     /* Live UPI QR Code Option (100% Free - Direct Bank Transfer) */
-                    <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-center space-y-2">
+                    <div className="p-2.5 sm:p-3 bg-slate-900 rounded-xl border border-slate-800 text-center space-y-2">
                       <span className="text-[10px] font-mono text-cyan-400 uppercase font-bold block">
-                        Customer will scan with PhonePe / GPay / Paytm
+                        Customer scan with PhonePe / GPay / Paytm
                       </span>
 
                       {/* QR Image */}
@@ -793,7 +800,7 @@ export default function DeliveryPortalPage() {
                           <img
                             src={qrImageUrl}
                             alt="UPI QR Code"
-                            className="w-40 h-40 object-contain mx-auto"
+                            className="w-36 h-36 sm:w-40 sm:h-40 object-contain mx-auto"
                           />
                         </div>
                       )}
@@ -829,7 +836,7 @@ export default function DeliveryPortalPage() {
 
             {/* Error Message */}
             {pinError && (
-              <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-2">
+              <div className="p-2.5 sm:p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-2">
                 <i className="fa-solid fa-triangle-exclamation text-rose-400 shrink-0" />
                 <span>{pinError}</span>
               </div>
@@ -840,12 +847,12 @@ export default function DeliveryPortalPage() {
               type="button"
               disabled={isSubmittingDelivery}
               onClick={handleConfirmAndCompleteDelivery}
-              className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50"
+              className="w-full py-3 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50"
             >
               {isSubmittingDelivery ? (
                 <i className="fa-solid fa-circle-notch fa-spin text-sm" />
               ) : (
-                <i className="fa-solid fa-check-double text-base" />
+                <i className="fa-solid fa-check-double text-sm sm:text-base" />
               )}
               <span>Verify PIN &amp; Confirm Handover</span>
             </button>

@@ -1,6 +1,14 @@
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "Order Desk - Restaurant Operations & QR Table Ordering",
@@ -25,7 +33,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body>{children}</body>
+      <body className="antialiased min-h-screen w-full overflow-x-hidden">{children}</body>
     </html>
   );
 }

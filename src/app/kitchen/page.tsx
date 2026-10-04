@@ -432,7 +432,7 @@ export default function KitchenDisplayPage() {
   const isKitchenRole = currentUser?.role === "kitchen";
 
   return (
-    <div className="min-h-screen flex flex-col select-none bg-slate-950 text-slate-100 font-sans antialiased">
+    <div className="min-h-screen flex flex-col select-none bg-slate-950 text-slate-100 font-sans antialiased w-full max-w-full overflow-x-hidden">
       {/* 1. Sleek, Minimal Unified Header */}
       <header className="h-14 px-4 sm:px-6 bg-slate-900/95 border-b border-slate-800/80 backdrop-blur-md flex items-center justify-between gap-3 sticky top-0 z-30 shadow-md">
         {/* Left: Branding & Status */}
