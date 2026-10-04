@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar, { AdminViewType } from "@/components/admin/layout/AdminSidebar";
 import AdminHeader from "@/components/admin/layout/AdminHeader";
+import AdminBottomNav from "@/components/admin/layout/AdminBottomNav";
 import AdminKPICard from "@/components/admin/ui/AdminKPICard";
 import AdminDataTable, { ColumnDef, RowAction } from "@/components/admin/ui/AdminDataTable";
 import AdminBadge, { BadgeVariant } from "@/components/admin/ui/AdminBadge";
@@ -1421,17 +1422,18 @@ export default function AdminPage() {
           totalTablesCount={tables.length}
           onQuickAction={() => setIsAddDishOpen(true)}
           onSelectView={setCurrentView}
+          onOpenBulkPrice={() => setIsBulkPriceOpen(true)}
         />
 
         {/* View Canvas Container */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-4 sm:space-y-6 pb-24 md:pb-8">
           {/* ======================================================== */}
           {/* VIEW: DASHBOARD */}
           {/* ======================================================== */}
           {currentView === "dashboard" && (
-            <div className="space-y-6">
-              {/* KPI Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="space-y-4 sm:space-y-6">
+              {/* KPI Cards Grid (2-col on mobile, 3-col on tablet, 6-col on desktop) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-4">
                 <AdminKPICard
                   title="Today's Revenue"
                   value={`₹${totalRevenue.toLocaleString("en-IN")}`}

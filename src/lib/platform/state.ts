@@ -1089,6 +1089,9 @@ export type OrderDispatchInfo = {
   cancelledBy?: "staff" | "customer";
   cancelledAt?: string;
   deliveredAt?: string;
+  verificationCode?: string;
+  paymentCollectedMode?: "cash" | "upi";
+  cashAmountCollected?: number;
 };
 
 export function getDeliveryRiders(restaurantId: string): DeliveryRider[] {

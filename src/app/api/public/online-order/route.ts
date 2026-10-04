@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getDeliverySettings, getDishHalfPrice } from "@/lib/platform/state";
+import { getDeliverySettings, getDishHalfPrice, setOrderDispatch } from "@/lib/platform/state";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import {
   checkDeliveryServiceability,
@@ -308,7 +308,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6. Insert Order Items (with clear delivery / pickup banner on notes)
+    // 6. Generate 4-digit Delivery Verification Code (100% Free In-App PIN)
+    const verificationCode = String(Math.floor(1000 + Math.random() * 9000));
+
+    // Save initial dispatch record with verificationCode
+    setOrderDispatch(newOrder.id, {
+      orderId: newOrder.id,
+      restaurantId,
+      stage: "pending",
+      verificationCode,
+    });
+
+    // 7. Insert Order Items (with clear delivery / pickup banner on notes)
     const geoTag =
       typeof customerLat === "number" && typeof customerLng === "number"
         ? ` [📍 GPS: ${customerLat.toFixed(5)},${customerLng.toFixed(5)}]`
@@ -316,8 +327,8 @@ export async function POST(req: NextRequest) {
 
     const channelTag =
       orderType === "delivery"
-        ? `[🛵 Delivery: ${customerName.trim()} (${customerPhone.trim()}) - ${deliveryAddress?.trim() || ""}${geoTag}]`
-        : `[🛍️ Pickup: ${customerName.trim()} (${customerPhone.trim()})]`;
+        ? `[🛵 Delivery: ${customerName.trim()} (${customerPhone.trim()}) - ${deliveryAddress?.trim() || ""}${geoTag} | PIN: ${verificationCode}]`
+        : `[🛍️ Pickup: ${customerName.trim()} (${customerPhone.trim()}) | PIN: ${verificationCode}]`;
 
     const itemsToInsert = preparedItems.map((pi, idx) => ({
       order_id: newOrder.id,
@@ -331,7 +342,7 @@ export async function POST(req: NextRequest) {
 
     await admin.from("order_items").insert(itemsToInsert);
 
-    // 7. Insert Initial Bill Record
+    // 8. Insert Initial Bill Record
     const billNumber = `ORD-${newOrder.id.slice(-4).toUpperCase()}`;
     await admin.from("bills").insert({
       order_id: newOrder.id,
@@ -348,6 +359,7 @@ export async function POST(req: NextRequest) {
       orderId: newOrder.id,
       orderNumber: billNumber,
       orderType,
+      verificationCode,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       deliveryAddress: orderType === "delivery" ? deliveryAddress?.trim() : null,

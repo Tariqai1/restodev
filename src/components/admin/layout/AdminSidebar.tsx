@@ -262,6 +262,16 @@ export default function AdminSidebar({
               <i className="fa-solid fa-chevron-left text-xs" />
             </button>
           )}
+
+          {/* Mobile Close Button */}
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer lg:hidden active:scale-95"
+            title="Close Menu"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Scrollable Navigation List */}
@@ -404,6 +414,18 @@ export default function AdminSidebar({
           >
             <i className="fa-solid fa-bell-concierge text-sm text-amber-600" />
             {!isCollapsed && <span>Waiter Terminal</span>}
+          </Link>
+
+          <Link
+            href="/delivery"
+            target="_blank"
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-sky-50 text-sky-900 border border-sky-300 hover:bg-sky-100 active:scale-98 ${
+              isCollapsed ? "justify-center px-0" : ""
+            }`}
+            title="Open Delivery Captain & Rider Portal"
+          >
+            <i className="fa-solid fa-motorcycle text-sm text-sky-600" />
+            {!isCollapsed && <span>Delivery Fleet App</span>}
           </Link>
 
           <button

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 
 interface RiderItem {
@@ -23,6 +23,9 @@ interface RiderDelivery {
   riderName?: string | null;
   riderPhone?: string | null;
   dispatchedAt?: string | null;
+  verificationCode?: string;
+  paymentCollectedMode?: "cash" | "upi";
+  cashAmountCollected?: number;
   openedAt: string;
   closedAt?: string | null;
   totalAmount: number;
@@ -35,10 +38,22 @@ export default function DeliveryPortalPage() {
   const [activeDeliveries, setActiveDeliveries] = useState<RiderDelivery[]>([]);
   const [completedDeliveries, setCompletedDeliveries] = useState<RiderDelivery[]>([]);
   const [restaurant, setRestaurant] = useState<{ id: string; name: string } | null>(null);
+  const [restoUpiId, setRestoUpiId] = useState("orderdesk@icici");
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingId, setIsUpdatingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Doorstep Verification & Payment Modal States
+  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState<RiderDelivery | null>(null);
+  const [enteredPin, setEnteredPin] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [paymentChoice, setPaymentChoice] = useState<"cash" | "upi">("cash");
+  const [cashReceivedInput, setCashReceivedInput] = useState<string>("");
+  const [isBypassPin, setIsBypassPin] = useState(false);
+  const [bypassReason, setBypassReason] = useState("");
+  const [isSubmittingDelivery, setIsSubmittingDelivery] = useState(false);
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
   const fetchDeliveries = useCallback(async () => {
     try {
@@ -47,7 +62,10 @@ export default function DeliveryPortalPage() {
       if (res.ok && data.ok) {
         setActiveDeliveries(data.activeDeliveries || []);
         setCompletedDeliveries(data.completedDeliveries || []);
-        if (data.restaurant) setRestaurant(data.restaurant);
+        if (data.restaurant) {
+          setRestaurant(data.restaurant);
+          if (data.restaurant.upiId) setRestoUpiId(data.restaurant.upiId);
+        }
       }
     } catch (err) {
       console.error("Failed to load rider deliveries:", err);
@@ -72,7 +90,7 @@ export default function DeliveryPortalPage() {
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        setNotice("🛵 Out for delivery! Follow Google Maps navigation.");
+        setNotice("🛵 Out for delivery! Follow Google Maps GPS navigation.");
         setTimeout(() => setNotice(null), 4000);
         await fetchDeliveries();
       }
@@ -83,34 +101,71 @@ export default function DeliveryPortalPage() {
     }
   };
 
-  const handleCompleteDelivery = async (orderId: string, paymentMode: "cash" | "upi") => {
-    const confirmText =
-      paymentMode === "cash"
-        ? "Confirm Cash collected and order delivered?"
-        : "Confirm UPI payment received and order delivered?";
-    if (!window.confirm(confirmText)) return;
+  const openDeliveryVerificationModal = (del: RiderDelivery) => {
+    setSelectedOrderForDelivery(del);
+    setEnteredPin("");
+    setPinError("");
+    setPaymentChoice(del.paymentMode === "upi" ? "upi" : "cash");
+    setCashReceivedInput("");
+    setIsBypassPin(false);
+    setBypassReason("");
+  };
 
-    setIsUpdatingId(orderId);
+  const handleConfirmAndCompleteDelivery = async () => {
+    if (!selectedOrderForDelivery) return;
+
+    // Validate 4-digit PIN if not bypassed
+    if (!isBypassPin) {
+      const cleanEntered = enteredPin.trim();
+      const expected = selectedOrderForDelivery.verificationCode?.trim();
+      if (!cleanEntered || cleanEntered.length !== 4) {
+        setPinError("Kripya customer se 4-digit verification PIN lekar yahan enter karein.");
+        return;
+      }
+      if (expected && cleanEntered !== expected) {
+        setPinError(`Galat PIN! Customer ke phone screen par dikh raha 4-digit code confirm karein.`);
+        return;
+      }
+    } else {
+      if (!bypassReason.trim()) {
+        setPinError("PIN bypass karne ka kaaran (e.g. Customer phone dead) likhein.");
+        return;
+      }
+    }
+
+    setIsSubmittingDelivery(true);
+    setPinError("");
+
     try {
       const res = await fetch("/api/delivery/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "complete_delivery",
-          orderId,
-          paymentMode,
+          orderId: selectedOrderForDelivery.id,
+          paymentMode: selectedOrderForDelivery.paymentStatus === "paid" ? selectedOrderForDelivery.paymentMode : paymentChoice,
+          enteredPin: isBypassPin ? undefined : enteredPin.trim(),
+          bypassReason: isBypassPin ? bypassReason.trim() : undefined,
+          cashAmountCollected:
+            selectedOrderForDelivery.paymentStatus !== "paid" && paymentChoice === "cash"
+              ? selectedOrderForDelivery.totalAmount
+              : 0,
         }),
       });
+
       const data = await res.json();
-      if (res.ok && data.ok) {
-        setNotice("✅ Order successfully marked Delivered! Great job.");
-        setTimeout(() => setNotice(null), 4000);
-        await fetchDeliveries();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to complete delivery.");
       }
-    } catch {
-      alert("Failed to complete delivery.");
+
+      setNotice("🎉 Order verified & successfully marked Delivered! Great job.");
+      setTimeout(() => setNotice(null), 5000);
+      setSelectedOrderForDelivery(null);
+      await fetchDeliveries();
+    } catch (err: any) {
+      setPinError(err.message || "Failed to complete delivery.");
     } finally {
-      setIsUpdatingId(null);
+      setIsSubmittingDelivery(false);
     }
   };
 
@@ -130,8 +185,50 @@ export default function DeliveryPortalPage() {
     }
   };
 
+  // Shift Cash & Trip Reconciliation calculations
+  const shiftSummary = useMemo(() => {
+    let cashInHand = 0;
+    let upiTotal = 0;
+    for (const d of completedDeliveries) {
+      if (d.paymentCollectedMode === "cash" || (d.paymentMode === "cash" && d.paymentStatus === "paid")) {
+        cashInHand += Number(d.cashAmountCollected || d.totalAmount || 0);
+      } else if (d.paymentCollectedMode === "upi" || d.paymentMode === "upi") {
+        upiTotal += Number(d.totalAmount || 0);
+      }
+    }
+    return {
+      cashInHand,
+      upiTotal,
+      tripsCount: completedDeliveries.length,
+    };
+  }, [completedDeliveries]);
+
+  // UPI URL payload for selected order
+  const upiPayload = useMemo(() => {
+    if (!selectedOrderForDelivery) return "";
+    return `upi://pay?pa=${restoUpiId}&pn=${encodeURIComponent(
+      restaurant?.name || "Order Desk"
+    )}&am=${selectedOrderForDelivery.totalAmount}&cu=INR&tn=${encodeURIComponent(
+      `Delivery ${selectedOrderForDelivery.orderNumber}`
+    )}`;
+  }, [selectedOrderForDelivery, restoUpiId, restaurant]);
+
+  const qrImageUrl = useMemo(() => {
+    if (!upiPayload) return "";
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(
+      upiPayload
+    )}`;
+  }, [upiPayload]);
+
+  // Cash change calculations
+  const cashNum = Number(cashReceivedInput) || 0;
+  const changeToReturn =
+    selectedOrderForDelivery && cashNum > selectedOrderForDelivery.totalAmount
+      ? cashNum - selectedOrderForDelivery.totalAmount
+      : 0;
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans pb-12">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans pb-16">
       {/* Top App Header */}
       <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-2.5">
@@ -144,7 +241,7 @@ export default function DeliveryPortalPage() {
             </h1>
             <p className="text-[10px] text-emerald-400 font-bold tracking-wider uppercase flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Delivery Boy Portal
+              Delivery Captain Portal
             </p>
           </div>
         </div>
@@ -154,7 +251,7 @@ export default function DeliveryPortalPage() {
             type="button"
             onClick={() => fetchDeliveries()}
             className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition-colors cursor-pointer border border-slate-700"
-            title="Refresh Orders"
+            title="Refresh Deliveries"
           >
             <i className={`fa-solid fa-arrows-rotate ${isLoading ? "fa-spin" : ""}`} />
           </button>
@@ -162,7 +259,7 @@ export default function DeliveryPortalPage() {
             href="/waiter"
             className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-slate-700 transition-colors"
           >
-            Dining Floor →
+            Floor →
           </Link>
         </div>
       </header>
@@ -176,6 +273,39 @@ export default function DeliveryPortalPage() {
 
       {/* Main Container */}
       <main className="max-w-xl w-full mx-auto p-4 flex-1 flex flex-col gap-4">
+        {/* Rider Shift Cash & Trips Summary Strip */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 p-3.5 rounded-3xl shadow-xl flex items-center justify-around gap-2 text-center">
+          <div className="flex-1 border-r border-slate-800/80 pr-2">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400 block font-bold">
+              💵 Cash In Hand
+            </span>
+            <span className="text-base sm:text-lg font-black font-mono text-white">
+              ₹{shiftSummary.cashInHand}
+            </span>
+            <span className="text-[9px] text-slate-500 block truncate">Submit to Counter</span>
+          </div>
+
+          <div className="flex-1 border-r border-slate-800/80 px-2">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-400 block font-bold">
+              📱 UPI Paid
+            </span>
+            <span className="text-base sm:text-lg font-black font-mono text-white">
+              ₹{shiftSummary.upiTotal}
+            </span>
+            <span className="text-[9px] text-slate-500 block truncate">Direct in Bank</span>
+          </div>
+
+          <div className="flex-1 pl-2">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400 block font-bold">
+              📦 Trips
+            </span>
+            <span className="text-base sm:text-lg font-black font-mono text-white">
+              {shiftSummary.tripsCount}
+            </span>
+            <span className="text-[9px] text-slate-500 block truncate">Delivered Today</span>
+          </div>
+        </div>
+
         {/* Tab Switcher */}
         <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
           <button
@@ -191,7 +321,7 @@ export default function DeliveryPortalPage() {
             <span
               className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
                 activeTab === "active"
-                  ? "bg-slate-950 text-emerald-400"
+                  ? "bg-slate-950 text-emerald-400 font-bold"
                   : "bg-slate-800 text-slate-400"
               }`}
             >
@@ -212,7 +342,7 @@ export default function DeliveryPortalPage() {
             <span
               className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
                 activeTab === "completed"
-                  ? "bg-slate-900 text-white"
+                  ? "bg-slate-900 text-white font-bold"
                   : "bg-slate-800 text-slate-400"
               }`}
             >
@@ -344,7 +474,7 @@ export default function DeliveryPortalPage() {
                       </div>
                     </div>
 
-                    {/* Payment Box */}
+                    {/* Payment Status Pill Card */}
                     <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
                       <div>
                         <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">
@@ -364,7 +494,7 @@ export default function DeliveryPortalPage() {
                         ) : (
                           <span className="text-xs font-black text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded-xl border border-amber-500/30 flex items-center gap-1.5 animate-pulse">
                             <i className="fa-solid fa-money-bill-wave" />
-                            <span>Collect Cash / UPI</span>
+                            <span>Pay on Delivery (Cash / UPI)</span>
                           </span>
                         )}
                       </div>
@@ -387,27 +517,14 @@ export default function DeliveryPortalPage() {
                           <span>Pick Up Food & Start Delivery</span>
                         </button>
                       ) : (
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <button
-                            type="button"
-                            disabled={isUpdating}
-                            onClick={() => handleCompleteDelivery(del.id, "cash")}
-                            className="py-3 px-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
-                          >
-                            <i className="fa-solid fa-check-double text-xs" />
-                            <span>Delivered (Cash Collected)</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isUpdating}
-                            onClick={() => handleCompleteDelivery(del.id, "upi")}
-                            className="py-3 px-3 rounded-2xl bg-cyan-600 hover:bg-cyan-500 active:scale-98 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
-                          >
-                            <i className="fa-solid fa-qrcode text-xs" />
-                            <span>Delivered (UPI Received)</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openDeliveryVerificationModal(del)}
+                          className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                        >
+                          <i className="fa-solid fa-shield-check text-base" />
+                          <span>Arrived at Doorstep · Verify & Handover</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -457,7 +574,11 @@ export default function DeliveryPortalPage() {
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px] text-slate-400">
                     <span>
-                      {del.items.length} items ({del.paymentMode.toUpperCase()})
+                      {del.items.length} items (
+                      {del.paymentCollectedMode
+                        ? del.paymentCollectedMode.toUpperCase()
+                        : del.paymentMode.toUpperCase()}
+                      )
                     </span>
                     <span className="font-mono font-bold text-white text-xs">
                       ₹{del.totalAmount}
@@ -469,6 +590,268 @@ export default function DeliveryPortalPage() {
           )
         )}
       </main>
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL: Doorstep 4-Digit Verification PIN & Payment Collection
+         ───────────────────────────────────────────────────────────── */}
+      {selectedOrderForDelivery && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom duration-200 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold tracking-wider block">
+                  Delivery Verification & Payment
+                </span>
+                <h3 className="text-base font-black text-white">
+                  Order {selectedOrderForDelivery.orderNumber}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOrderForDelivery(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Customer & Address Quick summary */}
+            <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs text-slate-300 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white">{selectedOrderForDelivery.customerName}</span>
+                <span className="font-mono font-black text-emerald-400 text-sm">
+                  Total: ₹{selectedOrderForDelivery.totalAmount}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 truncate">
+                {selectedOrderForDelivery.deliveryAddress}
+              </p>
+            </div>
+
+            {/* STEP 1: 4-Digit In-App Verification PIN */}
+            <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-white flex items-center gap-1.5">
+                  <i className="fa-solid fa-shield-halved text-amber-400 text-xs" />
+                  <span>1. Customer Verification PIN</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBypassPin(!isBypassPin);
+                    setPinError("");
+                  }}
+                  className="text-[10px] font-bold text-slate-400 hover:text-amber-400 underline cursor-pointer"
+                >
+                  {isBypassPin ? "Use PIN Input" : "Bypass PIN?"}
+                </button>
+              </div>
+
+              {!isBypassPin ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-slate-400">
+                    Customer se unke phone screen par dikh raha <strong className="text-white">4-Digit PIN</strong> maangein:
+                  </p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={enteredPin}
+                    onChange={(e) => setEnteredPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    placeholder="Enter 4-digit PIN"
+                    className="w-full py-3 px-4 rounded-xl bg-slate-900 border-2 border-slate-700 text-white font-mono font-black text-2xl text-center tracking-[0.4em] focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2 animate-in fade-in">
+                  <p className="text-[11px] text-amber-300 font-semibold">
+                    Customer ka phone switch off hai ya PIN unavailable hai?
+                  </p>
+                  <input
+                    type="text"
+                    value={bypassReason}
+                    onChange={(e) => setBypassReason(e.target.value)}
+                    placeholder="Kaaran likhein (e.g. Phone dead / Handed to family member)"
+                    className="w-full py-2 px-3 rounded-xl bg-slate-900 border border-amber-500/50 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* STEP 2: Doorstep Payment Collection */}
+            <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <span className="text-xs font-black text-white flex items-center gap-1.5">
+                <i className="fa-solid fa-wallet text-cyan-400 text-xs" />
+                <span>2. Doorstep Payment Status</span>
+              </span>
+
+              {selectedOrderForDelivery.paymentStatus === "paid" ? (
+                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                  <i className="fa-solid fa-circle-check text-sm" />
+                  <span>Order is already PAID ONLINE. Do NOT collect money from customer.</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Payment Mode Selector */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("cash")}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
+                        paymentChoice === "cash"
+                          ? "bg-amber-500 text-slate-950 border-amber-500 font-black shadow-md"
+                          : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      <i className="fa-solid fa-money-bill-wave text-xs" />
+                      <span>Cash on Delivery</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("upi")}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
+                        paymentChoice === "upi"
+                          ? "bg-cyan-500 text-slate-950 border-cyan-500 font-black shadow-md"
+                          : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      <i className="fa-solid fa-qrcode text-xs" />
+                      <span>Show Direct UPI QR</span>
+                    </button>
+                  </div>
+
+                  {/* Cash Calculator Option */}
+                  {paymentChoice === "cash" ? (
+                    <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Total to Collect:</span>
+                        <span className="font-mono font-black text-white text-sm">
+                          ₹{selectedOrderForDelivery.totalAmount}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-xs text-slate-400 shrink-0">Cash Given:</span>
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-2 text-xs text-slate-500 font-mono">₹</span>
+                          <input
+                            type="number"
+                            placeholder="e.g. 500"
+                            value={cashReceivedInput}
+                            onChange={(e) => setCashReceivedInput(e.target.value)}
+                            className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono font-bold text-white focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Quick Cash Chips */}
+                      <div className="flex gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setCashReceivedInput(String(selectedOrderForDelivery.totalAmount))}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-pointer"
+                        >
+                          Exact ₹{selectedOrderForDelivery.totalAmount}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCashReceivedInput("500")}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-pointer"
+                        >
+                          ₹500
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCashReceivedInput("1000")}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 cursor-pointer"
+                        >
+                          ₹1000
+                        </button>
+                      </div>
+
+                      {changeToReturn > 0 && (
+                        <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between">
+                          <span>Return Change to Customer:</span>
+                          <span className="font-mono text-sm text-emerald-400 font-black">
+                            ₹{changeToReturn}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Live UPI QR Code Option (100% Free - Direct Bank Transfer) */
+                    <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-center space-y-2">
+                      <span className="text-[10px] font-mono text-cyan-400 uppercase font-bold block">
+                        Customer will scan with PhonePe / GPay / Paytm
+                      </span>
+
+                      {/* QR Image */}
+                      {qrImageUrl && (
+                        <div className="bg-white p-2 rounded-xl inline-block shadow-lg mx-auto">
+                          <img
+                            src={qrImageUrl}
+                            alt="UPI QR Code"
+                            className="w-40 h-40 object-contain mx-auto"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-center gap-2 text-xs">
+                        <span className="text-slate-400">Total:</span>
+                        <span className="font-mono font-black text-cyan-400 text-base">
+                          ₹{selectedOrderForDelivery.totalAmount}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-slate-400">
+                        <span>UPI: {restoUpiId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (navigator.clipboard) {
+                              navigator.clipboard.writeText(restoUpiId);
+                              setCopiedUpi(true);
+                              setTimeout(() => setCopiedUpi(false), 2000);
+                            }
+                          }}
+                          className="text-cyan-400 underline font-bold cursor-pointer"
+                        >
+                          {copiedUpi ? "Copied!" : "Copy"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Error Message */}
+            {pinError && (
+              <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-2">
+                <i className="fa-solid fa-triangle-exclamation text-rose-400 shrink-0" />
+                <span>{pinError}</span>
+              </div>
+            )}
+
+            {/* Submit Action Button */}
+            <button
+              type="button"
+              disabled={isSubmittingDelivery}
+              onClick={handleConfirmAndCompleteDelivery}
+              className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isSubmittingDelivery ? (
+                <i className="fa-solid fa-circle-notch fa-spin text-sm" />
+              ) : (
+                <i className="fa-solid fa-check-double text-base" />
+              )}
+              <span>Verify PIN &amp; Confirm Handover</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

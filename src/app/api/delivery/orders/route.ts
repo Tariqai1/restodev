@@ -136,6 +136,20 @@ export async function GET(req: NextRequest) {
       const kitchenStage = allServed ? "ready" : anyPreparing ? "preparing" : "received";
       const dispatch = getOrderDispatch(ord.id);
 
+      // In-app 4-digit verification code (100% Free PIN)
+      let verificationCode = dispatch?.verificationCode;
+      if (!verificationCode) {
+        const pinMatch = ord.order_items?.[0]?.notes?.match(/PIN:\s*(\d{4})/);
+        if (pinMatch) {
+          verificationCode = pinMatch[1];
+        } else {
+          const hashNum = Math.abs(
+            ord.id.split("").reduce((acc: number, char: string) => acc * 31 + char.charCodeAt(0), 0)
+          );
+          verificationCode = String(1000 + (hashNum % 9000));
+        }
+      }
+
       return {
         id: ord.id,
         orderNumber: tbl || `DEL-${ord.id.slice(-4).toUpperCase()}`,
@@ -149,6 +163,9 @@ export async function GET(req: NextRequest) {
         riderName: dispatch?.riderName || null,
         riderPhone: dispatch?.riderPhone || null,
         dispatchedAt: dispatch?.dispatchedAt || null,
+        verificationCode,
+        paymentCollectedMode: dispatch?.paymentCollectedMode,
+        cashAmountCollected: dispatch?.cashAmountCollected,
         openedAt: ord.opened_at,
         closedAt: ord.closed_at,
         totalAmount,
@@ -179,7 +196,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      restaurant: { id: targetRestoId, name: restoName },
+      restaurant: { id: targetRestoId, name: restoName, upiId: "orderdesk@icici" },
       activeDeliveries,
       completedDeliveries,
     });
@@ -191,7 +208,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { action, orderId, paymentMode = "cash" } = body;
+    const { action, orderId, paymentMode = "cash", enteredPin, bypassReason, cashAmountCollected } = body;
 
     if (!orderId) {
       return NextResponse.json({ message: "orderId is required" }, { status: 400 });
@@ -213,6 +230,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "complete_delivery") {
+      const dispatch = getOrderDispatch(orderId);
+      const expectedCode = dispatch?.verificationCode;
+
+      // 4-Digit In-App Verification Validation
+      if (!bypassReason && expectedCode) {
+        const cleanEntered = String(enteredPin || "").trim();
+        if (cleanEntered !== String(expectedCode).trim()) {
+          return NextResponse.json(
+            { message: "Galat 4-digit code! Customer se screen par dikh raha PIN confirm karein." },
+            { status: 400 }
+          );
+        }
+      }
+
       // 1. Mark order closed
       const { data: ord } = await admin
         .from("orders")
@@ -243,15 +274,17 @@ export async function POST(req: NextRequest) {
         })
         .eq("order_id", orderId);
 
-      // 4. Update dispatch stage
+      // 4. Update dispatch stage with cash / upi audit
       setOrderDispatch(orderId, {
         stage: "delivered",
         deliveredAt: nowIso,
+        paymentCollectedMode: paymentMode,
+        cashAmountCollected: paymentMode === "cash" ? Number(cashAmountCollected) || 0 : 0,
       });
 
       return NextResponse.json({
         ok: true,
-        message: "Order successfully delivered & payment collected! ✅",
+        message: "Order successfully verified & marked delivered! ✅",
       });
     }
 

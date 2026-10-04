@@ -344,6 +344,18 @@ export default function OnlineOrdersView({
               <span>Open Store</span>
             </a>
 
+            {/* Rider Fleet Portal */}
+            <a
+              href="/delivery"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition-all shadow-2xs flex items-center gap-1.5 active:scale-95"
+              title="Open Delivery Captain & Rider Dispatch Terminal"
+            >
+              <i className="fa-solid fa-motorcycle text-[11px]" />
+              <span>Rider Portal</span>
+            </a>
+
             {/* WhatsApp Share */}
             <button
               type="button"

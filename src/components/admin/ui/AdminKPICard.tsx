@@ -54,44 +54,44 @@ export default function AdminKPICard({
   return (
     <div
       onClick={onClick}
-      className={`bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all ${
-        onClick ? "cursor-pointer" : ""
+      className={`bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 lg:p-5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between ${
+        onClick ? "cursor-pointer active:scale-[0.98]" : ""
       }`}
     >
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2.5">
+        <span className="text-[10px] sm:text-xs font-bold text-slate-500 tracking-wide uppercase truncate max-w-[70%]">
           {title}
         </span>
         <div
-          className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorStyles.bg} ${colorStyles.border} border`}
+          className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${colorStyles.bg} ${colorStyles.border} border`}
         >
-          <i className={`fa-solid ${icon} ${colorStyles.icon} text-sm`} />
+          <i className={`fa-solid ${icon} ${colorStyles.icon} text-xs sm:text-sm`} />
         </div>
       </div>
 
-      <div className="flex items-baseline gap-2 mb-2">
-        <h3 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex items-baseline gap-1.5 mb-1 sm:mb-1.5">
+        <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 truncate">
           {value}
         </h3>
       </div>
 
       {(change || subtext) && (
-        <div className="flex items-center gap-1.5 text-xs">
+        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs min-w-0">
           {change && (
             <span
-              className={`inline-flex items-center gap-1 font-semibold ${
+              className={`inline-flex items-center gap-0.5 sm:gap-1 font-bold shrink-0 ${
                 isPositive ? "text-emerald-600" : "text-rose-600"
               }`}
             >
               <i
                 className={`fa-solid ${
                   isPositive ? "fa-arrow-trend-up" : "fa-arrow-trend-down"
-                } text-[10px]`}
+                } text-[8px] sm:text-[10px]`}
               />
               {change}
             </span>
           )}
-          {subtext && <span className="text-slate-400">{subtext}</span>}
+          {subtext && <span className="text-slate-400 truncate">{subtext}</span>}
         </div>
       )}
     </div>

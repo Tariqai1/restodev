@@ -26,6 +26,7 @@ interface AdminHeaderProps {
   totalTablesCount?: number;
   onQuickAction?: () => void;
   onSelectView?: (view: any) => void;
+  onOpenBulkPrice?: () => void;
 }
 
 export default function AdminHeader({
@@ -40,6 +41,7 @@ export default function AdminHeader({
   totalTablesCount = 0,
   onQuickAction,
   onSelectView,
+  onOpenBulkPrice,
 }: AdminHeaderProps) {
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -116,117 +118,127 @@ export default function AdminHeader({
   };
 
   return (
-    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
-      {/* Left: Mobile Toggle & Breadcrumb */}
-      <div className="flex items-center gap-3 min-w-0">
-        <button
-          type="button"
-          onClick={onOpenMobileSidebar}
-          className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 lg:hidden cursor-pointer"
-        >
-          <i className="fa-solid fa-bars text-sm" />
-        </button>
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+      {/* Top Header Main Bar */}
+      <div className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between">
+        {/* Left: Mobile Toggle & Breadcrumb */}
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onOpenMobileSidebar}
+            className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 lg:hidden cursor-pointer shrink-0 active:scale-95"
+            aria-label="Open navigation menu"
+          >
+            <i className="fa-solid fa-bars text-sm" />
+          </button>
 
-        <div className="min-w-0">
-          {/* Breadcrumb */}
-          <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-            {breadcrumb.map((bc, idx) => (
-              <React.Fragment key={idx}>
-                {idx > 0 && <span className="text-slate-300">/</span>}
-                <span
-                  className={
-                    idx === breadcrumb.length - 1
-                      ? "text-purple-600 font-semibold"
-                      : "hover:text-slate-600"
-                  }
-                >
-                  {bc}
-                </span>
-              </React.Fragment>
-            ))}
+          <div className="min-w-0">
+            {/* Breadcrumb (Desktop) */}
+            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+              {breadcrumb.map((bc, idx) => (
+                <React.Fragment key={idx}>
+                  {idx > 0 && <span className="text-slate-300">/</span>}
+                  <span
+                    className={
+                      idx === breadcrumb.length - 1
+                        ? "text-purple-600 font-semibold"
+                        : "hover:text-slate-600"
+                    }
+                  >
+                    {bc}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-tight">
+                {pageTitle}
+              </h2>
+              {/* Mobile restaurant badge */}
+              <span className="sm:hidden text-[10px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-md truncate max-w-[110px]">
+                {restaurantName}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Table Occupancy Status Pill (Desktop/Tablet) */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>
+              <strong className="text-slate-900">{activeTablesCount}</strong> of{" "}
+              {totalTablesCount} Tables Active
+            </span>
           </div>
 
-          <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">
-            {pageTitle}
-          </h2>
-        </div>
-      </div>
+          {/* Online Orders Quick Switch (Desktop/Tablet) */}
+          {onSelectView && (
+            <button
+              type="button"
+              onClick={() => onSelectView("online_orders")}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
+              title="Manage Online Orders & Storefront"
+            >
+              <i className="fa-solid fa-motorcycle text-xs text-amber-600" />
+              <span>Online Orders</span>
+            </button>
+          )}
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-2.5 sm:gap-3">
-        {/* Table Occupancy Status Pill */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>
-            <strong className="text-slate-900">{activeTablesCount}</strong> of{" "}
-            {totalTablesCount} Tables Active
-          </span>
-        </div>
+          {/* Floor Workspace Quick Switch (Desktop) */}
+          {onSelectView && (
+            <button
+              type="button"
+              onClick={() => onSelectView("floor")}
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:text-purple-600 hover:border-purple-300 transition-colors shadow-2xs cursor-pointer"
+            >
+              <i className="fa-solid fa-table-cells text-xs text-purple-600" />
+              <span>Floor View</span>
+            </button>
+          )}
 
-        {/* Online Orders Quick Switch */}
-        {onSelectView && (
-          <button
-            type="button"
-            onClick={() => onSelectView("online_orders")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
-            title="Manage Online Orders & Storefront"
+          {/* Dedicated Waiter Operations Terminal (Desktop/Tablet) */}
+          <Link
+            href="/waiter"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
+            title="Open Dedicated Waiter Operations Portal"
           >
-            <i className="fa-solid fa-motorcycle text-xs text-amber-600" />
-            <span>Online Orders</span>
-          </button>
-        )}
+            <i className="fa-solid fa-bell-concierge text-xs text-amber-600" />
+            <span>Waiter Portal</span>
+          </Link>
 
-        {/* Floor Workspace Quick Switch */}
-        {onSelectView && (
-          <button
-            type="button"
-            onClick={() => onSelectView("floor")}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:text-purple-600 hover:border-purple-300 transition-colors shadow-2xs cursor-pointer"
-          >
-            <i className="fa-solid fa-table-cells text-xs text-purple-600" />
-            <span>Floor View</span>
-          </button>
-        )}
+          {/* Quick Action Button (Desktop/Tablet) */}
+          {onQuickAction && (
+            <div className="hidden sm:block">
+              <AdminButton
+                variant="primary"
+                size="sm"
+                leftIcon="fa-plus"
+                onClick={onQuickAction}
+              >
+                New Dish
+              </AdminButton>
+            </div>
+          )}
 
-        {/* Dedicated Waiter Operations Terminal */}
-        <Link
-          href="/waiter"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
-          title="Open Dedicated Waiter Operations Portal"
-        >
-          <i className="fa-solid fa-bell-concierge text-xs text-amber-600" />
-          <span className="hidden sm:inline">Waiter Portal</span>
-          <span className="sm:hidden">Waiter</span>
-        </Link>
-
-        {/* Quick Action Button */}
-        {onQuickAction && (
-          <AdminButton
-            variant="primary"
-            size="sm"
-            leftIcon="fa-plus"
-            onClick={onQuickAction}
-          >
-            New Dish
-          </AdminButton>
-        )}
-
-        {/* Offline / Online Health Pill */}
-        <div
-          className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono font-medium ${
-            isOnline
-              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-              : "bg-amber-50 border-amber-300 text-amber-800 animate-pulse"
-          }`}
-          title={isOnline ? "Cloud POS sync active" : "Reconnecting to server..."}
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              isOnline ? "bg-emerald-500" : "bg-amber-500"
+          {/* Offline / Online Health Pill */}
+          <div
+            className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono font-medium ${
+              isOnline
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-amber-50 border-amber-300 text-amber-800 animate-pulse"
             }`}
-          />
-          <span>{isOnline ? "Connected" : "Reconnecting..."}</span>
-        </div>
+            title={isOnline ? "Cloud POS sync active" : "Reconnecting to server..."}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isOnline ? "bg-emerald-500" : "bg-amber-500"
+              }`}
+            />
+            <span>{isOnline ? "Connected" : "Reconnecting..."}</span>
+          </div>
 
         {/* Per-Shift Sound Mute & Snooze Controller */}
         <div className="relative">
@@ -456,6 +468,73 @@ export default function AdminHeader({
             </>
           )}
         </div>
+      </div>
+    </div>
+
+      {/* Mobile Horizontal Quick Action Strip (only on mobile screens < 640px) */}
+      <div className="sm:hidden flex items-center gap-2 px-3 py-2 bg-slate-50/95 border-t border-slate-100 overflow-x-auto no-scrollbar scroll-smooth shrink-0 shadow-2xs">
+        {onSelectView && (
+          <button
+            type="button"
+            onClick={() => onSelectView("online_orders")}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-[11px] font-bold text-amber-900 shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+          >
+            <i className="fa-solid fa-motorcycle text-amber-600 text-[10px]" />
+            <span>Online Orders</span>
+          </button>
+        )}
+
+        <Link
+          href="/waiter"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-[11px] font-bold text-amber-900 shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+        >
+          <i className="fa-solid fa-bell-concierge text-amber-600 text-[10px]" />
+          <span>Waiter Portal</span>
+        </Link>
+
+        {onQuickAction && (
+          <button
+            type="button"
+            onClick={onQuickAction}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-purple-600 text-white text-[11px] font-bold shadow-xs shrink-0 active:scale-95 cursor-pointer"
+          >
+            <i className="fa-solid fa-plus text-[10px]" />
+            <span>New Dish</span>
+          </button>
+        )}
+
+        {onOpenBulkPrice && (
+          <button
+            type="button"
+            onClick={onOpenBulkPrice}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-purple-200 bg-purple-50 text-[11px] font-bold text-purple-900 shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+          >
+            <i className="fa-solid fa-bolt text-purple-600 text-[10px]" />
+            <span>Bulk Price</span>
+          </button>
+        )}
+
+        {onSelectView && (
+          <button
+            type="button"
+            onClick={() => onSelectView("offers")}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-[11px] font-bold text-amber-900 shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+          >
+            <i className="fa-solid fa-gift text-amber-600 text-[10px]" />
+            <span>Offers</span>
+          </button>
+        )}
+
+        {onSelectView && (
+          <button
+            type="button"
+            onClick={() => onSelectView("floor")}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-700 shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+          >
+            <i className="fa-solid fa-table-cells text-slate-600 text-[10px]" />
+            <span>Floor ({activeTablesCount}/{totalTablesCount})</span>
+          </button>
+        )}
       </div>
     </header>
   );

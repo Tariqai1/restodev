@@ -73,6 +73,7 @@ interface PlacedOrderSummary {
   total: number;
   estimatedPrepMinutes: number;
   items: PlacedOrderItem[];
+  verificationCode?: string;
   placedAt: string;
 }
 
@@ -428,6 +429,7 @@ export default function OnlineOrderingPage({
           price: it.portion === "half" ? it.dish.half_price : it.dish.price,
           is_veg: it.dish.is_veg,
         })),
+        verificationCode: data.verificationCode,
         placedAt: new Date().toISOString(),
       };
 
@@ -1481,6 +1483,22 @@ export default function OnlineOrderingPage({
                   </span>
                 </div>
               </div>
+
+              {/* 4-Digit In-App Delivery Verification Code (100% Free PIN) */}
+              {recentOrder.verificationCode && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-center space-y-1">
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase font-black text-amber-400 tracking-wider">
+                    <i className="fa-solid fa-shield-halved text-xs text-amber-400" />
+                    <span>Delivery Verification PIN</span>
+                  </div>
+                  <div className="text-3xl font-mono font-black text-white tracking-[0.35em] my-1">
+                    {recentOrder.verificationCode}
+                  </div>
+                  <p className="text-[11px] text-amber-200/80 font-medium">
+                    Please share this 4-digit PIN with your delivery captain upon doorstep arrival.
+                  </p>
+                </div>
+              )}
 
               {/* Dishes list */}
               <div className="p-3.5 rounded-2xl bg-stone-950/50 border border-stone-800 space-y-2">
