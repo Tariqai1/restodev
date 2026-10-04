@@ -53,6 +53,7 @@ import TableAiWaiterModal from "@/components/table/TableAiWaiterModal";
 import TableVoiceOrderModal from "@/components/table/TableVoiceOrderModal";
 import TableOnlineOrderBanner from "@/components/table/TableOnlineOrderBanner";
 import TableOfferPopupModal from "@/components/table/TableOfferPopupModal";
+import TableRestaurantProfileModal from "@/components/table/TableRestaurantProfileModal";
 
 const ScratchCardModal = dynamic(
   () => import("@/components/table/ScratchCardModal"),
@@ -199,6 +200,7 @@ export default function CustomerTableOrderingPage({
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [isAiWaiterOpen, setIsAiWaiterOpen] = useState<boolean>(false);
   const [isVoiceOrderOpen, setIsVoiceOrderOpen] = useState<boolean>(false);
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const [quickAddNotice, setQuickAddNotice] = useState<string>("");
 
   // Ensure body scroll and touch gestures are strictly unlocked on mount
@@ -225,6 +227,7 @@ export default function CustomerTableOrderingPage({
       isScratchModalOpen ||
       isAiWaiterOpen ||
       isVoiceOrderOpen ||
+      isProfileOpen ||
       showDispatchModal
     );
 
@@ -251,6 +254,7 @@ export default function CustomerTableOrderingPage({
     isScratchModalOpen,
     isAiWaiterOpen,
     isVoiceOrderOpen,
+    isProfileOpen,
     showDispatchModal,
   ]);
 
@@ -1198,6 +1202,7 @@ export default function CustomerTableOrderingPage({
         features={features}
         waiterCooldown={waiterCooldown}
         onOpenCallModal={() => setIsCallModalOpen(true)}
+        onOpenProfileModal={() => setIsProfileOpen(true)}
       />
 
       {/* Joined / Group Table Banner */}
@@ -1770,6 +1775,19 @@ export default function CustomerTableOrderingPage({
         offerConfig={offerConfig}
         restaurantName={restaurantName}
         tableNumber={tableNumber}
+      />
+
+      {/* 12. Restaurant Showcase & Profile Drawer Modal */}
+      <TableRestaurantProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        restaurantName={restaurantName}
+        tableNumber={tableNumber}
+        branding={branding}
+        menuItems={items}
+        cart={cart}
+        onAddToCart={(id, portion, e) => addToCart(id, portion, e)}
+        onRemoveFromCart={(id, portion) => removeFromCart(id, portion)}
       />
     </div>
   );
