@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
     if (!targetRestaurantId && querySlug) {
       const { data: bySlug } = await admin
         .from("restaurants")
-        .select("id, slug, online_ordering_enabled, name")
-        .or(`slug.eq.${querySlug},id.eq.${querySlug}`)
+        .select("id, name, gstin")
+        .eq("id", querySlug)
         .maybeSingle();
 
       if (bySlug) {
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     // Query restaurant table
     const { data: resto } = await admin
       .from("restaurants")
-      .select("id, name, slug, online_ordering_enabled")
+      .select("id, name, gstin")
       .eq("id", targetRestaurantId)
       .maybeSingle();
 
@@ -69,10 +69,7 @@ export async function GET(req: NextRequest) {
 
     const merged: DeliverySettings = {
       restaurantId: targetRestaurantId,
-      onlineOrderingEnabled:
-        typeof resto?.online_ordering_enabled === "boolean"
-          ? resto.online_ordering_enabled
-          : fallback.onlineOrderingEnabled,
+      onlineOrderingEnabled: fallback.onlineOrderingEnabled,
       pickupEnabled:
         typeof dbSettings?.pickup_enabled === "boolean"
           ? dbSettings.pickup_enabled
@@ -90,7 +87,7 @@ export async function GET(req: NextRequest) {
         Number(dbSettings?.estimated_prep_minutes) || fallback.estimatedPrepMinutes || 25,
       latitude: Number(dbSettings?.latitude) || fallback.latitude || 19.1918,
       longitude: Number(dbSettings?.longitude) || fallback.longitude || 73.0229,
-      slug: resto?.slug || fallback.slug || "",
+      slug: fallback.slug || "",
     };
 
     return NextResponse.json({
@@ -98,7 +95,7 @@ export async function GET(req: NextRequest) {
       restaurant: {
         id: targetRestaurantId,
         name: resto?.name || "Restaurant",
-        slug: resto?.slug || fallback.slug || "",
+        slug: fallback.slug || "",
         onlineOrderingEnabled: merged.onlineOrderingEnabled,
       },
       settings: merged,
@@ -132,27 +129,21 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient();
 
-    // 1. Update restaurant online_ordering_enabled and slug if provided
+    // 1. Update restaurant name if provided
     const restoUpdates: Record<string, any> = {};
-    if (typeof body.onlineOrderingEnabled === "boolean") {
-      restoUpdates.online_ordering_enabled = body.onlineOrderingEnabled;
-    }
-    if (typeof body.slug === "string") {
-      const cleanSlug = body.slug
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9-]/g, "-")
-        .replace(/-+/g, "-");
-      if (cleanSlug) {
-        restoUpdates.slug = cleanSlug;
-      }
+    if (typeof body.name === "string" && body.name.trim()) {
+      restoUpdates.name = body.name.trim();
     }
 
     if (Object.keys(restoUpdates).length > 0) {
-      await admin
-        .from("restaurants")
-        .update(restoUpdates)
-        .eq("id", targetRestaurantId);
+      try {
+        await admin
+          .from("restaurants")
+          .update(restoUpdates)
+          .eq("id", targetRestaurantId);
+      } catch (e) {
+        console.warn("restaurants name update warning:", e);
+      }
     }
 
     // 2. Upsert into delivery_settings table

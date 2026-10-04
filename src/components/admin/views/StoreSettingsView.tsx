@@ -191,6 +191,7 @@ export default function StoreSettingsView({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             restaurantId,
+            name: storeName,
             onlineOrderingEnabled,
             pickupEnabled,
             deliveryEnabled,

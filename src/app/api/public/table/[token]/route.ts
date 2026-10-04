@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getRestaurantTheme, getRestaurantFeatures, getOrderPrepTime, getRestaurantOfferConfig, getRestaurantBranding, getRestaurantUpsellConfig, isTableAwaitingApproval, getDishHalfPortion, getDishChannelVisibility, getDishGalleryImages } from "@/lib/platform/state";
+import { getRestaurantTheme, getRestaurantFeatures, getOrderPrepTime, getRestaurantOfferConfig, getRestaurantBranding, getRestaurantUpsellConfig, isTableAwaitingApproval, getDishHalfPortion, getDishChannelVisibility, getDishGalleryImages, getDeliverySettings } from "@/lib/platform/state";
 
 
 export async function GET(
@@ -146,7 +146,7 @@ export async function GET(
     const [restaurantRes, categoriesRes, itemsRes, openOrderRes] = await Promise.all([
       admin
         .from("restaurants")
-        .select("id, name, gstin, slug, online_ordering_enabled")
+        .select("id, name, gstin")
         .eq("id", table.restaurant_id)
         .maybeSingle(),
       admin
@@ -309,7 +309,13 @@ export async function GET(
         table_number: table.table_number,
         status: table.status,
       },
-      restaurant: restaurant || { name: "Order Desk Restaurant" },
+      restaurant: restaurant
+        ? {
+            id: restaurant.id,
+            name: restaurant.name || "Restaurant",
+            slug: getDeliverySettings(table.restaurant_id)?.slug || "",
+          }
+        : { name: "Restaurant" },
       categories,
       items: items
         .filter((it) => getDishChannelVisibility(it.id) !== "online_only")
