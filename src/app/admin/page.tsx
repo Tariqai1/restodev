@@ -368,7 +368,7 @@ export default function AdminPage() {
           const isPhysical = (num?: string) => {
             if (!num) return false;
             const n = num.trim().toUpperCase();
-            return !n.startsWith("DEL-") && !n.startsWith("PU-") && !n.includes("ONLINE");
+            return !n.includes("DEL-") && !n.includes("PU-") && !n.includes("ONLINE");
           };
           setTables(
             data.tables

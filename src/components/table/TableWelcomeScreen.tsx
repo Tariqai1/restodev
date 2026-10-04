@@ -17,6 +17,22 @@ interface TableWelcomeScreenProps {
   onExplore: () => void;
 }
 
+function getRestaurantMonogram(name: string): string {
+  if (!name) return "OD";
+  const words = name
+    .trim()
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  if (words.length === 1 && words[0].length >= 2) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return (name.slice(0, 2) || "OD").toUpperCase();
+}
+
 export default function TableWelcomeScreen({
   theme,
   branding,
@@ -25,6 +41,17 @@ export default function TableWelcomeScreen({
   offerConfig,
   onExplore,
 }: TableWelcomeScreenProps) {
+  const isDelivery = Boolean(
+    tableNumber && (tableNumber.includes("DEL-") || tableNumber.startsWith("DEL"))
+  );
+  const isPickup = Boolean(
+    tableNumber && (tableNumber.includes("PU-") || tableNumber.startsWith("PU"))
+  );
+  const orderNum = tableNumber
+    ? tableNumber.replace(/^.*(DEL|PU)-?/i, "") || tableNumber
+    : "";
+  const monogram = getRestaurantMonogram(restaurantName);
+
   return (
     <main
       data-theme={theme}
@@ -33,25 +60,36 @@ export default function TableWelcomeScreen({
     >
       {/* Top Header Section */}
       <div className="flex-shrink-0 space-y-1.5 pt-1">
-          <div
-            className="text-[10px] font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 shadow-xs uppercase tracking-wider"
-            style={{
-              backgroundColor: "var(--brand-primary)",
-              color: "var(--rust-text)",
-            }}
-          >
-            <span>Table Service</span>
-          </div>
+        <div
+          className="text-[10px] font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 shadow-xs uppercase tracking-wider"
+          style={{
+            backgroundColor: "var(--brand-primary)",
+            color: "var(--rust-text)",
+          }}
+        >
+          <span>{isDelivery ? "Home Delivery" : isPickup ? "Takeaway Pickup" : "Table Service"}</span>
+        </div>
 
         <div className="flex items-center gap-3 pt-1">
           {branding?.logoUrl ? (
             <img
               src={branding.logoUrl}
               alt={restaurantName}
-              className="w-12 h-12 rounded-xl object-cover shadow-sm border flex-shrink-0"
+              className="w-12 h-12 rounded-xl object-cover shadow-sm border shrink-0"
               style={{ borderColor: "var(--hairline)" }}
             />
-          ) : null}
+          ) : (
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shadow-sm border shrink-0 tracking-wider select-none"
+              style={{
+                backgroundColor: "var(--brand-primary)",
+                color: "var(--rust-text)",
+                borderColor: "var(--hairline)",
+              }}
+            >
+              {monogram}
+            </div>
+          )}
           <div className="min-w-0">
             <h1
               className="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight line-clamp-1 leading-tight"
@@ -64,15 +102,14 @@ export default function TableWelcomeScreen({
               style={{ color: "var(--ink-soft)" }}
             >
               <span className="line-clamp-1">
-                {branding?.tagline || "Direct Kitchen Ordering & Table Service"}
+                {branding?.tagline || (isDelivery ? "Direct Kitchen Delivery • 0% Commission" : "Direct Kitchen Ordering & Table Service")}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Centerpiece: Luxury Confirmed Table Card */}
-      {/* Centerpiece: Confirmed Table Card */}
+      {/* Centerpiece: Luxury Confirmed Table / Order Card */}
       <div
         className="my-auto p-4 sm:p-5 rounded-2xl border shadow-sm relative overflow-hidden flex flex-col justify-between"
         style={{
@@ -86,14 +123,14 @@ export default function TableWelcomeScreen({
               className="text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5"
               style={{ color: "var(--ink-soft)" }}
             >
-              <span>CONFIRMED TABLE</span>
+              <span>{isDelivery ? "CONFIRMED DELIVERY ORDER" : isPickup ? "CONFIRMED TAKEAWAY" : "CONFIRMED TABLE"}</span>
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
             </div>
             <div
-              className="font-heading text-5xl sm:text-6xl font-black tracking-tight mt-1 leading-none"
+              className="font-heading text-4xl sm:text-5xl font-black tracking-tight mt-1 leading-none"
               style={{ color: "var(--ink)" }}
             >
-              {tableNumber || "T--"}
+              {isDelivery ? `Delivery #${orderNum}` : isPickup ? `Takeaway #${orderNum}` : (tableNumber || "T--")}
             </div>
           </div>
 

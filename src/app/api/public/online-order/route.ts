@@ -265,8 +265,19 @@ export async function POST(req: NextRequest) {
     } else {
       // Fallback: If DB enforces check_order_table_restaurant_match or one_open_order_per_table,
       // create a unique session virtual slot for this takeaway/delivery order
+      // Generate 2-letter restaurant initials for easy order/ticket identification (e.g. "Order Desk Restaurant" -> "OD")
+      const words = (restaurant?.name || "OD")
+        .trim()
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .split(/\s+/)
+        .filter(Boolean);
+      const restoCode =
+        words.length >= 2
+          ? (words[0][0] + words[1][0]).toUpperCase()
+          : (restaurant?.name?.slice(0, 2) || "OD").toUpperCase();
+
       const prefix = orderType === "delivery" ? "DEL" : "PU";
-      const slotCode = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const slotCode = `${restoCode}-${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
       const { data: vTable, error: vTableErr } = await admin
         .from("restaurant_tables")

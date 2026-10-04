@@ -88,11 +88,11 @@ function derivePendingApprovals(
 
 function parseOnlineDetails(tbl?: string, notes?: string | null) {
   const isOnline =
-    Boolean(tbl?.startsWith("DEL-")) ||
-    Boolean(tbl?.startsWith("PU-")) ||
+    Boolean(tbl?.includes("DEL-")) ||
+    Boolean(tbl?.includes("PU-")) ||
     Boolean(notes?.includes("[🛵 Delivery")) ||
     Boolean(notes?.includes("[🛍️ Pickup"));
-  const type = tbl?.startsWith("PU-") || notes?.includes("[🛍️ Pickup") ? "pickup" : "delivery";
+  const type = tbl?.includes("PU-") || notes?.includes("[🛍️ Pickup") ? "pickup" : "delivery";
 
   let customerName = "";
   let customerPhone = "";
@@ -261,7 +261,7 @@ export async function GET() {
     const isPhysicalTable = (num?: string | null) => {
       if (!num) return false;
       const n = num.trim().toUpperCase();
-      return !n.startsWith("DEL-") && !n.startsWith("PU-") && !n.includes("ONLINE");
+      return !n.includes("DEL-") && !n.includes("PU-") && !n.includes("ONLINE");
     };
 
     const rawTables = tablesRes.data || [];
@@ -638,7 +638,7 @@ export async function GET() {
     broadcast: broadcast?.active ? broadcast : null,
     restaurant: restaurantResult.data,
     user: userProfile,
-    tables: tables.filter((t) => !t.table_number.startsWith("DEL-") && !t.table_number.startsWith("PU-")),
+    tables: tables.filter((t) => !t.table_number.includes("DEL-") && !t.table_number.includes("PU-")),
     openOrders: openOrders
       .filter((o: any) => {
         const tbl = Array.isArray(o.restaurant_tables) ? o.restaurant_tables[0]?.table_number : o.restaurant_tables?.table_number;

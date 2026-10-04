@@ -216,8 +216,8 @@ export async function GET() {
         }
 
         const tableNum = displayTable.toUpperCase();
-        const isDelivery = tableNum.startsWith("DEL-") || !ord.table_id;
-        const isPickup = tableNum.startsWith("PU-");
+        const isDelivery = tableNum.includes("DEL-") || !ord.table_id;
+        const isPickup = tableNum.includes("PU-");
         const orderType = isDelivery ? "delivery" : isPickup ? "pickup" : "dine_in";
 
         let custName: string | null = null;

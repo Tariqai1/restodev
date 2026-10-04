@@ -201,7 +201,19 @@ export default function CustomerTableOrderingPage({
   const [isVoiceOrderOpen, setIsVoiceOrderOpen] = useState<boolean>(false);
   const [quickAddNotice, setQuickAddNotice] = useState<string>("");
 
-  // Lock body scroll when any modal or drawer is open
+  // Ensure body scroll and touch gestures are strictly unlocked on mount
+  useEffect(() => {
+    document.body.style.overflow = "";
+    document.body.style.touchAction = "";
+    document.documentElement.style.overflow = "";
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
+
+  // Lock body scroll only when a fullscreen modal or sheet is open
   useEffect(() => {
     const isModalOpen = Boolean(
       previewDish ||
@@ -217,16 +229,18 @@ export default function CustomerTableOrderingPage({
     );
 
     if (isModalOpen) {
-      const origOverflow = document.body.style.overflow;
-      const origTouchAction = document.body.style.touchAction;
       document.body.style.overflow = "hidden";
-      document.body.style.touchAction = "none";
-
-      return () => {
-        document.body.style.overflow = origOverflow;
-        document.body.style.touchAction = origTouchAction;
-      };
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      document.documentElement.style.overflow = "";
     }
+
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      document.documentElement.style.overflow = "";
+    };
   }, [
     previewDish,
     isReviewOpen,
@@ -1169,8 +1183,12 @@ export default function CustomerTableOrderingPage({
   return (
     <div
       data-theme={theme}
-      className="min-h-screen max-w-md mx-auto flex flex-col pb-32"
-      style={{ backgroundColor: "var(--paper)", color: "var(--ink)" }}
+      className="min-h-screen max-w-md mx-auto flex flex-col pb-32 overflow-x-hidden touch-pan-y"
+      style={{
+        backgroundColor: "var(--paper)",
+        color: "var(--ink)",
+        WebkitOverflowScrolling: "touch",
+      }}
     >
       {/* Sticky Table Header */}
       <TableHeroBanner

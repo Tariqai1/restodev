@@ -4,11 +4,11 @@ import { getOrderDispatch, setOrderDispatch } from "@/lib/platform/state";
 
 function parseOnlineDetails(tbl?: string, notes?: string | null) {
   const isOnline =
-    Boolean(tbl?.startsWith("DEL-")) ||
-    Boolean(tbl?.startsWith("PU-")) ||
+    Boolean(tbl?.includes("DEL-")) ||
+    Boolean(tbl?.includes("PU-")) ||
     Boolean(notes?.includes("[🛵 Delivery")) ||
     Boolean(notes?.includes("[🛍️ Pickup"));
-  const type = tbl?.startsWith("PU-") || notes?.includes("[🛍️ Pickup") ? "pickup" : "delivery";
+  const type = tbl?.includes("PU-") || notes?.includes("[🛍️ Pickup") ? "pickup" : "delivery";
 
   let customerName = "";
   let customerPhone = "";

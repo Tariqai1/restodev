@@ -216,8 +216,8 @@ export default function OnlineOrdersView({
       const isOnline =
         o.order_type === "delivery" ||
         o.order_type === "pickup" ||
-        o.restaurant_tables?.table_number?.startsWith("DEL-") ||
-        o.restaurant_tables?.table_number?.startsWith("PU-") ||
+        o.restaurant_tables?.table_number?.includes("DEL-") ||
+        o.restaurant_tables?.table_number?.includes("PU-") ||
         o.restaurant_tables?.table_number?.toLowerCase().includes("online") ||
         Boolean(o.customer_phone) ||
         Boolean(o.delivery_address);
@@ -228,10 +228,10 @@ export default function OnlineOrdersView({
   const filteredOrders = useMemo(() => {
     return onlineOrders.filter((o) => {
       // Type filter
-      if (filterType === "delivery" && o.order_type !== "delivery" && !o.restaurant_tables?.table_number?.startsWith("DEL-")) {
+      if (filterType === "delivery" && o.order_type !== "delivery" && !o.restaurant_tables?.table_number?.includes("DEL-")) {
         return false;
       }
-      if (filterType === "pickup" && o.order_type !== "pickup" && !o.restaurant_tables?.table_number?.startsWith("PU-")) {
+      if (filterType === "pickup" && o.order_type !== "pickup" && !o.restaurant_tables?.table_number?.includes("PU-")) {
         return false;
       }
 
@@ -262,10 +262,10 @@ export default function OnlineOrdersView({
 
   // Analytics counts
   const deliveryCount = onlineOrders.filter(
-    (o) => o.order_type === "delivery" || o.restaurant_tables?.table_number?.startsWith("DEL-")
+    (o) => o.order_type === "delivery" || o.restaurant_tables?.table_number?.includes("DEL-")
   ).length;
   const pickupCount = onlineOrders.filter(
-    (o) => o.order_type === "pickup" || o.restaurant_tables?.table_number?.startsWith("PU-")
+    (o) => o.order_type === "pickup" || o.restaurant_tables?.table_number?.includes("PU-")
   ).length;
   const totalOnlineRevenue = onlineOrders.reduce((sum, o) => {
     const orderSum = o.order_items.reduce((s, it) => s + (Number(it.unit_price || it.menu_items?.price || 0) * (it.qty || 1)), 0);
@@ -586,7 +586,7 @@ export default function OnlineOrdersView({
           {filteredOrders.map((ord) => {
             const isDelivery =
               ord.order_type === "delivery" ||
-              ord.restaurant_tables?.table_number?.startsWith("DEL-");
+              ord.restaurant_tables?.table_number?.includes("DEL-");
             const allServed =
               ord.order_items.length > 0 &&
               ord.order_items.every((it) => it.item_status === "served");

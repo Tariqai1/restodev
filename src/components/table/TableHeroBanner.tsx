@@ -14,6 +14,25 @@ interface TableHeroBannerProps {
   onOpenCallModal: () => void;
 }
 
+/**
+ * Returns 2-letter monogram initials for restaurant branding (e.g. "Order Desk Restaurant" -> "OD")
+ */
+function getRestaurantMonogram(name: string): string {
+  if (!name) return "OD";
+  const words = name
+    .trim()
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  if (words.length === 1 && words[0].length >= 2) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return (name.slice(0, 2) || "OD").toUpperCase();
+}
+
 export default function TableHeroBanner({
   restaurantName,
   tableNumber,
@@ -22,53 +41,90 @@ export default function TableHeroBanner({
   waiterCooldown,
   onOpenCallModal,
 }: TableHeroBannerProps) {
-  // Show call waiter button by default unless explicitly disabled as false
-  const showCallWaiter = features?.callWaiter !== false;
+  // Detect delivery/takeaway virtual tables vs physical dining tables
+  const isDelivery = Boolean(
+    tableNumber && (tableNumber.includes("DEL-") || tableNumber.startsWith("DEL"))
+  );
+  const isPickup = Boolean(
+    tableNumber && (tableNumber.includes("PU-") || tableNumber.startsWith("PU"))
+  );
+
+  // Extract clean ticket or order number (e.g., "DEL-8852" or "OD-DEL-8852" -> "8852")
+  const orderNum = tableNumber
+    ? tableNumber.replace(/^.*(DEL|PU)-?/i, "") || tableNumber
+    : "";
+
+  // Show call waiter button for dine-in tables unless disabled
+  const showCallWaiter = !isDelivery && !isPickup && features?.callWaiter !== false;
+
+  const monogram = getRestaurantMonogram(restaurantName);
 
   return (
     <header
-      className="sticky top-0 z-30 px-4 py-2.5 border-b backdrop-blur-md flex items-center justify-between"
+      className="sticky top-0 z-30 px-3.5 sm:px-4 py-2.5 border-b backdrop-blur-md flex items-center justify-between"
       style={{
         backgroundColor: "var(--paper)",
         borderColor: "var(--hairline)",
       }}
     >
       <div className="flex items-center gap-2.5 min-w-0">
+        {/* Restaurant Monogram Logo Avatar */}
         {branding?.logoUrl ? (
           <img
             src={branding.logoUrl}
             alt={restaurantName}
-            className="w-8 h-8 rounded-lg object-cover shadow-xs border shrink-0"
+            className="w-9 h-9 rounded-xl object-cover shadow-2xs border shrink-0"
             style={{ borderColor: "var(--hairline)" }}
           />
         ) : (
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-sm shrink-0"
+            className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm shadow-2xs border shrink-0 tracking-wider select-none"
             style={{
               backgroundColor: "var(--brand-primary)",
               color: "var(--rust-text)",
+              borderColor: "var(--hairline)",
             }}
+            title={restaurantName}
           >
-            {tableNumber || "T"}
+            {monogram}
           </div>
         )}
+
+        {/* Restaurant Name & Table / Order Badge */}
         <div className="min-w-0">
-          <span
-            className="font-heading text-sm font-bold tracking-tight block leading-tight truncate"
+          <h1
+            className="font-heading text-sm sm:text-base font-extrabold tracking-tight block leading-tight truncate"
             style={{ color: "var(--ink)" }}
           >
             {restaurantName}
-          </span>
-          <span
-            className="text-[10px] font-medium block truncate"
-            style={{ color: "var(--ink-soft)" }}
-          >
-            Table {tableNumber}
-          </span>
+          </h1>
+
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {isDelivery ? (
+              <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-1.5 py-0.5 rounded-md leading-none">
+                <i className="fa-solid fa-motorcycle text-[9px] text-amber-700" />
+                <span>Delivery #{orderNum}</span>
+              </span>
+            ) : isPickup ? (
+              <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-blue-900 bg-blue-100/90 border border-blue-300 px-1.5 py-0.5 rounded-md leading-none">
+                <i className="fa-solid fa-bag-shopping text-[9px] text-blue-700" />
+                <span>Takeaway #{orderNum}</span>
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold block truncate leading-none"
+                style={{ color: "var(--ink-soft)" }}
+              >
+                <i className="fa-solid fa-utensils text-[9px] opacity-70" />
+                <span>Table {tableNumber || "T"}</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {showCallWaiter && (
+      {/* Right Action: Call Waiter (Dine-in) or Live Kitchen Badge (Delivery) */}
+      {showCallWaiter ? (
         <button
           type="button"
           disabled={waiterCooldown > 0}
@@ -98,7 +154,12 @@ export default function TableHeroBanner({
           />
           <span>{waiterCooldown > 0 ? `${waiterCooldown}s` : "Call Waiter"}</span>
         </button>
-      )}
+      ) : (isDelivery || isPickup) ? (
+        <div className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Live Kitchen</span>
+        </div>
+      ) : null}
     </header>
   );
 }
