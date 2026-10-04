@@ -119,13 +119,15 @@ export async function POST(req: NextRequest) {
         ? dbDelivery.delivery_enabled
         : fallbackSettings.deliveryEnabled;
 
-    const minAmount =
-      Number(dbDelivery?.minimum_order_amount) ?? fallbackSettings.minimumOrderAmount ?? 0;
+    const rawMin = dbDelivery?.minimum_order_amount !== undefined && dbDelivery?.minimum_order_amount !== null
+      ? Number(dbDelivery.minimum_order_amount)
+      : Number(fallbackSettings.minimumOrderAmount);
+    const minAmount = isNaN(rawMin) ? 0 : rawMin;
 
-    const deliveryFee =
-      orderType === "delivery"
-        ? Number(dbDelivery?.delivery_fee) ?? fallbackSettings.deliveryFee ?? 0
-        : 0;
+    const rawFee = dbDelivery?.delivery_fee !== undefined && dbDelivery?.delivery_fee !== null
+      ? Number(dbDelivery.delivery_fee)
+      : Number(fallbackSettings.deliveryFee);
+    const deliveryFee = orderType === "delivery" ? (isNaN(rawFee) ? 0 : rawFee) : 0;
 
     const estimatedPrepMinutes =
       Number(dbDelivery?.estimated_prep_minutes) || fallbackSettings.estimatedPrepMinutes || 25;
@@ -378,6 +380,7 @@ export async function POST(req: NextRequest) {
       taxAmount,
       deliveryFee,
       total: totalAmount,
+      totalAmount,
       estimatedPrepMinutes,
       message: `Your ${orderType} order has been placed successfully!`,
     });

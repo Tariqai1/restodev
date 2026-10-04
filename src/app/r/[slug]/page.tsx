@@ -261,7 +261,17 @@ export default function OnlineOrderingPage({
               const parsed = JSON.parse(saved);
               const elapsedHours = (Date.now() - new Date(parsed.placedAt || 0).getTime()) / (1000 * 60 * 60);
               if (elapsedHours < 24) {
-                setRecentOrder(parsed);
+                const sub = Number(parsed.subtotal) || 0;
+                const fee = Number(parsed.deliveryFee) || 0;
+                const tax = Number(parsed.taxAmount) || 0;
+                const tot = Number(parsed.total) || Math.round((sub + fee + tax) * 100) / 100;
+                setRecentOrder({
+                  ...parsed,
+                  subtotal: sub,
+                  deliveryFee: fee,
+                  taxAmount: tax,
+                  total: tot,
+                });
               }
             }
           } catch {
@@ -407,19 +417,24 @@ export default function OnlineOrderingPage({
         throw new Error(data.message || "Failed to place order.");
       }
 
+      const resolvedSubtotal = Number(data.subtotal) || subtotal || 0;
+      const resolvedTax = Number(data.taxAmount) !== undefined ? Number(data.taxAmount) : taxAmount || 0;
+      const resolvedFee = Number(data.deliveryFee) !== undefined ? Number(data.deliveryFee) : (orderType === "delivery" ? deliveryFee : 0);
+      const resolvedTotal = Number(data.total) || Number(data.totalAmount) || Math.round((resolvedSubtotal + resolvedTax + resolvedFee) * 100) / 100;
+
       const summary: PlacedOrderSummary = {
         orderId: data.orderId,
-        orderNumber: data.orderNumber,
-        orderType: data.orderType,
-        customerName: data.customerName,
-        customerPhone: data.customerPhone,
-        deliveryAddress: data.deliveryAddress,
+        orderNumber: data.orderNumber || `ORD-${Date.now().toString().slice(-4)}`,
+        orderType: data.orderType || orderType,
+        customerName: data.customerName || customerName.trim(),
+        customerPhone: data.customerPhone || customerPhone.trim(),
+        deliveryAddress: data.deliveryAddress || (orderType === "delivery" ? deliveryAddress.trim() : null),
         customerCoords: selectedLocation ? { lat: selectedLocation.lat, lng: selectedLocation.lng } : null,
-        subtotal: data.subtotal,
-        taxAmount: data.taxAmount,
-        deliveryFee: data.deliveryFee,
-        total: data.total,
-        estimatedPrepMinutes: data.estimatedPrepMinutes,
+        subtotal: resolvedSubtotal,
+        taxAmount: resolvedTax,
+        deliveryFee: resolvedFee,
+        total: resolvedTotal,
+        estimatedPrepMinutes: Number(data.estimatedPrepMinutes) || 25,
         items: cartItemsList.map((it) => ({
           name: it.dish.name,
           portion: it.portion,
@@ -529,28 +544,55 @@ export default function OnlineOrderingPage({
 
   // 2. Order Placed Full Confirmation Screen
   if (placedOrder) {
+    const placedSubtotal = Number(placedOrder.subtotal) || 0;
+    const placedFee = Number(placedOrder.deliveryFee) || 0;
+    const placedTax = Number(placedOrder.taxAmount) || 0;
+    const placedTotal =
+      Number(placedOrder.total) ||
+      Math.round((placedSubtotal + placedTax + placedFee) * 100) / 100;
+
     return (
-      <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-        <div className="max-w-md w-full bg-stone-900 border border-stone-800 rounded-3xl p-5 sm:p-7 text-center shadow-2xl space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl mx-auto shadow-lg animate-bounce">
-            <i className="fa-solid fa-check" />
+      <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-300">
+        <div className="max-w-md w-full bg-stone-900/95 border border-stone-800/90 rounded-3xl p-5 sm:p-7 text-center shadow-2xl space-y-4 backdrop-blur-md">
+          {/* Smooth Glowing Checkmark Badge */}
+          <div className="relative mx-auto w-16 h-16 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-emerald-500/20 ring-8 ring-emerald-500/10 animate-pulse" />
+            <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-stone-950 flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-400/30">
+              <i className="fa-solid fa-check text-2xl font-black text-white" />
+            </div>
           </div>
 
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/70 px-3 py-1 rounded-full border border-emerald-500/30 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
               Order Confirmed & Sent to Kitchen
             </span>
-            <h2 className="text-2xl font-black text-white tracking-tight mt-1.5">
+            <h2 className="text-2xl font-black text-white tracking-tight mt-2 font-mono">
               {placedOrder.orderNumber}
             </h2>
-            <p className="text-xs text-stone-400 mt-1">
+            <p className="text-xs text-stone-400 mt-1 leading-relaxed">
               Thank you, <strong className="text-stone-200">{placedOrder.customerName}</strong>! Your{" "}
-              <strong className={`${themeStyles.accentText} uppercase`}>{placedOrder.orderType}</strong> order is being prepared.
+              <strong className={`${themeStyles.accentText} uppercase font-bold`}>{placedOrder.orderType}</strong> order is being prepared.
             </p>
           </div>
 
+          {/* Doorstep Delivery Verification PIN (if delivery) */}
+          {placedOrder.verificationCode && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-amber-900/20 to-amber-950/40 border border-amber-500/30 text-center space-y-1 shadow-sm">
+              <span className="text-[10px] uppercase font-mono tracking-wider text-amber-400 font-bold block">
+                Doorstep Delivery PIN
+              </span>
+              <div className="inline-block px-4 py-1.5 rounded-xl bg-stone-950/80 border border-amber-500/50 text-2xl font-black tracking-[0.25em] text-amber-300 font-mono shadow-inner">
+                {placedOrder.verificationCode}
+              </div>
+              <p className="text-[11px] text-amber-200/80 font-medium">
+                Share this 4-digit PIN with your delivery captain upon doorstep arrival.
+              </p>
+            </div>
+          )}
+
           {/* Kitchen Timeline Tracker */}
-          <div className="p-3 rounded-2xl bg-stone-950/70 border border-stone-800/80">
+          <div className="p-3.5 rounded-2xl bg-stone-950/70 border border-stone-800/80">
             <div className="flex items-center justify-between text-xs mb-2">
               <span className="text-stone-400 font-medium">Estimated Time:</span>
               <span className={`font-mono font-bold ${themeStyles.accentText}`}>
@@ -558,7 +600,7 @@ export default function OnlineOrderingPage({
               </span>
             </div>
             <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold">
-              <div className="p-1.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex flex-col items-center gap-1">
+              <div className="p-1.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex flex-col items-center gap-1 transition-all">
                 <i className="fa-solid fa-receipt text-xs" />
                 <span>Received</span>
               </div>
@@ -587,7 +629,7 @@ export default function OnlineOrderingPage({
                       {it.qty}× {it.name} {it.portion === "half" ? "(Half)" : ""}
                     </span>
                   </div>
-                  <span className="font-mono text-stone-300 shrink-0">
+                  <span className="font-mono text-stone-300 shrink-0 font-semibold">
                     ₹{it.price * it.qty}
                   </span>
                 </div>
@@ -597,21 +639,21 @@ export default function OnlineOrderingPage({
             <div className="pt-2 border-t border-stone-800 space-y-1 text-stone-400 text-[11px]">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-mono">₹{placedOrder.subtotal}</span>
+                <span className="font-mono font-semibold text-stone-300">₹{placedSubtotal}</span>
               </div>
-              {placedOrder.deliveryFee > 0 && (
+              {placedFee > 0 && (
                 <div className="flex justify-between">
                   <span>Delivery Fee</span>
-                  <span className="font-mono">₹{placedOrder.deliveryFee}</span>
+                  <span className="font-mono font-semibold text-stone-300">₹{placedFee}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>GST (5%)</span>
-                <span className="font-mono">₹{placedOrder.taxAmount}</span>
+                <span className="font-mono font-semibold text-stone-300">₹{placedTax}</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-stone-800 font-bold text-white text-sm">
+              <div className="flex justify-between pt-1.5 border-t border-stone-800 font-bold text-white text-sm">
                 <span>Total Amount</span>
-                <span className="font-mono text-emerald-400">₹{placedOrder.total}</span>
+                <span className="font-mono text-emerald-400 text-base font-extrabold">₹{placedTotal}</span>
               </div>
             </div>
 
@@ -626,11 +668,11 @@ export default function OnlineOrderingPage({
           </div>
 
           {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
             <button
               type="button"
               onClick={() => setPlacedOrder(null)}
-              className="py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold transition-all cursor-pointer"
+              className="py-2.5 rounded-xl bg-stone-800/90 hover:bg-stone-700/90 active:scale-95 text-stone-200 text-xs font-bold transition-all duration-200 cursor-pointer border border-stone-700/60 shadow-xs"
             >
               Order More
             </button>
@@ -640,9 +682,9 @@ export default function OnlineOrderingPage({
                 setPlacedOrder(null);
                 setIsTrackOrderOpen(true);
               }}
-              className={`py-2.5 rounded-xl ${themeStyles.accentBg} text-white text-xs font-bold transition-all shadow-md cursor-pointer`}
+              className={`py-2.5 rounded-xl ${themeStyles.accentBg} hover:brightness-110 active:scale-95 text-white text-xs font-bold transition-all duration-200 shadow-md cursor-pointer`}
             >
-              Track Order
+              Track Live Order
             </button>
           </div>
 
@@ -804,32 +846,38 @@ export default function OnlineOrderingPage({
         </div>
 
         {/* Dedicated Live Active Order Alert Bar (High Contrast, Never Overlapping) */}
-        {recentOrder && (
-          <div
-            onClick={() => setIsTrackOrderOpen(true)}
-            className="w-full bg-gradient-to-r from-emerald-950/90 via-stone-900 to-emerald-950/90 border-t border-emerald-500/30 px-3.5 sm:px-5 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-stone-900 transition-all shadow-md group"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="relative flex h-2.5 w-2.5 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
-              <div className="min-w-0">
-                <span className="font-bold text-white truncate inline-block mr-1.5">
-                  Active Order #{recentOrder.orderNumber}
+        {recentOrder && (() => {
+          const rSub = Number(recentOrder.subtotal) || 0;
+          const rFee = Number(recentOrder.deliveryFee) || 0;
+          const rTax = Number(recentOrder.taxAmount) || 0;
+          const rTot = Number(recentOrder.total) || Math.round((rSub + rFee + rTax) * 100) / 100;
+          return (
+            <div
+              onClick={() => setIsTrackOrderOpen(true)}
+              className="w-full bg-gradient-to-r from-emerald-950/90 via-stone-900 to-emerald-950/90 border-t border-emerald-500/30 px-3.5 sm:px-5 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-stone-900 transition-all shadow-md group"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
-                <span className="text-[11px] text-emerald-300 font-mono hidden xs:inline">
-                  (₹{recentOrder.total} · {recentOrder.items.length} items)
-                </span>
+                <div className="min-w-0">
+                  <span className="font-bold text-white truncate inline-block mr-1.5">
+                    Active Order #{recentOrder.orderNumber}
+                  </span>
+                  <span className="text-[11px] text-emerald-300 font-mono hidden xs:inline">
+                    (₹{rTot} · {recentOrder.items?.length || 0} items)
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform">
+                <span>View Bill & Status</span>
+                <i className="fa-solid fa-arrow-right text-[10px]" />
               </div>
             </div>
-
-            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform">
-              <span>View Bill & Status</span>
-              <i className="fa-solid fa-arrow-right text-[10px]" />
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Order Cancelled Notification Banner */}
         {orderCancelledNotice && (
@@ -1520,24 +1568,36 @@ export default function OnlineOrderingPage({
                 </div>
 
                 <div className="pt-2 border-t border-stone-800 space-y-1 text-stone-400 text-[11px]">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span className="font-mono">₹{recentOrder.subtotal}</span>
-                  </div>
-                  {recentOrder.deliveryFee > 0 && (
-                    <div className="flex justify-between">
-                      <span>Delivery Fee</span>
-                      <span className="font-mono">₹{recentOrder.deliveryFee}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span>GST (5%)</span>
-                    <span className="font-mono">₹{recentOrder.taxAmount}</span>
-                  </div>
-                  <div className="flex justify-between pt-1 border-t border-stone-800 font-bold text-white text-sm">
-                    <span>Total Paid / Payable</span>
-                    <span className="font-mono text-emerald-400">₹{recentOrder.total}</span>
-                  </div>
+                  {(() => {
+                    const rSubtotal = Number(recentOrder.subtotal) || 0;
+                    const rFee = Number(recentOrder.deliveryFee) || 0;
+                    const rTax = Number(recentOrder.taxAmount) || 0;
+                    const rTotal =
+                      Number(recentOrder.total) ||
+                      Math.round((rSubtotal + rFee + rTax) * 100) / 100;
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Subtotal</span>
+                          <span className="font-mono font-semibold text-stone-300">₹{rSubtotal}</span>
+                        </div>
+                        {rFee > 0 && (
+                          <div className="flex justify-between">
+                            <span>Delivery Fee</span>
+                            <span className="font-mono font-semibold text-stone-300">₹{rFee}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span>GST (5%)</span>
+                          <span className="font-mono font-semibold text-stone-300">₹{rTax}</span>
+                        </div>
+                        <div className="flex justify-between pt-1.5 border-t border-stone-800 font-bold text-white text-sm">
+                          <span>Total Paid / Payable</span>
+                          <span className="font-mono text-emerald-400 font-extrabold text-base">₹{rTotal}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
