@@ -202,6 +202,10 @@ let memoryState: PlatformState = {
   dishHalfPortions: {},
   dishHalfPrices: {},
   pendingOrderApprovals: {},
+  orderDispatches: {},
+  deliverySettings: {},
+  deliveryRiders: {},
+  customerDemands: {},
   dishChannelVisibilities: {},
   dishGalleryImages: {},
 };
@@ -269,6 +273,8 @@ export function getPlatformState(): PlatformState {
       const raw = fs.readFileSync(STATE_FILE, "utf-8");
       const parsed = JSON.parse(raw);
       memoryState = {
+        ...memoryState,
+        ...parsed,
         broadcast: parsed.broadcast || null,
         activities: Array.isArray(parsed.activities) ? parsed.activities : [],
         archivedRestaurants: parsed.archivedRestaurants || {},
@@ -282,9 +288,13 @@ export function getPlatformState(): PlatformState {
         orderPrepEstimates: parsed.orderPrepEstimates || {},
         restaurantPhones: parsed.restaurantPhones || {},
         dishSpecialTags: parsed.dishSpecialTags || {},
+        dishHalfPortions: parsed.dishHalfPortions || {},
+        dishHalfPrices: parsed.dishHalfPrices || {},
         pendingOrderApprovals: parsed.pendingOrderApprovals || {},
         deliverySettings: parsed.deliverySettings || {},
         deliveryRiders: parsed.deliveryRiders || {},
+        orderDispatches: parsed.orderDispatches || {},
+        customerDemands: parsed.customerDemands || {},
         dishChannelVisibilities: parsed.dishChannelVisibilities || {},
         dishGalleryImages: parsed.dishGalleryImages || {},
       };

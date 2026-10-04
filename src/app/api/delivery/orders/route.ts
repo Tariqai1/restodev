@@ -153,6 +153,9 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      const isNotesDispatched = notes?.includes("[DISPATCH:dispatched]");
+      const resolvedDispatchStage = dispatch?.stage || (isNotesDispatched ? "dispatched" : "pending");
+
       return {
         id: ord.id,
         orderNumber: tbl || `DEL-${ord.id.slice(-4).toUpperCase()}`,
@@ -162,7 +165,7 @@ export async function GET(req: NextRequest) {
         deliveryAddress: details.deliveryAddress,
         customerCoords: details.customerCoords,
         kitchenStage,
-        dispatchStage: dispatch?.stage || "pending",
+        dispatchStage: resolvedDispatchStage,
         riderName: dispatch?.riderName || null,
         riderPhone: dispatch?.riderPhone || null,
         dispatchedAt: dispatch?.dispatchedAt || null,
@@ -232,6 +235,29 @@ export async function POST(req: NextRequest) {
         stage: "dispatched",
         dispatchedAt: nowIso,
       });
+
+      // Persist in Supabase order item notes as durable fallback
+      try {
+        const { data: items } = await admin
+          .from("order_items")
+          .select("id, notes")
+          .eq("order_id", orderId)
+          .limit(1);
+
+        if (items && items.length > 0) {
+          const currentNotes = items[0].notes || "";
+          if (!currentNotes.includes("[DISPATCH:dispatched]")) {
+            await admin
+              .from("order_items")
+              .update({
+                notes: `${currentNotes} [DISPATCH:dispatched]`.trim(),
+              })
+              .eq("id", items[0].id);
+          }
+        }
+      } catch (e) {
+        console.warn("[delivery/orders] Failed to save dispatch stage in notes:", e);
+      }
 
       return NextResponse.json({
         ok: true,
