@@ -58,19 +58,22 @@ export default function AdminKPICard({
         onClick ? "cursor-pointer active:scale-[0.98]" : ""
       }`}
     >
-      <div className="flex items-center justify-between mb-1.5 sm:mb-2.5">
-        <span className="text-[10px] sm:text-xs font-bold text-slate-500 tracking-wide uppercase truncate max-w-[70%]">
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2.5 gap-1.5 min-w-0">
+        <span
+          className="text-[10px] sm:text-xs font-bold text-slate-500 tracking-wide uppercase line-clamp-1 leading-tight flex-1"
+          title={title}
+        >
           {title}
         </span>
         <div
-          className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${colorStyles.bg} ${colorStyles.border} border`}
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${colorStyles.bg} ${colorStyles.border} border`}
         >
           <i className={`fa-solid ${icon} ${colorStyles.icon} text-xs sm:text-sm`} />
         </div>
       </div>
 
-      <div className="flex items-baseline gap-1.5 mb-1 sm:mb-1.5">
-        <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 truncate">
+      <div className="flex items-baseline gap-1.5 mb-1 sm:mb-1.5 min-w-0">
+        <h3 className="text-lg sm:text-xl xl:text-2xl font-black tracking-tight text-slate-900 truncate">
           {value}
         </h3>
       </div>

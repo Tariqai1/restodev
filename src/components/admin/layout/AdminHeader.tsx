@@ -118,11 +118,11 @@ export default function AdminHeader({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs w-full">
       {/* Top Header Main Bar */}
-      <div className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between">
-        {/* Left: Mobile Toggle & Breadcrumb */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+      <div className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between gap-2 min-w-0">
+        {/* Left: Mobile Toggle, Breadcrumb & Page Title */}
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <button
             type="button"
             onClick={onOpenMobileSidebar}
@@ -132,9 +132,9 @@ export default function AdminHeader({
             <i className="fa-solid fa-bars text-sm" />
           </button>
 
-          <div className="min-w-0">
-            {/* Breadcrumb (Desktop) */}
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+          <div className="min-w-0 flex-1">
+            {/* Breadcrumb (Only visible on wide desktop xl+) */}
+            <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium text-slate-400 mb-0.5">
               {breadcrumb.map((bc, idx) => (
                 <React.Fragment key={idx}>
                   {idx > 0 && <span className="text-slate-300">/</span>}
@@ -152,11 +152,11 @@ export default function AdminHeader({
             </div>
 
             <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-tight">
+              <h2 className="text-sm sm:text-base lg:text-lg font-extrabold text-slate-900 truncate leading-tight">
                 {pageTitle}
               </h2>
               {/* Mobile restaurant badge */}
-              <span className="sm:hidden text-[10px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-md truncate max-w-[110px]">
+              <span className="sm:hidden text-[10px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-md truncate max-w-[100px] shrink-0">
                 {restaurantName}
               </span>
             </div>
@@ -164,13 +164,13 @@ export default function AdminHeader({
         </div>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
-          {/* Table Occupancy Status Pill (Desktop/Tablet) */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Table Occupancy Status Pill (Only on 2xl screens) */}
+          <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700 shrink-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>
               <strong className="text-slate-900">{activeTablesCount}</strong> of{" "}
-              {totalTablesCount} Tables Active
+              {totalTablesCount} Tables
             </span>
           </div>
 
@@ -179,7 +179,7 @@ export default function AdminHeader({
             <button
               type="button"
               onClick={() => onSelectView("online_orders")}
-              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
+              className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95 shrink-0"
               title="Manage Online Orders & Storefront"
             >
               <i className="fa-solid fa-motorcycle text-xs text-amber-600" />
@@ -187,31 +187,19 @@ export default function AdminHeader({
             </button>
           )}
 
-          {/* Floor Workspace Quick Switch (Desktop) */}
-          {onSelectView && (
-            <button
-              type="button"
-              onClick={() => onSelectView("floor")}
-              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:text-purple-600 hover:border-purple-300 transition-colors shadow-2xs cursor-pointer"
-            >
-              <i className="fa-solid fa-table-cells text-xs text-purple-600" />
-              <span>Floor View</span>
-            </button>
-          )}
-
-          {/* Dedicated Waiter Operations Terminal (Desktop/Tablet) */}
+          {/* Dedicated Waiter Operations Terminal */}
           <Link
             href="/waiter"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95"
+            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 transition-all shadow-2xs cursor-pointer active:scale-95 shrink-0"
             title="Open Dedicated Waiter Operations Portal"
           >
             <i className="fa-solid fa-bell-concierge text-xs text-amber-600" />
             <span>Waiter Portal</span>
           </Link>
 
-          {/* Quick Action Button (Desktop/Tablet) */}
+          {/* Quick Action Button */}
           {onQuickAction && (
-            <div className="hidden sm:block">
+            <div className="hidden sm:block shrink-0">
               <AdminButton
                 variant="primary"
                 size="sm"
@@ -225,7 +213,7 @@ export default function AdminHeader({
 
           {/* Offline / Online Health Pill */}
           <div
-            className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono font-medium ${
+            className={`hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono font-medium shrink-0 ${
               isOnline
                 ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                 : "bg-amber-50 border-amber-300 text-amber-800 animate-pulse"
@@ -393,20 +381,20 @@ export default function AdminHeader({
               setShowProfileMenu(!showProfileMenu);
               setShowNotifications(false);
             }}
-            className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="flex items-center gap-2 p-1.5 sm:px-2 sm:py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer shrink-0"
           >
-            <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
               {initials}
             </div>
-            <div className="hidden sm:block text-left min-w-0">
+            <div className="hidden xl:block text-left min-w-0 max-w-[130px]">
               <span className="block text-xs font-bold text-slate-900 leading-tight truncate">
                 {userName}
               </span>
-              <span className="block text-[10px] text-purple-600 font-mono leading-none capitalize">
+              <span className="block text-[10px] text-purple-600 font-mono leading-none capitalize truncate">
                 {userRole === "owner" ? "Restaurant Owner" : userRole}
               </span>
             </div>
-            <i className="fa-solid fa-chevron-down text-[10px] text-slate-400 hidden sm:block" />
+            <i className="fa-solid fa-chevron-down text-[10px] text-slate-400 hidden xl:block" />
           </button>
 
           {/* Profile Menu Dropdown */}

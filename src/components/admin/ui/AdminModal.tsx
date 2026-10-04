@@ -82,20 +82,20 @@ export default function AdminModal({
 
       {/* Modal Dialog */}
       <div
-        className={`relative w-full ${widthClass} bg-white rounded-2xl shadow-2xl border border-slate-200 z-10 overflow-hidden animate-in zoom-in-95 duration-150`}
+        className={`relative w-full ${widthClass} max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 z-10 overflow-hidden animate-in zoom-in-95 duration-150`}
       >
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3.5">
+        <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
+          <div className="flex items-start gap-3 min-w-0">
             {icon && (
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${iconStyle}`}
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shrink-0 ${iconStyle}`}
               >
-                <i className={`fa-solid ${icon} text-base`} />
+                <i className={`fa-solid ${icon} text-sm sm:text-base`} />
               </div>
             )}
-            <div>
-              <h3 className="text-base font-bold text-slate-900 leading-snug">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug truncate">
                 {title}
               </h3>
               {subtitle && (
@@ -108,7 +108,7 @@ export default function AdminModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0 active:scale-95"
           >
             <i className="fa-solid fa-xmark text-sm" />
           </button>
@@ -116,12 +116,12 @@ export default function AdminModal({
 
         {/* Content Body */}
         {children && (
-          <div className="px-6 py-4 max-h-[75vh] overflow-y-auto">{children}</div>
+          <div className="px-4 sm:px-6 py-4 flex-1 overflow-y-auto">{children}</div>
         )}
 
         {/* Footer */}
         {showFooter && (
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
             <AdminButton variant="outline" size="sm" onClick={onClose}>
               {cancelText}
             </AdminButton>
