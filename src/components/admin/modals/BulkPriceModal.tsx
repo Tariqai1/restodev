@@ -144,19 +144,19 @@ export default function BulkPriceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/70">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-lg shadow-xs">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/70 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-base sm:text-lg shadow-xs shrink-0">
               <i className="fa-solid fa-tags" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
                 Bulk Price Adjustment Engine
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
                 Sabhi ya chuninda dishes ke rates ek sath % ya ₹ me badhayein/ghatayein
               </p>
             </div>
@@ -164,31 +164,31 @@ export default function BulkPriceModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 flex items-center justify-center text-xs font-bold cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 flex items-center justify-center text-xs font-bold cursor-pointer shrink-0 active:scale-95"
           >
             ✕
           </button>
         </div>
 
         {/* Controls Body */}
-        <div className="p-5 overflow-y-auto space-y-5 flex-1 text-xs">
+        <div className="p-3.5 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 flex-1 text-xs overflow-x-hidden">
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
-              <i className="fa-solid fa-circle-exclamation text-rose-600" />
+            <div className="p-2.5 sm:p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+              <i className="fa-solid fa-circle-exclamation text-rose-600 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {/* Row 1: Target Scope & Mode */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="min-w-0">
               <label className="block font-bold text-slate-700 mb-1.5">
                 Target Category / Scope
               </label>
               <select
                 value={targetCategory}
                 onChange={(e) => setTargetCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-600"
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 truncate"
               >
                 <option value="all">Poora Menu (All {menuItems.length} Items)</option>
                 {categoryList.map((c) => (
@@ -199,7 +199,7 @@ export default function BulkPriceModal({
               </select>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block font-bold text-slate-700 mb-1.5">
                 Adjustment Type
               </label>
@@ -207,34 +207,34 @@ export default function BulkPriceModal({
                 <button
                   type="button"
                   onClick={() => setMode("percent")}
-                  className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer ${
+                  className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     mode === "percent"
                       ? "bg-purple-600 text-white border-purple-600 shadow-xs"
                       : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  <i className="fa-solid fa-percent mr-1.5" />
-                  Percentage (%)
+                  <i className="fa-solid fa-percent text-xs" />
+                  <span>Percent (%)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode("flat")}
-                  className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer ${
+                  className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     mode === "flat"
                       ? "bg-purple-600 text-white border-purple-600 shadow-xs"
                       : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  <i className="fa-solid fa-indian-rupee-sign mr-1.5" />
-                  Flat Amount (₹)
+                  <i className="fa-solid fa-indian-rupee-sign text-xs" />
+                  <span>Flat (₹)</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Row 2: Direction & Value */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="min-w-0">
               <label className="block font-bold text-slate-700 mb-1.5">
                 Action (Badhana / Ghatana)
               </label>
@@ -242,31 +242,31 @@ export default function BulkPriceModal({
                 <button
                   type="button"
                   onClick={() => setDirection("increase")}
-                  className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer ${
+                  className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     direction === "increase"
                       ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                       : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  <i className="fa-solid fa-arrow-up mr-1.5" />
-                  Increase Rate (+)
+                  <i className="fa-solid fa-arrow-up text-xs" />
+                  <span>Increase (+)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDirection("decrease")}
-                  className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer ${
+                  className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     direction === "decrease"
                       ? "bg-rose-600 text-white border-rose-600 shadow-xs"
                       : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  <i className="fa-solid fa-arrow-down mr-1.5" />
-                  Decrease Rate (−)
+                  <i className="fa-solid fa-arrow-down text-xs" />
+                  <span>Decrease (−)</span>
                 </button>
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block font-bold text-slate-700 mb-1.5">
                 Value ({mode === "percent" ? "Percentage %" : "Rupees ₹"})
               </label>
@@ -316,29 +316,29 @@ export default function BulkPriceModal({
             </div>
           </div>
 
-          {/* Row 3: Smart Rounding Options */}
-          <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <i className="fa-solid fa-coins text-amber-600 text-sm" />
-              <div>
-                <span className="font-bold text-amber-950 block">Cash Rounding Convenience</span>
-                <span className="text-[10px] text-amber-700">Rates ko change chutta ke jhanjhat se bachane ke liye round karein</span>
+          {/* Row 3: Smart Rounding Options (Mobile Stack, Desktop Inline) */}
+          <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+            <div className="flex items-start sm:items-center gap-2 min-w-0">
+              <i className="fa-solid fa-coins text-amber-600 text-sm mt-0.5 sm:mt-0 shrink-0" />
+              <div className="min-w-0">
+                <span className="font-bold text-amber-950 block text-xs">Cash Rounding Convenience</span>
+                <span className="text-[10px] text-amber-700 block leading-tight">Rates ko change chutta se bachane ke liye round karein</span>
               </div>
             </div>
             <select
               value={roundTo}
               onChange={(e) => setRoundTo(Number(e.target.value))}
-              className="px-2.5 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-amber-900 bg-white"
+              className="w-full sm:w-auto px-2.5 py-1.5 border border-amber-300 rounded-lg text-xs font-bold text-amber-900 bg-white shrink-0 truncate"
             >
               <option value="0">Exact (No Rounding)</option>
-              <option value="5">Round to nearest ₹5 (e.g. ₹283 → ₹285)</option>
-              <option value="10">Round to nearest ₹10 (e.g. ₹283 → ₹280)</option>
+              <option value="5">Round to ₹5 (e.g. ₹283 → ₹285)</option>
+              <option value="10">Round to ₹10 (e.g. ₹283 → ₹280)</option>
             </select>
           </div>
 
           {/* Row 4: Live Preview Table */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
+          <div className="space-y-2 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="font-bold text-slate-800 text-xs">
                 Live Price Preview ({previewItems.length} Dishes Affected)
               </span>
@@ -347,12 +347,12 @@ export default function BulkPriceModal({
                 placeholder="Search dish in preview..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-2.5 py-1 border border-slate-200 rounded-lg text-[11px] w-48"
+                className="w-full sm:w-48 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
               />
             </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
-              <table className="w-full text-left text-xs">
+            <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-48 overflow-y-auto">
+              <table className="w-full text-left text-xs min-w-[320px]">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold sticky top-0">
                   <tr>
                     <th className="py-2 px-3">Dish Name</th>
@@ -370,7 +370,7 @@ export default function BulkPriceModal({
                             item.is_veg ? "bg-emerald-600" : "bg-rose-600"
                           }`}
                         />
-                        <span className="truncate max-w-[200px]">{item.name}</span>
+                        <span className="truncate max-w-[130px] sm:max-w-[200px]">{item.name}</span>
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-slate-500">
                         ₹{item.currentPrice}
@@ -400,9 +400,9 @@ export default function BulkPriceModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="text-xs text-slate-500">
-            Affects <strong className="text-slate-900">{previewItems.length}</strong> menu items
+        <div className="p-3 sm:p-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-slate-50 shrink-0">
+          <div className="text-[11px] sm:text-xs text-slate-500">
+            Affects <strong className="text-slate-900">{previewItems.length}</strong> dishes
           </div>
           <div className="flex items-center gap-2">
             <AdminButton variant="outline" size="sm" onClick={onClose} disabled={isApplying}>
@@ -416,7 +416,7 @@ export default function BulkPriceModal({
               leftIcon={isApplying ? "fa-spinner fa-spin" : "fa-check"}
             >
               {isApplying
-                ? "Updating Prices..."
+                ? "Updating..."
                 : `Apply to ${previewItems.length} Dishes`}
             </AdminButton>
           </div>
