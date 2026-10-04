@@ -422,22 +422,30 @@ export default function DeliveryPortalPage() {
                         </span>
                       </div>
 
-                      {/* Stage Pill */}
-                      <span
-                        className={`text-[9px] sm:text-[10px] font-extrabold uppercase px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border shrink-0 ${
-                          isDispatched
-                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
+                      {/* Stage Pill & Assigned Captain */}
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        {del.riderName && (
+                          <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                            <i className="fa-solid fa-user-shield text-[9px]" />
+                            <span>{del.riderName}</span>
+                          </span>
+                        )}
+                        <span
+                          className={`text-[9px] sm:text-[10px] font-extrabold uppercase px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border shrink-0 ${
+                            isDispatched
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
+                              : del.kitchenStage === "ready"
+                              ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                              : "bg-slate-800 text-slate-300 border-slate-700"
+                          }`}
+                        >
+                          {isDispatched
+                            ? "🛵 Out for Delivery"
                             : del.kitchenStage === "ready"
-                            ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                            : "bg-slate-800 text-slate-300 border-slate-700"
-                        }`}
-                      >
-                        {isDispatched
-                          ? "🛵 Out for Delivery"
-                          : del.kitchenStage === "ready"
-                          ? "✅ Food Ready"
-                          : "🍳 Kitchen Cooking"}
-                      </span>
+                            ? "✅ Food Ready"
+                            : "🍳 Kitchen Cooking"}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Customer & Address Details */}

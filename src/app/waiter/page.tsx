@@ -114,12 +114,20 @@ interface OnlineOrderTicket {
   }[];
 }
 
+interface ActiveCaptain {
+  id: string;
+  name: string;
+  role: string;
+  phone?: string;
+}
+
 export default function WaiterPortalPage() {
   const router = useRouter();
 
   // Primary Data State
   const [restaurantName, setRestaurantName] = useState("Order Desk");
   const [staffUser, setStaffUser] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [activeCaptains, setActiveCaptains] = useState<ActiveCaptain[]>([]);
   const [tables, setTables] = useState<TableRecord[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrderRecord[]>([]);
   const [waiterCalls, setWaiterCalls] = useState<WaiterCallRecord[]>([]);
@@ -274,6 +282,9 @@ export default function WaiterPortalPage() {
             active: data.onlineOrders.active || [],
             completed: data.onlineOrders.completed || [],
           });
+        }
+        if (Array.isArray(data.activeCaptains)) {
+          setActiveCaptains(data.activeCaptains);
         }
         setLastSyncTime(new Date());
 
@@ -540,69 +551,82 @@ export default function WaiterPortalPage() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // DISPATCH ONLINE ORDER TO RIDER (WhatsApp Integration)
+  // DISPATCH ONLINE ORDER TO CAPTAIN / RIDER (Direct In-Portal)
   // ─────────────────────────────────────────────────────────────
-  const handleDispatchRider = async (
+  const handleAssignToCaptain = async (
     order: OnlineOrderTicket,
-    riderName: string,
-    riderPhone: string
+    captainName: string,
+    captainPhone: string = "",
+    sendWhatsApp: boolean = false
   ) => {
-    if (!riderName.trim()) {
-      alert("Please enter rider name.");
+    if (!captainName.trim()) {
+      alert("Please select or enter captain name.");
       return;
     }
 
     setIsDispatchingRider(true);
     try {
-      // 1. Record dispatch in backend
-      await fetch("/api/delivery/dispatch", {
+      // 1. Record dispatch in backend (with permanent note update)
+      const res = await fetch("/api/delivery/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "dispatch_rider",
           orderId: order.id,
-          riderName: riderName.trim(),
-          riderPhone: riderPhone.trim(),
+          riderName: captainName.trim(),
+          riderPhone: captainPhone.trim(),
         }),
       });
 
-      // 2. Build pre-formatted WhatsApp briefing
-      const cleanPhone = riderPhone.replace(/[^0-9]/g, "");
-      const itemsList = order.items.map((it) => `• ${it.qty}x ${it.name}`).join("\n");
-      const navLink = order.customerCoords
-        ? `https://www.google.com/maps/dir/?api=1&destination=${order.customerCoords.lat},${order.customerCoords.lng}`
-        : order.deliveryAddress
-        ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.deliveryAddress)}`
-        : "";
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to assign captain");
+      }
 
-      const whatsappText = `🛵 *DELIVERY DISPATCH — ${restaurantName}*\n` +
-        `━━━━━━━━━━━━━━━━━\n` +
-        `🧾 *Order*: ${order.orderNumber}\n` +
-        `👤 *Customer*: ${order.customerName}\n` +
-        `📞 *Customer Phone*: ${order.customerPhone || "N/A"}\n` +
-        `📍 *Delivery Address*: ${order.deliveryAddress || "N/A"}\n` +
-        (navLink ? `🗺️ *GPS Navigation*: ${navLink}\n` : "") +
-        `━━━━━━━━━━━━━━━━━\n` +
-        `🍲 *Food Items*:\n${itemsList}\n` +
-        `━━━━━━━━━━━━━━━━━\n` +
-        `💰 *Bill Total*: ₹${order.totalAmount} (${order.paymentStatus === "paid" ? "✅ Paid Online (Do Not Collect)" : "💵 Collect Cash on Delivery"})\n` +
-        `━━━━━━━━━━━━━━━━━\n` +
-        `_Please pick up order and deliver safely!_`;
+      // 2. Optional WhatsApp integration only if user chose sendWhatsApp
+      if (sendWhatsApp) {
+        const cleanPhone = captainPhone.replace(/[^0-9]/g, "");
+        const itemsList = order.items.map((it) => `• ${it.qty}x ${it.name}`).join("\n");
+        const navLink = order.customerCoords
+          ? `https://www.google.com/maps/dir/?api=1&destination=${order.customerCoords.lat},${order.customerCoords.lng}`
+          : order.deliveryAddress
+          ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.deliveryAddress)}`
+          : "";
 
-      const waUrl = cleanPhone
-        ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(whatsappText)}`
-        : `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+        const whatsappText = `🛵 *DELIVERY DISPATCH — ${restaurantName}*\n` +
+          `━━━━━━━━━━━━━━━━━\n` +
+          `🧾 *Order*: ${order.orderNumber}\n` +
+          `👤 *Customer*: ${order.customerName}\n` +
+          `📞 *Customer Phone*: ${order.customerPhone || "N/A"}\n` +
+          `📍 *Delivery Address*: ${order.deliveryAddress || "N/A"}\n` +
+          (navLink ? `🗺️ *GPS Navigation*: ${navLink}\n` : "") +
+          `━━━━━━━━━━━━━━━━━\n` +
+          `🍲 *Food Items*:\n${itemsList}\n` +
+          `━━━━━━━━━━━━━━━━━\n` +
+          `💰 *Bill Total*: ₹${order.totalAmount} (${order.paymentStatus === "paid" ? "✅ Paid Online (Do Not Collect)" : "💵 Collect Cash on Delivery"})\n` +
+          `━━━━━━━━━━━━━━━━━\n` +
+          `_Please pick up order and deliver safely!_`;
 
-      window.open(waUrl, "_blank");
+        const waUrl = cleanPhone
+          ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(whatsappText)}`
+          : `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+
+        window.open(waUrl, "_blank");
+      }
 
       setDispatchModalOrder(null);
       await fetchDashboardData(true);
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([20, 40, 20]);
+      }
     } catch (err: any) {
-      alert(err.message || "Failed to dispatch rider.");
+      alert(err.message || "Failed to assign captain.");
     } finally {
       setIsDispatchingRider(false);
     }
   };
+
+  const handleDispatchRider = handleAssignToCaptain;
 
   // ─────────────────────────────────────────────────────────────
   // CANCEL ORDER (Staff Action with Reason)
@@ -1618,16 +1642,16 @@ export default function WaiterPortalPage() {
                             </span>
                           </div>
 
-                          {/* Rider Dispatch Control for Home Delivery */}
+                          {/* Captain / Rider Dispatch Control for Home Delivery */}
                           {ord.type === "delivery" && (
                             <div className="pt-2 border-t border-slate-800/80">
                               {ord.dispatch?.riderName ? (
                                 <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
                                   <div className="flex items-center gap-2 min-w-0 text-xs">
-                                    <span className="text-base">🛵</span>
+                                    <span className="text-base">👨‍💼</span>
                                     <div className="min-w-0">
                                       <span className="text-[10px] text-emerald-400 font-bold uppercase block font-mono">
-                                        Assigned Rider
+                                        Assigned Captain (Portal)
                                       </span>
                                       <span className="text-white font-bold truncate block">
                                         {ord.dispatch.riderName}{" "}
@@ -1635,31 +1659,43 @@ export default function WaiterPortalPage() {
                                       </span>
                                     </div>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setDispatchModalOrder(ord);
-                                      setRiderNameInput(ord.dispatch?.riderName || "");
-                                      setRiderPhoneInput(ord.dispatch?.riderPhone || "");
-                                    }}
-                                    className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                                  >
-                                    <i className="fa-brands fa-whatsapp text-xs" />
-                                    <span>Resend</span>
-                                  </button>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDispatchModalOrder(ord);
+                                        setRiderNameInput(ord.dispatch?.riderName || "");
+                                        setRiderPhoneInput(ord.dispatch?.riderPhone || "");
+                                      }}
+                                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-slate-700"
+                                    >
+                                      <i className="fa-solid fa-arrows-rotate text-xs text-amber-400" />
+                                      <span>Re-assign</span>
+                                    </button>
+                                    {ord.dispatch?.riderPhone && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAssignToCaptain(ord, ord.dispatch?.riderName || "", ord.dispatch?.riderPhone || "", true)}
+                                        className="p-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-xs cursor-pointer transition-colors"
+                                        title="Share on WhatsApp"
+                                      >
+                                        <i className="fa-brands fa-whatsapp text-sm" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setDispatchModalOrder(ord);
-                                    setRiderNameInput("");
+                                    setRiderNameInput(staffUser?.name || "");
                                     setRiderPhoneInput("");
                                   }}
                                   className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                                 >
-                                  <i className="fa-brands fa-whatsapp text-base text-emerald-200" />
-                                  <span>Assign & WhatsApp Delivery Rider</span>
+                                  <i className="fa-solid fa-user-check text-base text-emerald-200" />
+                                  <span>Assign to Active Captain (Portal)</span>
                                 </button>
                               )}
                             </div>
@@ -2250,19 +2286,19 @@ export default function WaiterPortalPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          10. RIDER WHATSAPP DISPATCH MODAL
+          10. DIRECT IN-PORTAL CAPTAIN ASSIGNMENT MODAL
          ───────────────────────────────────────────────────────────── */}
       {dispatchModalOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 text-left shadow-2xl space-y-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 text-left shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <span className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
-                  🛵
+                  👨‍💼
                 </span>
                 <div>
                   <h3 className="text-sm font-black text-white">
-                    Dispatch to Delivery Rider
+                    Assign to Active Captain (Portal)
                   </h3>
                   <p className="text-[11px] text-slate-400 font-mono">
                     Order #{dispatchModalOrder.orderNumber} · {dispatchModalOrder.customerName}
@@ -2278,63 +2314,107 @@ export default function WaiterPortalPage() {
               </button>
             </div>
 
-            {/* Quick Select Saved Rider */}
+            {/* Active Captains & Staff on Duty */}
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1.5">
-                Quick Select Saved Rider
+              <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1.5 flex items-center justify-between">
+                <span>Active Captains / Staff on Duty</span>
+                <span className="text-[10px] text-emerald-400 font-normal">1-Tap Direct Assign</span>
               </label>
-              <div className="flex flex-wrap gap-1.5">
-                {savedRiders.map((r) => (
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Current logged-in user option */}
+                {staffUser && (
                   <button
-                    key={r.id}
                     type="button"
                     onClick={() => {
-                      setRiderNameInput(r.name);
-                      if (r.phone) setRiderPhoneInput(r.phone);
+                      setRiderNameInput(staffUser.name);
+                      handleAssignToCaptain(dispatchModalOrder, staffUser.name, "", false);
                     }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                      riderNameInput === r.name
-                        ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm"
-                        : "bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800"
+                    className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                      riderNameInput === staffUser.name
+                        ? "bg-emerald-500/15 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500/40"
+                        : "bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700"
                     }`}
                   >
-                    🛵 {r.name}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">⚡</span>
+                        <span className="text-xs font-bold truncate">{staffUser.name}</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-400 block font-mono">
+                        (You · {staffUser.role.toUpperCase()})
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 shrink-0">
+                      Assign
+                    </span>
                   </button>
-                ))}
+                )}
+
+                {/* Other active captains & staff */}
+                {activeCaptains
+                  .filter((c) => c.name !== staffUser?.name)
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setRiderNameInput(c.name);
+                        if (c.phone) setRiderPhoneInput(c.phone);
+                        handleAssignToCaptain(dispatchModalOrder, c.name, c.phone || "", false);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                        riderNameInput === c.name
+                          ? "bg-emerald-500/15 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500/40"
+                          : "bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">{c.role === "rider" ? "🛵" : "👨‍💼"}</span>
+                          <span className="text-xs font-bold truncate">{c.name}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block font-mono uppercase">
+                          {c.role}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 shrink-0">
+                        Assign
+                      </span>
+                    </button>
+                  ))}
               </div>
             </div>
 
-            {/* Rider Inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1">
-                  Rider Name <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Rahul Rider"
-                  value={riderNameInput}
-                  onChange={(e) => setRiderNameInput(e.target.value)}
-                  className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-hidden focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1">
-                  WhatsApp Number
-                </label>
-                <input
-                  type="tel"
-                  placeholder="e.g. 9876543210"
-                  value={riderPhoneInput}
-                  onChange={(e) => setRiderPhoneInput(e.target.value)}
-                  className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-hidden focus:border-emerald-500"
-                />
+            {/* Manual Entry Form */}
+            <div className="pt-2 border-t border-slate-800/80">
+              <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1.5">
+                Or Assign by Name
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Captain / Rider Name"
+                    value={riderNameInput}
+                    onChange={(e) => setRiderNameInput(e.target.value)}
+                    className="w-full text-xs font-semibold px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="tel"
+                    placeholder="Phone (Optional)"
+                    value={riderPhoneInput}
+                    onChange={(e) => setRiderPhoneInput(e.target.value)}
+                    className="w-full text-xs font-semibold px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Briefing Preview Card */}
-            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/90 text-xs space-y-1.5 font-sans">
+            {/* Order Briefing Preview */}
+            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/90 text-xs space-y-1 font-sans">
               <div className="flex justify-between text-slate-400 text-[11px]">
                 <span>Customer: <strong className="text-white">{dispatchModalOrder.customerName}</strong></span>
                 <span>Phone: <strong className="text-white">{dispatchModalOrder.customerPhone || "N/A"}</strong></span>
@@ -2346,32 +2426,36 @@ export default function WaiterPortalPage() {
               <div className="flex justify-between items-center pt-1 border-t border-slate-800 text-slate-400 text-[11px]">
                 <span>{dispatchModalOrder.items.length} Food items</span>
                 <span className="font-bold text-white">
-                  Amount: ₹{dispatchModalOrder.totalAmount} ({dispatchModalOrder.paymentStatus === "paid" ? "Paid" : "Collect Cash"})
+                  ₹{dispatchModalOrder.totalAmount} ({dispatchModalOrder.paymentStatus === "paid" ? "Paid Online" : "Collect Cash"})
                 </span>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setDispatchModalOrder(null)}
-                className="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
-              >
-                Close
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
                 disabled={isDispatchingRider || !riderNameInput.trim()}
-                onClick={() => handleDispatchRider(dispatchModalOrder, riderNameInput, riderPhoneInput)}
-                className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+                onClick={() => handleAssignToCaptain(dispatchModalOrder, riderNameInput, riderPhoneInput, false)}
+                className="py-3 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 disabled:opacity-50 text-slate-950 font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg"
               >
                 {isDispatchingRider ? (
                   <i className="fa-solid fa-circle-notch fa-spin text-sm" />
                 ) : (
-                  <i className="fa-brands fa-whatsapp text-base text-emerald-200" />
+                  <i className="fa-solid fa-user-check text-sm" />
                 )}
-                <span>Send on WhatsApp</span>
+                <span>Assign in Portal (Live)</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isDispatchingRider || !riderNameInput.trim()}
+                onClick={() => handleAssignToCaptain(dispatchModalOrder, riderNameInput, riderPhoneInput, true)}
+                className="py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-98 disabled:opacity-50 text-emerald-400 font-bold text-xs border border-emerald-500/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                title="Also share full order details to WhatsApp"
+              >
+                <i className="fa-brands fa-whatsapp text-sm text-emerald-400" />
+                <span>WhatsApp (Optional)</span>
               </button>
             </div>
           </div>

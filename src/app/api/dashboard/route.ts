@@ -14,6 +14,7 @@ import {
   getRestaurantUpsellConfig,
   getActivePendingApprovals,
   getOrderDispatch,
+  getDeliveryRiders,
   DEFAULT_RESTAURANT_FEATURES,
   type RestaurantFeatures,
   type WaiterCallRequest,
@@ -136,8 +137,10 @@ function formatOnlineTicket(ord: any) {
   const allServed = rawItems.length > 0 && rawItems.every((it) => it.item_status === "served");
   const anyPreparing = rawItems.some((it) => it.item_status === "preparing");
   const defaultStage = allServed ? "ready" : anyPreparing ? "preparing" : "received";
+  const isNotesDispatched = notes?.includes("[DISPATCH:dispatched]");
   const dispatch = getOrderDispatch(ord.id);
-  const stage = dispatch?.stage === "dispatched" ? "dispatched" : defaultStage;
+  const resolvedDispatch = dispatch || (isNotesDispatched ? { orderId: ord.id, stage: "dispatched" as const } : null);
+  const stage = dispatch?.stage === "dispatched" || isNotesDispatched ? "dispatched" : defaultStage;
 
   return {
     id: ord.id,
@@ -154,7 +157,7 @@ function formatOnlineTicket(ord: any) {
     totalAmount,
     paymentMode: bill?.payment_mode || "cash",
     paymentStatus: bill?.payment_status || (ord.status === "closed" ? "paid" : "unpaid"),
-    dispatch: dispatch || null,
+    dispatch: resolvedDispatch,
     items: rawItems.map((it) => ({
       name: it.menu_items?.name || "Dish",
       qty: it.qty,
@@ -330,6 +333,7 @@ export async function GET() {
         role: "owner",
         isGhostMode: true,
       },
+      activeCaptains: getDeliveryRiders(targetRestoId).map((r: any) => ({ id: r.id, name: r.name, role: "rider", phone: r.phone || "" })),
       tables,
       openOrders: openOrders.map((o) => ({ ...o, prepEstimate: getOrderPrepTime(o.id) })),
       onlineOrders: {
@@ -629,6 +633,24 @@ export async function GET() {
     })
     .map(formatOnlineTicket);
 
+  const activeStaffQuery = await admin
+    .from("staff_users")
+    .select("id, name, role")
+    .eq("restaurant_id", restaurantResult.data?.id || targetRestoId)
+    .eq("is_active", true);
+
+  const savedRidersList = (restaurantResult.data?.id || targetRestoId)
+    ? getDeliveryRiders(restaurantResult.data?.id || targetRestoId)
+    : [];
+
+  const activeCaptains = [
+    ...(userProfile ? [{ id: userProfile.id, name: userProfile.name, role: userProfile.role || "captain", phone: "" }] : []),
+    ...(activeStaffQuery.data || [])
+      .filter((s) => s.id !== userProfile?.id)
+      .map((s) => ({ id: s.id, name: s.name, role: s.role, phone: "" })),
+    ...savedRidersList.map((r: any) => ({ id: r.id, name: r.name, role: "rider", phone: r.phone || "" })),
+  ];
+
   return NextResponse.json({
     ok: true,
     authenticated: true,
@@ -638,6 +660,7 @@ export async function GET() {
     broadcast: broadcast?.active ? broadcast : null,
     restaurant: restaurantResult.data,
     user: userProfile,
+    activeCaptains,
     tables: tables.filter((t) => !t.table_number.includes("DEL-") && !t.table_number.includes("PU-")),
     openOrders: openOrders
       .filter((o: any) => {

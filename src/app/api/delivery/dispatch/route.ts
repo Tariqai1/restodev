@@ -54,6 +54,29 @@ export async function POST(req: NextRequest) {
         stage: "dispatched",
       });
 
+      // Also persist in Supabase order_items notes as durable fallback
+      try {
+        const { data: items } = await admin
+          .from("order_items")
+          .select("id, notes")
+          .eq("order_id", orderId)
+          .limit(1);
+
+        if (items && items.length > 0) {
+          const currentNotes = items[0].notes || "";
+          if (!currentNotes.includes("[DISPATCH:dispatched]")) {
+            await admin
+              .from("order_items")
+              .update({
+                notes: `${currentNotes} [DISPATCH:dispatched]`.trim(),
+              })
+              .eq("id", items[0].id);
+          }
+        }
+      } catch (e) {
+        console.warn("[delivery/dispatch] Failed to save dispatch stage in notes:", e);
+      }
+
       return NextResponse.json({
         ok: true,
         message: `Order successfully dispatched to ${riderName.trim()}.`,
