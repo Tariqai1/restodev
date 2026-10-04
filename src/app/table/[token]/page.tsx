@@ -1385,7 +1385,7 @@ export default function CustomerTableOrderingPage({
       {/* Small Offer Banner */}
       {features.loyaltyOffers !== false && offerConfig.active && !isOfferDismissed && (
         <div className="mx-4 mt-2 px-3 py-2 rounded-lg border flex items-center justify-between" style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
-          <span className="text-xs font-semibold text-amber-900 truncate">
+          <span className="text-xs font-semibold text-amber-900 leading-snug pr-2">
             🔥 {offerConfig.bannerText || `FLAT ${offerConfig.discountPercent}% OFF on orders above ₹${offerConfig.minOrderValue}`}
           </span>
           <button type="button" onClick={() => setIsOfferDismissed(true)} className="text-stone-400 hover:text-stone-600 text-xs ml-2 cursor-pointer shrink-0">✕</button>

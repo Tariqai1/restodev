@@ -160,28 +160,35 @@ export default function TableWelcomeScreen({
       </div>
 
       {/* First-Scan Welcome Offer Card */}
-      {offerConfig && offerConfig.active && (
-        <div
-          className="my-auto p-3.5 rounded-xl border bg-amber-50/80 border-amber-200/80 flex items-center justify-between shadow-xs select-none"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0 text-sm">
-              <i className="fa-solid fa-tag" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-stone-900 truncate">
-                {offerConfig.bannerText || `FLAT ${offerConfig.discountPercent}% OFF Today`}
+      {offerConfig && offerConfig.active && (() => {
+        const rawBanner = offerConfig.bannerText || "";
+        const parts = rawBanner.split("·");
+        const offerHeadline = parts[0]?.trim() || `FLAT ${offerConfig.discountPercent}% OFF TODAY`;
+        const offerSubtext = parts[1]?.trim() || `Auto-applied on orders above ₹${offerConfig.minOrderValue}`;
+
+        return (
+          <div
+            className="my-auto p-3.5 rounded-xl border bg-amber-50/80 border-amber-200/80 flex items-center justify-between shadow-xs select-none gap-2.5"
+          >
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0 text-sm">
+                <i className="fa-solid fa-tag" />
               </div>
-              <div className="text-[10px] text-stone-500 font-medium leading-tight truncate">
-                Available on orders above ₹{offerConfig.minOrderValue}
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-stone-900 leading-snug">
+                  {offerHeadline}
+                </div>
+                <div className="text-[10px] text-amber-900/80 font-medium leading-tight mt-0.5">
+                  {offerSubtext}
+                </div>
               </div>
             </div>
+            <span className="px-2.5 py-1 rounded-md bg-amber-500 text-stone-900 font-bold text-[10px] tracking-wider uppercase shrink-0">
+              Available
+            </span>
           </div>
-          <span className="px-2.5 py-1 rounded-md bg-amber-500 text-stone-900 font-bold text-[10px] tracking-wider uppercase shrink-0">
-            Available
-          </span>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 3-Column Feature Grid */}
       <div className="grid grid-cols-3 gap-2 my-auto">
