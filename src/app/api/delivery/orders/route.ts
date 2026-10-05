@@ -267,12 +267,32 @@ export async function POST(req: NextRequest) {
 
     if (action === "complete_delivery") {
       const dispatch = getOrderDispatch(orderId);
-      const expectedCode = dispatch?.verificationCode;
+      let expectedCode = dispatch?.verificationCode;
+
+      if (!expectedCode) {
+        // Fallback to durable notes in Supabase
+        const { data: itemWithPin } = await admin
+          .from("order_items")
+          .select("notes")
+          .eq("order_id", orderId)
+          .limit(1)
+          .maybeSingle();
+
+        const pinMatch = itemWithPin?.notes?.match(/PIN:\s*(\d{4})/);
+        if (pinMatch) {
+          expectedCode = pinMatch[1];
+        } else {
+          const hashNum = Math.abs(
+            orderId.split("").reduce((acc: number, char: string) => acc * 31 + char.charCodeAt(0), 0)
+          );
+          expectedCode = String(1000 + (hashNum % 9000));
+        }
+      }
 
       // 4-Digit In-App Verification Validation
-      if (!bypassReason && expectedCode) {
+      if (!bypassReason) {
         const cleanEntered = String(enteredPin || "").trim();
-        if (cleanEntered !== String(expectedCode).trim()) {
+        if (!cleanEntered || cleanEntered !== String(expectedCode).trim()) {
           return NextResponse.json(
             { message: "Galat 4-digit code! Customer se screen par dikh raha PIN confirm karein." },
             { status: 400 }
