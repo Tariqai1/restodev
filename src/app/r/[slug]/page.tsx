@@ -18,6 +18,7 @@ interface MenuItem {
   is_bestseller?: boolean;
   has_half_portion: boolean;
   half_price: number;
+  is_available?: boolean;
 }
 
 interface Category {
@@ -168,6 +169,12 @@ export default function OnlineOrderingPage({
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
   const [customerCancelReason, setCustomerCancelReason] = useState("Placed by mistake");
   const [orderCancelledNotice, setOrderCancelledNotice] = useState<string | null>(null);
+
+  // 1-Tap Repeat Order & Customer Favorites state
+  const [lastOrder, setLastOrder] = useState<PlacedOrderSummary | null>(null);
+  const [showRepeatBanner, setShowRepeatBanner] = useState(true);
+  const [favoriteDishIds, setFavoriteDishIds] = useState<string[]>([]);
+  const [repeatToast, setRepeatToast] = useState<string | null>(null);
 
   // Dish Tap-to-View HD Sheet state
   const [selectedPreviewDish, setSelectedPreviewDish] = useState<MenuItem | null>(null);
@@ -320,6 +327,32 @@ export default function OnlineOrderingPage({
           } catch {
             // ignore
           }
+
+          // Persistent Last Order for 1-Tap Reorder (persists across days)
+          try {
+            const savedLast = localStorage.getItem(`od_last_order_${data.restaurant.id}`);
+            if (savedLast) {
+              const parsedLast = JSON.parse(savedLast);
+              if (parsedLast && Array.isArray(parsedLast.items) && parsedLast.items.length > 0) {
+                setLastOrder(parsedLast);
+              }
+            }
+          } catch {
+            // ignore
+          }
+
+          // Customer Saved Favorites
+          try {
+            const savedFavs = localStorage.getItem(`od_favorites_${data.restaurant.id}`);
+            if (savedFavs) {
+              const parsedFavs = JSON.parse(savedFavs);
+              if (Array.isArray(parsedFavs)) {
+                setFavoriteDishIds(parsedFavs);
+              }
+            }
+          } catch {
+            // ignore
+          }
         }
       } catch (err: any) {
         setErrorMessage(err.message || "Unable to reach store");
@@ -404,11 +437,65 @@ export default function OnlineOrderingPage({
   const taxAmount = Math.round(subtotal * 0.05 * 100) / 100;
   const grandTotal = Math.round((subtotal + taxAmount + deliveryFee) * 100) / 100;
 
+  // Toggle Customer Favorite Dish
+  const toggleFavorite = (dishId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavoriteDishIds((prev) => {
+      const next = prev.includes(dishId)
+        ? prev.filter((id) => id !== dishId)
+        : [...prev, dishId];
+      if (typeof window !== "undefined" && restaurant?.id) {
+        localStorage.setItem(`od_favorites_${restaurant.id}`, JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  // 1-Tap Repeat Order Handler
+  const handleRepeatOrder = () => {
+    if (!lastOrder || !lastOrder.items || lastOrder.items.length === 0) return;
+
+    const newCart: Record<string, CartItem> = { ...cart };
+    let addedCount = 0;
+
+    for (const item of lastOrder.items) {
+      const matchingDish = menuItems.find(
+        (m) => m.name.toLowerCase().trim() === item.name.toLowerCase().trim()
+      );
+      if (matchingDish && matchingDish.is_available !== false) {
+        const portion = item.portion === "half" && matchingDish.has_half_portion ? "half" : "full";
+        const key = `${matchingDish.id}:${portion}`;
+        const existing = newCart[key];
+        newCart[key] = {
+          menuItemId: matchingDish.id,
+          dish: matchingDish,
+          portion,
+          qty: (existing?.qty || 0) + (item.qty || 1),
+        };
+        addedCount += item.qty || 1;
+      }
+    }
+
+    if (addedCount > 0) {
+      setCart(newCart);
+      setIsCheckoutOpen(true);
+      setRepeatToast(`Added ${addedCount} item(s) from your previous meal!`);
+      setTimeout(() => setRepeatToast(null), 4000);
+    } else {
+      setRepeatToast("The items from your previous order are currently unavailable.");
+      setTimeout(() => setRepeatToast(null), 4000);
+    }
+  };
+
   // Filtered dishes
   const filteredDishes = useMemo(() => {
     return menuItems.filter((dish) => {
       if (vegOnly && !dish.is_veg) return false;
-      if (selectedCategory !== "all" && dish.category_id !== selectedCategory) return false;
+      if (selectedCategory === "favorites") {
+        if (!favoriteDishIds.includes(dish.id)) return false;
+      } else if (selectedCategory !== "all" && dish.category_id !== selectedCategory) {
+        return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const nameMatch = dish.name.toLowerCase().includes(q);
@@ -417,7 +504,7 @@ export default function OnlineOrderingPage({
       }
       return true;
     });
-  }, [menuItems, vegOnly, selectedCategory, searchQuery]);
+  }, [menuItems, vegOnly, selectedCategory, favoriteDishIds, searchQuery]);
 
   // Handle Checkout submission
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -508,10 +595,12 @@ export default function OnlineOrderingPage({
 
       setPlacedOrder(summary);
       setRecentOrder(summary);
+      setLastOrder(summary);
 
-      // Persist in localStorage for customer order tracking
+      // Persist in localStorage for customer order tracking & 1-tap reordering
       if (typeof window !== "undefined" && restaurant?.id) {
         localStorage.setItem(`od_online_order_${restaurant.id}`, JSON.stringify(summary));
+        localStorage.setItem(`od_last_order_${restaurant.id}`, JSON.stringify(summary));
       }
 
       setCart({});
@@ -977,8 +1066,87 @@ export default function OnlineOrderingPage({
         )}
       </header>
 
+      {/* Repeat Order Toast Notification */}
+      {repeatToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-stone-900/95 border border-amber-500/50 text-white text-xs font-semibold shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 backdrop-blur-md">
+          <span className="text-amber-400">⚡</span>
+          <span>{repeatToast}</span>
+        </div>
+      )}
+
       {/* Main Content Container */}
       <main className="max-w-3xl mx-auto w-full px-3.5 sm:px-5 pt-4 space-y-4">
+
+        {/* 1-Tap Repeat Order Banner (Swiggy / Zomato Style) */}
+        {lastOrder && showRepeatBanner && lastOrder.items?.length > 0 && (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-950/40 via-stone-900 to-amber-950/30 border border-amber-500/30 p-3.5 sm:p-4 shadow-lg animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-start justify-between gap-3 mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs shrink-0">
+                  <i className="fa-solid fa-clock-rotate-left" />
+                </span>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 leading-tight">
+                    <span>Order Again?</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-normal">
+                      Last meal
+                    </span>
+                  </h4>
+                  <p className="text-[10px] sm:text-[11px] text-stone-400 mt-0.5">
+                    Reorder your previous meal in just 1 tap
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRepeatBanner(false)}
+                className="w-6 h-6 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 flex items-center justify-center text-xs transition-colors cursor-pointer shrink-0"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chips of items from last order */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {lastOrder.items.slice(0, 4).map((it, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-950/80 border border-stone-800 text-[11px] font-medium text-stone-200"
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      it.is_veg ? "bg-emerald-400" : "bg-rose-500"
+                    }`}
+                  />
+                  <span>
+                    {it.qty}× {it.name}
+                  </span>
+                </span>
+              ))}
+              {lastOrder.items.length > 4 && (
+                <span className="inline-flex items-center px-2 py-1 rounded-lg bg-stone-950/50 text-[10px] text-stone-400 font-medium">
+                  +{lastOrder.items.length - 4} more
+                </span>
+              )}
+            </div>
+
+            {/* Total & 1-Tap Action */}
+            <div className="flex items-center justify-between pt-2 border-t border-stone-800/80">
+              <span className="text-xs font-mono font-bold text-amber-400">
+                ₹{lastOrder.total} Total
+              </span>
+              <button
+                type="button"
+                onClick={handleRepeatOrder}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-stone-950 font-black text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+              >
+                <i className="fa-solid fa-bolt text-[11px]" />
+                <span>Reorder in 1-Tap</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Notice Banner */}
         {orderType === "delivery" && deliverySettings?.deliveryFee ? (
@@ -1021,42 +1189,68 @@ export default function OnlineOrderingPage({
         </div>
 
         {/* Categories Horizontal Bar */}
-        {categories.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("all")}
+            className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-colors cursor-pointer border ${
+              selectedCategory === "all"
+                ? themeStyles.pillActive
+                : "bg-stone-900 text-stone-400 border-stone-800 hover:border-stone-700"
+            }`}
+          >
+            All Dishes
+          </button>
+
+          {favoriteDishIds.length > 0 && (
             <button
               type="button"
-              onClick={() => setSelectedCategory("all")}
+              onClick={() => setSelectedCategory("favorites")}
+              className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-colors cursor-pointer border flex items-center gap-1.5 ${
+                selectedCategory === "favorites"
+                  ? "bg-rose-950/80 text-rose-300 border-rose-500 shadow-sm"
+                  : "bg-stone-900 text-stone-400 border-stone-800 hover:border-stone-700"
+              }`}
+            >
+              <i className="fa-solid fa-heart text-rose-500 text-[10px]" />
+              <span>Favorites ({favoriteDishIds.length})</span>
+            </button>
+          )}
+
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedCategory(c.id)}
               className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-colors cursor-pointer border ${
-                selectedCategory === "all"
+                selectedCategory === c.id
                   ? themeStyles.pillActive
                   : "bg-stone-900 text-stone-400 border-stone-800 hover:border-stone-700"
               }`}
             >
-              All Dishes
+              {c.name}
             </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setSelectedCategory(c.id)}
-                className={`px-3 py-1.5 rounded-xl font-bold shrink-0 transition-colors cursor-pointer border ${
-                  selectedCategory === c.id
-                    ? themeStyles.pillActive
-                    : "bg-stone-900 text-stone-400 border-stone-800 hover:border-stone-700"
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Dish List */}
         <div className="space-y-3">
           {filteredDishes.length === 0 ? (
             <div className="py-16 text-center text-xs text-stone-500 space-y-2">
-              <i className="fa-solid fa-utensils text-2xl block text-stone-600" />
-              <span>No dishes matching your selection</span>
+              {selectedCategory === "favorites" ? (
+                <>
+                  <i className="fa-solid fa-heart text-3xl block text-rose-500/50" />
+                  <span className="block font-semibold text-stone-300">No favorite dishes yet</span>
+                  <span className="text-[11px] text-stone-500 block">
+                    Tap the ❤️ heart icon on any dish to save your favorites!
+                  </span>
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-utensils text-2xl block text-stone-600" />
+                  <span>No dishes matching your selection</span>
+                </>
+              )}
             </div>
           ) : (
             filteredDishes.map((dish) => {
@@ -1153,6 +1347,25 @@ export default function OnlineOrderingPage({
                           <i className="fa-solid fa-bowl-food" />
                         </div>
                       )}
+
+                      {/* Customer Favorite Heart Toggle */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(dish.id, e);
+                        }}
+                        className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-xs flex items-center justify-center text-[10px] transition-transform active:scale-75 z-10 cursor-pointer shadow-xs border border-white/10"
+                        title={favoriteDishIds.includes(dish.id) ? "Remove from Favorites" : "Add to Favorites"}
+                      >
+                        <i
+                          className={`fa-heart ${
+                            favoriteDishIds.includes(dish.id)
+                              ? "fa-solid text-rose-500"
+                              : "fa-regular text-white/80"
+                          }`}
+                        />
+                      </button>
 
                       {/* Multi-Photo Count Badge */}
                       {hasMultiplePhotos && (
@@ -1783,6 +1996,26 @@ export default function OnlineOrderingPage({
 
                   {/* Gradient overlay for readability */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
+
+                  {/* Top Favorite Toggle Button (Glassmorphic) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(selectedPreviewDish.id);
+                    }}
+                    className="absolute top-3 right-12 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs font-bold cursor-pointer backdrop-blur-md transition-transform active:scale-90 z-20 border border-white/15 shadow-md"
+                    title={favoriteDishIds.includes(selectedPreviewDish.id) ? "Remove from Favorites" : "Add to Favorites"}
+                    aria-label="Favorite"
+                  >
+                    <i
+                      className={`fa-heart text-xs ${
+                        favoriteDishIds.includes(selectedPreviewDish.id)
+                          ? "fa-solid text-rose-500"
+                          : "fa-regular text-white"
+                      }`}
+                    />
+                  </button>
 
                   {/* Top Close Button (Glassmorphic) */}
                   <button
