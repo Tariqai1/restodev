@@ -62,7 +62,7 @@ export default function AdminDataTable<T extends Record<string, any>>({
   };
 
   // Sorting logic
-  let sortedData = [...data];
+  const sortedData = [...data];
   if (sortKey) {
     sortedData.sort((a, b) => {
       const valA = a[sortKey];

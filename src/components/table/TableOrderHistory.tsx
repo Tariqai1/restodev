@@ -70,12 +70,6 @@ export default function TableOrderHistory({
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchOrders();
-    }
-  }, [isOpen, token]);
-
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
@@ -90,6 +84,12 @@ export default function TableOrderHistory({
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchOrders();
+    }
+  }, [isOpen, token]);
 
   const handleClose = () => {
     triggerHaptic();

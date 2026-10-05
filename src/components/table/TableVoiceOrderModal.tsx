@@ -25,19 +25,6 @@ export default function TableVoiceOrderModal({
   const [errorMsg, setErrorMsg] = useState("");
   const recognitionRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      setTranscript("");
-      setMatchedItems([]);
-      setSummaryMsg("");
-      setErrorMsg("");
-      startListening();
-    } else {
-      stopListening();
-    }
-    return () => stopListening();
-  }, [isOpen]);
-
   const startListening = () => {
     if (typeof window === "undefined") return;
 
@@ -97,6 +84,19 @@ export default function TableVoiceOrderModal({
     }
     setIsListening(false);
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      setTranscript("");
+      setMatchedItems([]);
+      setSummaryMsg("");
+      setErrorMsg("");
+      startListening();
+    } else {
+      stopListening();
+    }
+    return () => stopListening();
+  }, [isOpen]);
 
   const handleProcessOrder = async (textToProcess: string) => {
     const text = textToProcess.trim();

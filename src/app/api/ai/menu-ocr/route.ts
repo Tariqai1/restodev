@@ -49,7 +49,7 @@ function parseMenuTextHeuristically(text: string): MenuCategoryDraft[] {
     const priceMatch = line.match(/(?:₹|rs\.?|inr)?\s*(\d{2,4})\b/i);
     if (priceMatch) {
       const price = parseInt(priceMatch[1], 10);
-      let namePart = line
+      const namePart = line
         .replace(/(?:₹|rs\.?|inr)?\s*(\d{2,4})\b/i, "")
         .replace(/^[•\-\*\d\.\)\s]+/, "")
         .replace(/[\(\[\{].*?[\)\]\}]/g, "") // remove parenthetical remarks

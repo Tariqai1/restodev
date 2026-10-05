@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       updatedTheme = setRestaurantTheme(staffContext.restaurantId, theme);
     }
 
-    let currentBranding = (meta.branding as RestaurantBrandingConfig) || getRestaurantBranding(staffContext.restaurantId);
+    const currentBranding = (meta.branding as RestaurantBrandingConfig) || getRestaurantBranding(staffContext.restaurantId);
     let updatedBranding = currentBranding;
     if (branding && typeof branding === "object") {
       updatedBranding = {
