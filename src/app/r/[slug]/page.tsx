@@ -77,6 +77,49 @@ interface PlacedOrderSummary {
   placedAt: string;
 }
 
+function getWhatsAppBillUrl(
+  order: PlacedOrderSummary,
+  restaurantName: string,
+  slug: string
+): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://orderdesk.app";
+  const trackingUrl = `${origin}/r/${slug}?track=${encodeURIComponent(order.orderNumber)}`;
+
+  const itemsList = (order.items || [])
+    .map((it) => `• ${it.qty}× ${it.name} ${it.portion === "half" ? "(Half)" : ""} - ₹${it.price * it.qty}`)
+    .join("\n");
+
+  const pinText = order.verificationCode ? `\n🔐 *Doorstep Handover PIN:* ${order.verificationCode}` : "";
+  const addressText = order.deliveryAddress ? `\n📍 *Delivery Address:* ${order.deliveryAddress}` : "";
+
+  const text = `🧾 *${restaurantName} — Order Confirmed!*
+━━━━━━━━━━━━━━━━━━━━
+*Order ID:* #${order.orderNumber}
+*Customer:* ${order.customerName}
+*Order Type:* ${order.orderType.toUpperCase()}
+${pinText}${addressText}
+
+🍽️ *Items Ordered:*
+${itemsList}
+
+💰 *Bill Summary:*
+• Subtotal: ₹${order.subtotal}
+${order.deliveryFee > 0 ? `• Delivery Fee: ₹${order.deliveryFee}\n` : ""}• GST (5%): ₹${order.taxAmount}
+*Total Amount:* ₹${order.total}
+
+🛵 *Live Order Tracker & Digital Invoice:*
+👉 ${trackingUrl}
+━━━━━━━━━━━━━━━━━━━━
+_Thank you for ordering with ${restaurantName}!_`;
+
+  const cleanPhone = (order.customerPhone || "").replace(/\D/g, "");
+  const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+
+  return fullPhone
+    ? `https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`
+    : `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
 export default function OnlineOrderingPage({
   params,
 }: {
@@ -287,6 +330,23 @@ export default function OnlineOrderingPage({
 
     if (slug) {
       loadStorefront();
+    }
+
+    // Auto-open live tracking if opened from WhatsApp link (?track=ORD-9401)
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const trackParam = searchParams.get("track") || searchParams.get("order");
+      if (trackParam) {
+        fetch(`/api/public/online-order?orderNumber=${encodeURIComponent(trackParam)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.ok && data.order) {
+              setRecentOrder(data.order);
+              setIsTrackOrderOpen(true);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, [slug]);
 
@@ -590,6 +650,26 @@ export default function OnlineOrderingPage({
               </p>
             </div>
           )}
+
+          {/* WhatsApp Automated Digital Bill & Live Tracker Card (Zero SMS Fees) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-emerald-900/40 to-emerald-950/80 border border-emerald-500/40 text-center space-y-2 shadow-lg">
+            <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs uppercase tracking-wider font-mono">
+              <i className="fa-brands fa-whatsapp text-lg text-emerald-400" />
+              <span>WhatsApp Digital Bill &amp; Live Tracker</span>
+            </div>
+            <p className="text-[11px] text-stone-300 leading-relaxed">
+              Get your complete invoice &amp; live GPS delivery tracker sent directly to your WhatsApp:
+            </p>
+            <a
+              href={getWhatsAppBillUrl(placedOrder, restaurant?.name || "Our Restaurant", slug)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+            >
+              <i className="fa-brands fa-whatsapp text-base" />
+              <span>Send / Save Bill to WhatsApp (100% Free)</span>
+            </a>
+          </div>
 
           {/* Kitchen Timeline Tracker */}
           <div className="p-3.5 rounded-2xl bg-stone-950/70 border border-stone-800/80">
@@ -1612,13 +1692,24 @@ export default function OnlineOrderingPage({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsTrackOrderOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs cursor-pointer mt-1"
-            >
-              Close
-            </button>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <a
+                href={getWhatsAppBillUrl(recentOrder, restaurant?.name || "Our Restaurant", slug)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+              >
+                <i className="fa-brands fa-whatsapp text-sm" />
+                <span>Share Bill</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setIsTrackOrderOpen(false)}
+                className="py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 active:scale-95 text-stone-200 font-bold text-xs cursor-pointer transition-all"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

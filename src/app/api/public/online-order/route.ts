@@ -389,3 +389,144 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: err?.message || "Internal server error" }, { status: 500 });
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// GET: Public Online Order Lookup for Live Tracking & WhatsApp Invoice
+// ─────────────────────────────────────────────────────────────
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const orderNumber = searchParams.get("orderNumber")?.trim();
+    const orderId = searchParams.get("orderId")?.trim();
+
+    if (!orderNumber && !orderId) {
+      return NextResponse.json({ message: "orderNumber or orderId is required" }, { status: 400 });
+    }
+
+    const admin = createAdminClient();
+
+    let query = admin
+      .from("orders")
+      .select(`
+        id,
+        status,
+        opened_at,
+        closed_at,
+        restaurant_tables (id, table_number),
+        bills (id, bill_number, subtotal, tax_amount, total, payment_mode, payment_status),
+        order_items (
+          id,
+          menu_item_id,
+          qty,
+          unit_price,
+          notes,
+          item_status,
+          menu_items (name, is_veg)
+        )
+      `);
+
+    if (orderId) {
+      query = query.eq("id", orderId);
+    } else if (orderNumber) {
+      const { data: matchedBill } = await admin
+        .from("bills")
+        .select("order_id")
+        .eq("bill_number", orderNumber)
+        .limit(1)
+        .maybeSingle();
+
+      if (matchedBill?.order_id) {
+        query = query.eq("id", matchedBill.order_id);
+      } else {
+        const { data: matchedTable } = await admin
+          .from("restaurant_tables")
+          .select("id")
+          .eq("table_number", orderNumber)
+          .limit(1)
+          .maybeSingle();
+
+        if (matchedTable?.id) {
+          query = query.eq("table_id", matchedTable.id);
+        } else {
+          return NextResponse.json({ message: "Order not found" }, { status: 404 });
+        }
+      }
+    }
+
+    const { data: orderData, error } = await query
+      .order("opened_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !orderData) {
+      return NextResponse.json({ message: "Order not found" }, { status: 404 });
+    }
+
+    const tblNumber = (orderData as any).restaurant_tables?.table_number || orderNumber || "DEL-0000";
+    const rawItems = orderData.order_items || [];
+    const billsArr = Array.isArray((orderData as any).bills)
+      ? (orderData as any).bills
+      : (orderData as any).bills
+      ? [(orderData as any).bills]
+      : [];
+    const bill = billsArr[0] || null;
+
+    // Parse customer details from notes
+    const firstNote = rawItems[0]?.notes || "";
+    let customerName = "Valued Customer";
+    let customerPhone = "";
+    let deliveryAddress = "";
+    let verificationCode = "";
+
+    const nameMatch = firstNote.match(
+      /\[(?:🛵 Delivery|🛍️ Pickup):\s*([^(\]]+)(?:\(([^)]+)\))?(?:\s*-\s*([^\]]+))?\]/
+    );
+    if (nameMatch) {
+      customerName = nameMatch[1]?.trim() || customerName;
+      customerPhone = nameMatch[2]?.trim() || "";
+      deliveryAddress = nameMatch[3]?.trim() || "";
+    }
+
+    const pinMatch = firstNote.match(/PIN:\s*(\d{4})/);
+    if (pinMatch) {
+      verificationCode = pinMatch[1];
+    }
+
+    const subtotal = bill
+      ? Number(bill.subtotal)
+      : rawItems.reduce((s: number, it: any) => s + (Number(it.unit_price) || 0) * (Number(it.qty) || 1), 0);
+    const taxAmount = bill ? Number(bill.tax_amount) : Math.round(subtotal * 0.05);
+    const total = bill ? Number(bill.total) : subtotal + taxAmount;
+    const orderType =
+      tblNumber.includes("PU-") || firstNote.includes("[🛍️ Pickup") ? "pickup" : "delivery";
+
+    return NextResponse.json({
+      ok: true,
+      order: {
+        orderId: orderData.id,
+        orderNumber: bill?.bill_number || tblNumber,
+        orderType,
+        customerName,
+        customerPhone,
+        deliveryAddress: deliveryAddress || null,
+        subtotal,
+        taxAmount,
+        deliveryFee: 0,
+        total,
+        estimatedPrepMinutes: 25,
+        verificationCode,
+        status: orderData.status,
+        placedAt: orderData.opened_at,
+        items: rawItems.map((it: any) => ({
+          name: it.menu_items?.name || "Dish",
+          portion: it.notes?.includes("(Half)") ? "half" : "full",
+          qty: it.qty,
+          price: Number(it.unit_price) || 0,
+          is_veg: Boolean(it.menu_items?.is_veg),
+        })),
+      },
+    });
+  } catch (err: any) {
+    return NextResponse.json({ message: err?.message || "Failed to fetch order" }, { status: 500 });
+  }
+}

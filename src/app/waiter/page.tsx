@@ -1549,15 +1549,38 @@ export default function WaiterPortalPage() {
                               <span className="font-extrabold text-white">
                                 {ord.customerName}
                               </span>
-                              {ord.customerPhone && (
-                                <a
-                                  href={`tel:${ord.customerPhone}`}
-                                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20"
-                                >
-                                  <i className="fa-solid fa-phone text-[9px]" />
-                                  <span>{ord.customerPhone}</span>
-                                </a>
-                              )}
+                              {ord.customerPhone && (() => {
+                                const clean = ord.customerPhone.replace(/\D/g, "");
+                                const ph = clean.length === 10 ? `91${clean}` : clean;
+                                const itemsSummary = (ord.items || [])
+                                  .map((it) => `• ${it.qty}× ${it.name} - ₹${it.price * it.qty}`)
+                                  .join("\n");
+                                const origin = typeof window !== "undefined" ? window.location.origin : "";
+                                const waMsg = `🧾 *Order #${ord.orderNumber} Confirmed!*\nCustomer: ${ord.customerName}\nTotal Bill: ₹${ord.totalAmount}\n\n🍽️ *Dishes:*\n${itemsSummary}\n\n🛵 *Track Live Order & Digital Bill:*\n${origin}/r/store?track=${encodeURIComponent(ord.orderNumber)}`;
+                                const waUrl = `https://wa.me/${ph}?text=${encodeURIComponent(waMsg)}`;
+                                return (
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <a
+                                      href={`tel:${ord.customerPhone}`}
+                                      className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 active:scale-95 transition-all"
+                                      title="Call Customer"
+                                    >
+                                      <i className="fa-solid fa-phone text-[9px]" />
+                                      <span>Call</span>
+                                    </a>
+                                    <a
+                                      href={waUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 active:scale-95 transition-all shadow-xs"
+                                      title="Send WhatsApp Bill & Live Tracking Link"
+                                    >
+                                      <i className="fa-brands fa-whatsapp text-xs text-emerald-400" />
+                                      <span>WhatsApp Bill</span>
+                                    </a>
+                                  </div>
+                                );
+                              })()}
                             </div>
                             {ord.type === "delivery" && ord.deliveryAddress && (
                               <div className="pt-1.5 flex items-center justify-between gap-2 border-t border-slate-900 mt-1">
