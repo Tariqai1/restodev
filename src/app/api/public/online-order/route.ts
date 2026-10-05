@@ -355,17 +355,23 @@ export async function POST(req: NextRequest) {
 
     await admin.from("order_items").insert(itemsToInsert);
 
-    // 8. Insert Initial Bill Record
-    const billNumber = `ORD-${newOrder.id.slice(-4).toUpperCase()}`;
-    await admin.from("bills").insert({
-      order_id: newOrder.id,
-      bill_number: billNumber,
-      subtotal,
-      tax_amount: taxAmount,
-      total: totalAmount,
-      payment_mode: paymentMode,
-      payment_status: "unpaid",
-    });
+    // 8. Insert Initial Bill Record (Postgres auto-assigns sequential bigint bill_number)
+    const { data: billRecord } = await admin
+      .from("bills")
+      .insert({
+        order_id: newOrder.id,
+        subtotal,
+        tax_amount: taxAmount,
+        total: totalAmount,
+        payment_mode: paymentMode,
+        payment_status: "unpaid",
+      })
+      .select("id, bill_number")
+      .maybeSingle();
+
+    const billNumber = billRecord?.bill_number
+      ? `ORD-${billRecord.bill_number}`
+      : `ORD-${newOrder.id.slice(-4).toUpperCase()}`;
 
     return NextResponse.json({
       ok: true,
