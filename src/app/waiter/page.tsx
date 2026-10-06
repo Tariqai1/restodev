@@ -746,8 +746,9 @@ export default function WaiterPortalPage() {
   // ─────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
+      await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
       const supabase = createClient();
-      await supabase.auth.signOut();
+      await supabase.auth.signOut().catch(() => {});
     } finally {
       router.push("/login");
       router.refresh();
@@ -968,14 +969,15 @@ export default function WaiterPortalPage() {
             <i className="fa-solid fa-rotate text-xs" />
           </button>
 
-          {/* Logout / Switch Staff */}
+          {/* Quick Lock / Switch Staff */}
           <button
             type="button"
             onClick={handleLogout}
-            className="w-9 h-9 rounded-xl border border-slate-750 bg-slate-800/80 hover:bg-rose-950/40 hover:border-rose-700 hover:text-rose-400 flex items-center justify-center text-slate-400 transition-colors cursor-pointer"
-            title="Switch Staff / Logout"
+            className="h-9 px-3 rounded-xl border border-amber-500/40 bg-amber-950/30 hover:bg-amber-900/50 hover:border-amber-400 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+            title="Lock screen or switch waiter"
           >
-            <i className="fa-solid fa-arrow-right-from-bracket text-xs" />
+            <i className="fa-solid fa-lock text-[11px]" />
+            <span className="hidden sm:inline">Switch / Lock</span>
           </button>
         </div>
       </header>

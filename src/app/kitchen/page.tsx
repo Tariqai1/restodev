@@ -766,6 +766,26 @@ export default function KitchenDisplayPage() {
                 }`}
               >
                 <div>
+                  {/* Top Critical Packaging Banner for Delivery & Takeaway */}
+                  {order.order_type === "delivery" && (
+                    <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white font-black text-[11px] px-3 py-1.5 flex items-center justify-between tracking-wide uppercase shadow-sm">
+                      <span className="flex items-center gap-1.5 animate-pulse">
+                        <i className="fa-solid fa-box-open text-xs" />
+                        <span>⚠️ DELIVERY — PACK IN CONTAINER (DO NOT PLATE)</span>
+                      </span>
+                      <span className="text-[9px] font-mono bg-black/40 px-1.5 py-0.5 rounded font-bold">PARCEL</span>
+                    </div>
+                  )}
+                  {order.order_type === "pickup" && (
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-[11px] px-3 py-1.5 flex items-center justify-between tracking-wide uppercase shadow-sm">
+                      <span className="flex items-center gap-1.5">
+                        <i className="fa-solid fa-bag-shopping text-xs" />
+                        <span>🛍️ TAKEAWAY / PICKUP — PACK IN PARCEL BAG</span>
+                      </span>
+                      <span className="text-[9px] font-mono bg-black/40 px-1.5 py-0.5 rounded font-bold">PICKUP</span>
+                    </div>
+                  )}
+
                   {/* Ticket Header: Table + Time Elapsed */}
                   <div className="p-3.5 border-b border-slate-800 bg-slate-950/70 flex items-start justify-between">
                     <div className="min-w-0 pr-2">

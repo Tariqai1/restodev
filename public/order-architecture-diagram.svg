@@ -1,0 +1,319 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 920" width="100%" height="100%" style="background-color: #0c0a09; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1917" />
+      <stop offset="100%" stop-color="#0c0a09" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312e81" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#065f46" />
+      <stop offset="100%" stop-color="#022c22" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#92400e" />
+      <stop offset="100%" stop-color="#451a03" />
+    </linearGradient>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0369a1" />
+      <stop offset="100%" stop-color="#082f49" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9f1239" />
+      <stop offset="100%" stop-color="#4c0519" />
+    </linearGradient>
+    <linearGradient id="goldAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#78716c" />
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444" />
+    </marker>
+
+    <!-- Drop Shadows -->
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1400" height="920" fill="url(#bgGlow)" />
+  <rect x="20" y="20" width="1360" height="880" rx="24" fill="none" stroke="#292524" stroke-width="1.5" />
+
+  <!-- ========================================== -->
+  <!-- HEADER BANNER                              -->
+  <!-- ========================================== -->
+  <g transform="translate(60, 50)">
+    <rect x="0" y="0" width="1280" height="90" rx="16" fill="#1c1917" stroke="#44403c" stroke-width="1" />
+    <circle cx="45" cy="45" r="22" fill="#f59e0b" />
+    <path d="M 37 45 L 43 51 L 54 39" fill="none" stroke="#1c1917" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+    
+    <text x="85" y="38" fill="#ffffff" font-size="20" font-weight="900" letter-spacing="-0.5">OrderDesk — Online Order &amp; Delivery Lifecycle Architecture</text>
+    <text x="85" y="62" fill="#a8a29e" font-size="13" font-weight="500">End-to-End Multi-Role Operational Flow: Customer ➔ Waiter ➔ Kitchen KDS ➔ Delivery Rider ➔ Doorstep PIN Security &amp; POS Settlement</text>
+    
+    <rect x="1110" y="28" width="145" height="34" rx="8" fill="#292524" stroke="#57534e" stroke-width="1" />
+    <circle cx="1126" cy="45" r="4" fill="#10b981" />
+    <text x="1138" y="49" fill="#10b981" font-size="11" font-weight="800" font-family="monospace">PRODUCTION READY</text>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- 5 STAGES HORIZONTAL LAYOUT                 -->
+  <!-- ========================================== -->
+
+  <!-- STAGE 1: CUSTOMER STOREFRONT -->
+  <g transform="translate(60, 165)" filter="url(#cardShadow)">
+    <rect width="240" height="520" rx="16" fill="url(#violetGrad)" stroke="#6366f1" stroke-width="2" />
+    <rect x="16" y="16" width="208" height="32" rx="8" fill="#4338ca" />
+    <text x="120" y="37" fill="#ffffff" font-size="12" font-weight="800" text-anchor="middle">1. CUSTOMER STORE</text>
+    <text x="120" y="66" fill="#a5b4fc" font-size="11" font-weight="700" text-anchor="middle">/r/[slug]</text>
+
+    <!-- Node 1A -->
+    <rect x="18" y="85" width="204" height="68" rx="10" fill="#18181b" stroke="#4f46e5" stroke-width="1" />
+    <text x="28" y="106" fill="#e0e7ff" font-size="12" font-weight="700">Browse &amp; Add Dishes</text>
+    <text x="28" y="124" fill="#94a3b8" font-size="10">1x Paneer Tikka (₹280)</text>
+    <text x="28" y="139" fill="#94a3b8" font-size="10">1x Malai Tikka (₹340)</text>
+
+    <!-- Node 1B -->
+    <rect x="18" y="168" width="204" height="68" rx="10" fill="#18181b" stroke="#4f46e5" stroke-width="1" />
+    <text x="28" y="189" fill="#e0e7ff" font-size="12" font-weight="700">Checkout Submission</text>
+    <text x="28" y="207" fill="#94a3b8" font-size="10">Address: Flat 402, Sector 14</text>
+    <text x="28" y="222" fill="#38bdf8" font-size="10" font-family="monospace">📍 GPS: 28.4595, 77.0266</text>
+
+    <!-- Node 1C -->
+    <rect x="18" y="251" width="204" height="68" rx="10" fill="#18181b" stroke="#4f46e5" stroke-width="1" />
+    <text x="28" y="272" fill="#e0e7ff" font-size="12" font-weight="700">API Dispatch</text>
+    <text x="28" y="290" fill="#34d399" font-size="10" font-family="monospace">POST /api/public/online-order</text>
+    <text x="28" y="305" fill="#a5b4fc" font-size="10">Creates Order &amp; Slot</text>
+
+    <!-- Node 1D: PIN Badge -->
+    <rect x="18" y="334" width="204" height="80" rx="10" fill="#0f172a" stroke="#f59e0b" stroke-width="1.5" />
+    <text x="120" y="354" fill="#fbbf24" font-size="11" font-weight="800" text-anchor="middle">🔐 DOORSTEP PIN: 7419</text>
+    <text x="120" y="372" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">Bill: #ORD-42 (₹686)</text>
+    <text x="120" y="395" fill="#22c55e" font-size="10" font-weight="600" text-anchor="middle">💬 WhatsApp Link Sent</text>
+
+    <!-- Step summary footer -->
+    <rect x="18" y="430" width="204" height="70" rx="8" fill="#312e81" opacity="0.6" />
+    <text x="120" y="452" fill="#c7d2fe" font-size="10" font-weight="700" text-anchor="middle">DB State: orders = 'open'</text>
+    <text x="120" y="470" fill="#c7d2fe" font-size="10" font-weight="700" text-anchor="middle">bills = 'unpaid'</text>
+    <text x="120" y="488" fill="#c7d2fe" font-size="10" font-weight="700" text-anchor="middle">items = 'pending'</text>
+  </g>
+
+  <!-- STAGE 2: WAITER & CAPTAIN PORTAL -->
+  <g transform="translate(320, 165)" filter="url(#cardShadow)">
+    <rect width="240" height="520" rx="16" fill="url(#emeraldGrad)" stroke="#10b981" stroke-width="2" />
+    <rect x="16" y="16" width="208" height="32" rx="8" fill="#047857" />
+    <text x="120" y="37" fill="#ffffff" font-size="12" font-weight="800" text-anchor="middle">2. WAITER PORTAL</text>
+    <text x="120" y="66" fill="#6ee7b7" font-size="11" font-weight="700" text-anchor="middle">/waiter</text>
+
+    <!-- Node 2A -->
+    <rect x="18" y="85" width="204" height="75" rx="10" fill="#18181b" stroke="#059669" stroke-width="1" />
+    <text x="28" y="106" fill="#a7f3d0" font-size="12" font-weight="700">Audible Alert Sound</text>
+    <text x="28" y="125" fill="#e2e8f0" font-size="10">Incoming Delivery Alert</text>
+    <text x="28" y="142" fill="#fbbf24" font-size="10" font-family="monospace">Slot: TR-DEL-9984</text>
+
+    <!-- Node 2B -->
+    <rect x="18" y="175" width="204" height="75" rx="10" fill="#18181b" stroke="#059669" stroke-width="1" />
+    <text x="28" y="196" fill="#a7f3d0" font-size="12" font-weight="700">Captain Verification</text>
+    <text x="28" y="215" fill="#e2e8f0" font-size="10">Reviews items &amp; prep time</text>
+    <text x="28" y="232" fill="#34d399" font-size="10">Clicks "Approve Items"</text>
+
+    <!-- Node 2C -->
+    <rect x="18" y="265" width="204" height="75" rx="10" fill="#18181b" stroke="#059669" stroke-width="1" />
+    <text x="28" y="286" fill="#a7f3d0" font-size="12" font-weight="700">Push to Kitchen KDS</text>
+    <text x="28" y="305" fill="#e2e8f0" font-size="10">Updates item_status to:</text>
+    <text x="28" y="322" fill="#f59e0b" font-size="11" font-weight="700" font-family="monospace">"preparing"</text>
+
+    <!-- Node 2D -->
+    <rect x="18" y="355" width="204" height="59" rx="10" fill="#18181b" stroke="#059669" stroke-width="1" />
+    <text x="28" y="375" fill="#a7f3d0" font-size="11" font-weight="700">WhatsApp Dispatch</text>
+    <text x="28" y="393" fill="#22c55e" font-size="10">1-Tap Receipt Sent</text>
+
+    <!-- Step summary footer -->
+    <rect x="18" y="430" width="204" height="70" rx="8" fill="#064e3b" opacity="0.6" />
+    <text x="120" y="452" fill="#a7f3d0" font-size="10" font-weight="700" text-anchor="middle">DB State: orders = 'open'</text>
+    <text x="120" y="470" fill="#a7f3d0" font-size="10" font-weight="700" text-anchor="middle">bills = 'unpaid'</text>
+    <text x="120" y="488" fill="#a7f3d0" font-size="10" font-weight="700" text-anchor="middle">items = 'preparing'</text>
+  </g>
+
+  <!-- STAGE 3: KITCHEN DISPLAY SYSTEM -->
+  <g transform="translate(580, 165)" filter="url(#cardShadow)">
+    <rect width="240" height="520" rx="16" fill="url(#amberGrad)" stroke="#f59e0b" stroke-width="2" />
+    <rect x="16" y="16" width="208" height="32" rx="8" fill="#b45309" />
+    <text x="120" y="37" fill="#ffffff" font-size="12" font-weight="800" text-anchor="middle">3. KITCHEN DISPLAY</text>
+    <text x="120" y="66" fill="#fde68a" font-size="11" font-weight="700" text-anchor="middle">/kitchen</text>
+
+    <!-- Node 3A -->
+    <rect x="18" y="85" width="204" height="75" rx="10" fill="#18181b" stroke="#d97706" stroke-width="1" />
+    <text x="28" y="106" fill="#fde68a" font-size="12" font-weight="700">Digital KOT Ticket</text>
+    <text x="28" y="125" fill="#e2e8f0" font-size="10">Header Tag:</text>
+    <text x="28" y="142" fill="#fbbf24" font-size="9.5" font-family="monospace">[🛵 Delivery | PIN: 7419]</text>
+
+    <!-- Node 3B -->
+    <rect x="18" y="175" width="204" height="75" rx="10" fill="#18181b" stroke="#d97706" stroke-width="1" />
+    <text x="28" y="196" fill="#fde68a" font-size="12" font-weight="700">Cooking Underway</text>
+    <text x="28" y="215" fill="#e2e8f0" font-size="10">1x Paneer Tikka</text>
+    <text x="28" y="232" fill="#e2e8f0" font-size="10">1x Chicken Malai (Less spicy)</text>
+
+    <!-- Node 3C -->
+    <rect x="18" y="265" width="204" height="75" rx="10" fill="#18181b" stroke="#d97706" stroke-width="1" />
+    <text x="28" y="286" fill="#fde68a" font-size="12" font-weight="700">Food Packed in Bags</text>
+    <text x="28" y="305" fill="#e2e8f0" font-size="10">Insulated thermal packaging</text>
+    <text x="28" y="322" fill="#34d399" font-size="10">Bill copy attached</text>
+
+    <!-- Node 3D -->
+    <rect x="18" y="355" width="204" height="59" rx="10" fill="#18181b" stroke="#d97706" stroke-width="1" />
+    <text x="28" y="375" fill="#fde68a" font-size="11" font-weight="700">Marked Ready</text>
+    <text x="28" y="393" fill="#10b981" font-size="10" font-weight="700">Status: "served" (Ready)</text>
+
+    <!-- Step summary footer -->
+    <rect x="18" y="430" width="204" height="70" rx="8" fill="#78350f" opacity="0.6" />
+    <text x="120" y="452" fill="#fde68a" font-size="10" font-weight="700" text-anchor="middle">DB State: orders = 'open'</text>
+    <text x="120" y="470" fill="#fde68a" font-size="10" font-weight="700" text-anchor="middle">bills = 'unpaid'</text>
+    <text x="120" y="488" fill="#fde68a" font-size="10" font-weight="700" text-anchor="middle">items = 'served'</text>
+  </g>
+
+  <!-- STAGE 4: DELIVERY BOY PORTAL -->
+  <g transform="translate(840, 165)" filter="url(#cardShadow)">
+    <rect width="240" height="520" rx="16" fill="url(#skyGrad)" stroke="#38bdf8" stroke-width="2" />
+    <rect x="16" y="16" width="208" height="32" rx="8" fill="#0284c7" />
+    <text x="120" y="37" fill="#ffffff" font-size="12" font-weight="800" text-anchor="middle">4. DELIVERY RIDER</text>
+    <text x="120" y="66" fill="#bae6fd" font-size="11" font-weight="700" text-anchor="middle">/delivery</text>
+
+    <!-- Node 4A -->
+    <rect x="18" y="85" width="204" height="75" rx="10" fill="#18181b" stroke="#0284c7" stroke-width="1" />
+    <text x="28" y="106" fill="#7dd3fc" font-size="12" font-weight="700">Rider Accepts Order</text>
+    <text x="28" y="125" fill="#e2e8f0" font-size="10">Rider: Vikram Singh</text>
+    <text x="28" y="142" fill="#38bdf8" font-size="10">Picks up parcel from counter</text>
+
+    <!-- Node 4B -->
+    <rect x="18" y="175" width="204" height="75" rx="10" fill="#18181b" stroke="#0284c7" stroke-width="1" />
+    <text x="28" y="196" fill="#7dd3fc" font-size="12" font-weight="700">Start Delivery Tap</text>
+    <text x="28" y="215" fill="#e2e8f0" font-size="10">Notes tagged with:</text>
+    <text x="28" y="232" fill="#fbbf24" font-size="10" font-family="monospace">[DISPATCH:dispatched]</text>
+
+    <!-- Node 4C -->
+    <rect x="18" y="265" width="204" height="75" rx="10" fill="#18181b" stroke="#0284c7" stroke-width="1" />
+    <text x="28" y="286" fill="#7dd3fc" font-size="12" font-weight="700">Live GPS Broadcast</text>
+    <text x="28" y="305" fill="#38bdf8" font-size="10" font-family="monospace">28.4595° N, 77.0266° E</text>
+    <text x="28" y="322" fill="#a7f3d0" font-size="10">Customer Map updates ETA</text>
+
+    <!-- Node 4D -->
+    <rect x="18" y="355" width="204" height="59" rx="10" fill="#18181b" stroke="#0284c7" stroke-width="1" />
+    <text x="28" y="375" fill="#7dd3fc" font-size="11" font-weight="700">Doorstep Arrival</text>
+    <text x="28" y="393" fill="#fde68a" font-size="10">Rings Flat 402 doorbell</text>
+
+    <!-- Step summary footer -->
+    <rect x="18" y="430" width="204" height="70" rx="8" fill="#075985" opacity="0.6" />
+    <text x="120" y="452" fill="#bae6fd" font-size="10" font-weight="700" text-anchor="middle">Live GPS Broadcasted</text>
+    <text x="120" y="470" fill="#bae6fd" font-size="10" font-weight="700" text-anchor="middle">Customer ETA: ~10 mins</text>
+    <text x="120" y="488" fill="#bae6fd" font-size="10" font-weight="700" text-anchor="middle">Status: 'dispatched'</text>
+  </g>
+
+  <!-- STAGE 5: DOORSTEP PIN SECURITY & POS SETTLEMENT -->
+  <g transform="translate(1100, 165)" filter="url(#cardShadow)">
+    <rect width="240" height="520" rx="16" fill="url(#roseGrad)" stroke="#f43f5e" stroke-width="2" />
+    <rect x="16" y="16" width="208" height="32" rx="8" fill="#be123c" />
+    <text x="120" y="37" fill="#ffffff" font-size="12" font-weight="800" text-anchor="middle">5. PIN &amp; SETTLEMENT</text>
+    <text x="120" y="66" fill="#fecdd3" font-size="11" font-weight="700" text-anchor="middle">Doorstep Handover</text>
+
+    <!-- Node 5A: PIN Challenge -->
+    <rect x="18" y="85" width="204" height="75" rx="10" fill="#18181b" stroke="#be123c" stroke-width="1" />
+    <text x="28" y="106" fill="#fda4af" font-size="12" font-weight="700">PIN Challenge</text>
+    <text x="28" y="125" fill="#e2e8f0" font-size="10">Rider asks customer for PIN</text>
+    <text x="28" y="142" fill="#fbbf24" font-size="10">From screen / WhatsApp</text>
+
+    <!-- Node 5B: Wrong PIN Attempt -->
+    <rect x="18" y="175" width="204" height="75" rx="10" fill="#2d0611" stroke="#f43f5e" stroke-width="1.5" />
+    <text x="28" y="196" fill="#fca5a5" font-size="12" font-weight="700">Wrong PIN '0000'?</text>
+    <text x="28" y="215" fill="#f87171" font-size="10" font-weight="700">❌ REJECTED (HTTP 400)</text>
+    <text x="28" y="232" fill="#cbd5e1" font-size="10">Delivery cannot complete</text>
+
+    <!-- Node 5C: Correct PIN Verified -->
+    <rect x="18" y="265" width="204" height="75" rx="10" fill="#022c22" stroke="#10b981" stroke-width="1.5" />
+    <text x="28" y="286" fill="#6ee7b7" font-size="12" font-weight="700">Correct PIN '7419'!</text>
+    <text x="28" y="305" fill="#34d399" font-size="10" font-weight="700">✅ VERIFIED &amp; AUTHENTICATED</text>
+    <text x="28" y="322" fill="#cbd5e1" font-size="10">Handover unlocked</text>
+
+    <!-- Node 5D: POS Closed -->
+    <rect x="18" y="355" width="204" height="59" rx="10" fill="#18181b" stroke="#10b981" stroke-width="1" />
+    <text x="28" y="375" fill="#a7f3d0" font-size="11" font-weight="700">Cash Collected (₹686)</text>
+    <text x="28" y="393" fill="#34d399" font-size="10">Order Status -> 'closed'</text>
+
+    <!-- Step summary footer -->
+    <rect x="18" y="430" width="204" height="70" rx="8" fill="#881337" opacity="0.6" />
+    <text x="120" y="452" fill="#fecdd3" font-size="10" font-weight="700" text-anchor="middle">DB State: orders = 'closed'</text>
+    <text x="120" y="470" fill="#fecdd3" font-size="10" font-weight="700" text-anchor="middle">bills = 'paid' (₹686)</text>
+    <text x="120" y="488" fill="#fecdd3" font-size="10" font-weight="700" text-anchor="middle">slot TR-DEL-9984 = 'empty'</text>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- CONNECTING ARROWS BETWEEN STAGES           -->
+  <!-- ========================================== -->
+  <!-- 1 -> 2 -->
+  <path d="M 300 320 L 320 320" stroke="#f59e0b" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <!-- 2 -> 3 -->
+  <path d="M 560 320 L 580 320" stroke="#f59e0b" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <!-- 3 -> 4 -->
+  <path d="M 820 320 L 840 320" stroke="#f59e0b" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <!-- 4 -> 5 -->
+  <path d="M 1080 320 L 1100 320" stroke="#f59e0b" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+
+  <!-- ========================================== -->
+  <!-- DATABASE SCHEMA AUDIT FOOTER               -->
+  <!-- ========================================== -->
+  <g transform="translate(60, 710)">
+    <rect width="1280" height="160" rx="16" fill="#141210" stroke="#292524" stroke-width="1.5" />
+    
+    <text x="24" y="32" fill="#fbbf24" font-size="13" font-weight="800" font-family="monospace">📊 POSTGRESQL DATABASE RECORD LIFECYCLE (OrderDesk Live Schema)</text>
+    
+    <!-- DB Col 1 -->
+    <g transform="translate(24, 48)">
+      <rect width="290" height="96" rx="8" fill="#1c1917" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="24" fill="#a8a29e" font-size="11" font-weight="700">TABLE: orders</text>
+      <text x="14" y="44" fill="#e7e5e4" font-size="10" font-family="monospace">id: UUID</text>
+      <text x="14" y="62" fill="#e7e5e4" font-size="10" font-family="monospace">table_id: -> restaurant_tables.id</text>
+      <text x="14" y="80" fill="#22c55e" font-size="10" font-family="monospace">status: 'open' ➔ 'closed'</text>
+    </g>
+
+    <!-- DB Col 2 -->
+    <g transform="translate(334, 48)">
+      <rect width="290" height="96" rx="8" fill="#1c1917" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="24" fill="#a8a29e" font-size="11" font-weight="700">TABLE: order_items</text>
+      <text x="14" y="44" fill="#e7e5e4" font-size="10" font-family="monospace">order_id: -> orders.id</text>
+      <text x="14" y="62" fill="#e7e5e4" font-size="10" font-family="monospace">notes: [Delivery... | PIN: 7419]</text>
+      <text x="14" y="80" fill="#f59e0b" font-size="10" font-family="monospace">item_status: pending➔prep➔served</text>
+    </g>
+
+    <!-- DB Col 3 -->
+    <g transform="translate(644, 48)">
+      <rect width="290" height="96" rx="8" fill="#1c1917" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="24" fill="#a8a29e" font-size="11" font-weight="700">TABLE: bills</text>
+      <text x="14" y="44" fill="#e7e5e4" font-size="10" font-family="monospace">bill_number: 42 (bigint auto-seq)</text>
+      <text x="14" y="62" fill="#e7e5e4" font-size="10" font-family="monospace">total: ₹686 (Sub+GST+Delivery)</text>
+      <text x="14" y="80" fill="#22c55e" font-size="10" font-family="monospace">payment_status: 'unpaid' ➔ 'paid'</text>
+    </g>
+
+    <!-- DB Col 4 -->
+    <g transform="translate(954, 48)">
+      <rect width="300" height="96" rx="8" fill="#1c1917" stroke="#44403c" stroke-width="1" />
+      <text x="14" y="24" fill="#a8a29e" font-size="11" font-weight="700">TABLE: restaurant_tables (Virtual Slot)</text>
+      <text x="14" y="44" fill="#e7e5e4" font-size="10" font-family="monospace">table_number: 'TR-DEL-9984'</text>
+      <text x="14" y="62" fill="#e7e5e4" font-size="10" font-family="monospace">qr_token: 'online_...'</text>
+      <text x="14" y="80" fill="#38bdf8" font-size="10" font-family="monospace">status: 'occupied' ➔ 'empty'</text>
+    </g>
+  </g>
+</svg>

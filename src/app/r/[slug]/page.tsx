@@ -1023,25 +1023,31 @@ export default function OnlineOrderingPage({
           return (
             <div
               onClick={() => setIsTrackOrderOpen(true)}
-              className="w-full bg-gradient-to-r from-emerald-950/90 via-stone-900 to-emerald-950/90 border-t border-emerald-500/30 px-3.5 sm:px-5 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-stone-900 transition-all shadow-md group"
+              className="w-full bg-gradient-to-r from-emerald-950/95 via-stone-900 to-amber-950/90 border-t border-emerald-500/30 px-3.5 sm:px-5 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-stone-900 transition-all shadow-md group"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
-                <div className="min-w-0">
-                  <span className="font-bold text-white truncate inline-block mr-1.5">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <span className="font-bold text-white truncate inline-block">
                     Active Order #{recentOrder.orderNumber}
                   </span>
-                  <span className="text-[11px] text-emerald-300 font-mono hidden xs:inline">
+                  {recentOrder.verificationCode && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/50 text-amber-300 font-mono font-black text-[11px] shadow-xs">
+                      <i className="fa-solid fa-key text-[9px]" />
+                      <span>PIN: {recentOrder.verificationCode}</span>
+                    </span>
+                  )}
+                  <span className="text-[11px] text-emerald-300 font-mono hidden sm:inline">
                     (₹{rTot} · {recentOrder.items?.length || 0} items)
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform">
-                <span>View Bill & Status</span>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform">
+                <span>Live Tracker</span>
                 <i className="fa-solid fa-arrow-right text-[10px]" />
               </div>
             </div>

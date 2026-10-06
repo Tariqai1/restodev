@@ -277,10 +277,12 @@ export async function POST(request: NextRequest) {
     const effectiveRole = (matchedStaff.role === "staff" ? "waiter" : matchedStaff.role || "").toLowerCase();
     const permissions = getStaffPermissions(matchedStaff.id, effectiveRole);
     const redirectPath =
-      effectiveRole === "kitchen"
+      effectiveRole === "kitchen" || effectiveRole === "chef" || effectiveRole === "cook"
         ? "/kitchen"
-        : effectiveRole === "waiter"
+        : effectiveRole === "waiter" || effectiveRole === "captain" || effectiveRole === "server"
         ? "/waiter"
+        : effectiveRole === "rider" || effectiveRole === "delivery" || effectiveRole === "driver"
+        ? "/delivery"
         : "/admin";
 
     // Save active staff identity in cookie with secure attributes
