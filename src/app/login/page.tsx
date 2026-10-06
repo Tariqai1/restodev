@@ -68,7 +68,7 @@ export default function TerminalLoginPage() {
 
   // Connectivity & Role Filter state
   const [isOnline, setIsOnline] = useState(true);
-  const [roleFilter, setRoleFilter] = useState<"all" | "waiter" | "kitchen" | "owner">("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | "waiter" | "kitchen" | "rider" | "owner">("all");
 
   // Owner recovery toggle
   const [showEmailRecovery, setShowEmailRecovery] = useState(false);
@@ -502,12 +502,13 @@ export default function TerminalLoginPage() {
 
           {!showEmailRecovery ? (
             <div className="space-y-4">
-              {/* 3-Role Fast Selector Tabs: Waiter / Kitchen / Owner */}
-              <div className="grid grid-cols-4 p-0.5 bg-[#0D0A08] rounded-xl border border-[#261E17] text-[11px]">
+              {/* Role Fast Selector Tabs: Waiter / Kitchen / Rider / Owner */}
+              <div className="grid grid-cols-5 p-0.5 bg-[#0D0A08] rounded-xl border border-[#261E17] text-[10px] sm:text-[11px]">
                 {[
                   { key: "all", label: "All" },
                   { key: "waiter", label: "🛎️ Waiter" },
                   { key: "kitchen", label: "🍳 Kitchen" },
+                  { key: "rider", label: "🛵 Rider" },
                   { key: "owner", label: "👑 Owner" },
                 ].map((tab) => (
                   <button
@@ -521,7 +522,11 @@ export default function TerminalLoginPage() {
                       const match =
                         tab.key === "all"
                           ? staffList[0]
-                          : staffList.find((s) => s.role.toLowerCase() === tab.key);
+                          : staffList.find((s) => {
+                              const r = s.role.toLowerCase();
+                              if (tab.key === "rider") return r === "rider" || r === "delivery";
+                              return r === tab.key;
+                            });
                       if (match) {
                         setSelectedStaff(match);
                         setPin("");
@@ -544,13 +549,23 @@ export default function TerminalLoginPage() {
                   <div className="flex items-center justify-between text-[11px] font-mono text-[#8C8275] uppercase">
                     <span>Select Profile:</span>
                     <span className="text-[#D96B27]">
-                      {staffList.filter((s) => roleFilter === "all" || s.role.toLowerCase() === roleFilter).length} available
+                      {staffList.filter((s) => {
+                        if (roleFilter === "all") return true;
+                        const r = s.role.toLowerCase();
+                        if (roleFilter === "rider") return r === "rider" || r === "delivery";
+                        return r === roleFilter;
+                      }).length} available
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
                     {staffList
-                      .filter((s) => roleFilter === "all" || s.role.toLowerCase() === roleFilter)
+                      .filter((s) => {
+                        if (roleFilter === "all") return true;
+                        const r = s.role.toLowerCase();
+                        if (roleFilter === "rider") return r === "rider" || r === "delivery";
+                        return r === roleFilter;
+                      })
                       .map((member) => {
                         const isSelected = selectedStaff?.id === member.id;
                         const roleLabel =
@@ -558,6 +573,10 @@ export default function TerminalLoginPage() {
                             ? "👑 Owner"
                             : member.role === "kitchen"
                             ? "🍳 Kitchen"
+                            : member.role === "rider" || member.role === "delivery"
+                            ? "🛵 Rider"
+                            : member.role === "captain"
+                            ? "⭐ Captain"
                             : "🛎️ Waiter";
 
                         return (

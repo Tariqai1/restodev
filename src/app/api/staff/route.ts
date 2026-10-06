@@ -5,6 +5,44 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
 import { getStaffPermissions, setStaffPermissions, getRestaurantFeatures } from "@/lib/platform/state";
 
+async function persistStaffRoleToResto(
+  admin: ReturnType<typeof createAdminClient>,
+  restaurantId: string,
+  staffId: string,
+  role: string,
+  phone?: string,
+  pin?: string
+) {
+  try {
+    const { data: resto } = await admin
+      .from("restaurants")
+      .select("gstin")
+      .eq("id", restaurantId)
+      .maybeSingle();
+
+    let meta: Record<string, any> = {};
+    if (resto?.gstin?.startsWith("{")) {
+      try {
+        meta = JSON.parse(resto.gstin);
+      } catch {}
+    }
+    meta.staffRoles = meta.staffRoles || {};
+    meta.staffRoles[staffId] = {
+      ...(meta.staffRoles[staffId] || {}),
+      role,
+      phone: phone || meta.staffRoles[staffId]?.phone || "",
+      pin: pin || meta.staffRoles[staffId]?.pin || "",
+      updatedAt: new Date().toISOString(),
+    };
+    await admin
+      .from("restaurants")
+      .update({ gstin: JSON.stringify(meta) })
+      .eq("id", restaurantId);
+  } catch (e) {
+    console.warn("Could not persist staff role to restaurant metadata:", e);
+  }
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient();
   const {
@@ -31,7 +69,7 @@ export async function GET(request: Request) {
   const [restaurantRes, staffRes] = await Promise.all([
     admin
       .from("restaurants")
-      .select("id, name")
+      .select("id, name, gstin")
       .eq("id", targetRestaurantId)
       .maybeSingle(),
     admin
@@ -46,14 +84,27 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Unable to load staff" }, { status: 500 });
   }
 
+  let staffMetaRoles: Record<string, any> = {};
+  if (restaurantRes.data?.gstin?.startsWith("{")) {
+    try {
+      const meta = JSON.parse(restaurantRes.data.gstin);
+      if (meta.staffRoles) staffMetaRoles = meta.staffRoles;
+    } catch {}
+  }
+
   const staffWithPerms = (staffRes.data ?? []).map((s) => {
     const perms = getStaffPermissions(s.id, s.role);
-    const displayRole = perms.assignedRole || (s.role === "staff" ? "waiter" : s.role === "admin" ? "owner" : s.role);
+    const metaInfo = staffMetaRoles[s.id];
+    const displayRole = metaInfo?.role || perms.assignedRole || (s.role === "staff" ? "waiter" : s.role === "admin" ? "owner" : s.role);
     return {
       ...s,
       role: displayRole,
-      phone: perms.phone,
-      permissions: perms,
+      phone: metaInfo?.phone || perms.phone,
+      permissions: {
+        ...perms,
+        assignedRole: displayRole,
+        assignedPin: metaInfo?.pin || perms.assignedPin,
+      },
     };
   });
 
@@ -165,6 +216,8 @@ export async function POST(request: Request) {
     displayRole
   );
 
+  await persistStaffRoleToResto(admin, targetRestaurantId, newMember.id, displayRole, phone, pin);
+
   return NextResponse.json({
     ok: true,
     restaurantId: targetRestaurantId,
@@ -261,6 +314,18 @@ export async function PATCH(request: Request) {
 
   const permissions = getStaffPermissions(updated.id, updated.role);
   const displayRole = permissions.assignedRole || (updated.role === "staff" ? "waiter" : updated.role === "admin" ? "owner" : updated.role);
+
+  const restoId = staffContext.isSuperAdmin ? (updated as any).restaurant_id : staffContext.restaurantId;
+  if (restoId) {
+    await persistStaffRoleToResto(
+      admin,
+      restoId,
+      staffId,
+      displayRole,
+      phone !== undefined ? String(phone).trim() : undefined,
+      newPin ? String(newPin).trim() : undefined
+    );
+  }
 
   return NextResponse.json({
     ok: true,

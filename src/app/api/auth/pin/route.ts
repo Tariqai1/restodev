@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const restoQuery = searchParams.get("resto")?.trim();
 
-    let restaurant: { id: string; name: string } | null = null;
+    let restaurant: { id: string; name: string; gstin?: string } | null = null;
 
     // 1. Direct match by ?resto= query param (ID or Name)
     if (restoQuery) {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       if (isUuid) {
         const { data } = await admin
           .from("restaurants")
-          .select("id, name")
+          .select("id, name, gstin")
           .eq("id", restoQuery)
           .maybeSingle();
         restaurant = data;
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       if (!restaurant) {
         const { data } = await admin
           .from("restaurants")
-          .select("id, name")
+          .select("id, name, gstin")
           .ilike("name", restoQuery)
           .maybeSingle();
         restaurant = data;
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       if (targetRestaurantId) {
         const { data } = await admin
           .from("restaurants")
-          .select("id, name")
+          .select("id, name, gstin")
           .eq("id", targetRestaurantId)
           .maybeSingle();
         restaurant = data;
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     if (!restaurant) {
       const { data: staffWithResto } = await admin
         .from("staff_users")
-        .select("restaurant_id, restaurants(id, name)")
+        .select("restaurant_id, restaurants(id, name, gstin)")
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -73,12 +73,12 @@ export async function GET(request: NextRequest) {
 
       if (staffWithResto?.restaurants) {
         restaurant = Array.isArray(staffWithResto.restaurants)
-          ? (staffWithResto.restaurants[0] as unknown as { id: string; name: string })
-          : (staffWithResto.restaurants as unknown as { id: string; name: string });
+          ? (staffWithResto.restaurants[0] as unknown as { id: string; name: string; gstin?: string })
+          : (staffWithResto.restaurants as unknown as { id: string; name: string; gstin?: string });
       } else if (staffWithResto?.restaurant_id) {
         const { data: rData } = await admin
           .from("restaurants")
-          .select("id, name")
+          .select("id, name, gstin")
           .eq("id", staffWithResto.restaurant_id)
           .maybeSingle();
         restaurant = rData;
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     if (!restaurant) {
       const { data } = await admin
         .from("restaurants")
-        .select("id, name")
+        .select("id, name, gstin")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -112,15 +112,24 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    let staffMetaRoles: Record<string, any> = {};
+    if (restaurant?.gstin?.startsWith("{")) {
+      try {
+        const meta = JSON.parse(restaurant.gstin);
+        if (meta.staffRoles) staffMetaRoles = meta.staffRoles;
+      } catch {}
+    }
+
     return NextResponse.json({
       ok: true,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name || "Order Desk",
       staff: (staff || []).map((s) => {
+        const metaInfo = staffMetaRoles[s.id];
         const perms = getStaffPermissions(s.id, s.role);
         return {
           ...s,
-          role: perms.assignedRole || (s.role === "staff" ? "waiter" : s.role),
+          role: metaInfo?.role || metaInfo?.assignedRole || perms.assignedRole || (s.role === "staff" ? "waiter" : s.role),
         };
       }),
     });
@@ -245,10 +254,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Incorrect PIN. Please try again." }, { status: 401 });
     }
 
-    // Retrieve restaurant owner email to establish Supabase session
+    // Retrieve restaurant owner email and metadata to establish Supabase session
     const { data: restaurant } = await admin
       .from("restaurants")
-      .select("owner_email")
+      .select("owner_email, gstin")
       .eq("id", matchedStaff.restaurant_id)
       .single();
 
@@ -277,9 +286,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Failed to establish terminal session" }, { status: 500 });
     }
 
+    let metaRole: string | null = null;
+    if (restaurant?.gstin?.startsWith("{")) {
+      try {
+        const meta = JSON.parse(restaurant.gstin);
+        metaRole = meta.staffRoles?.[matchedStaff.id]?.role || meta.staffRoles?.[matchedStaff.id]?.assignedRole;
+      } catch {}
+    }
+
     const rawRole = (matchedStaff.role === "staff" ? "waiter" : matchedStaff.role || "").toLowerCase();
     const permissions = getStaffPermissions(matchedStaff.id, rawRole);
-    const effectiveRole = (permissions.assignedRole || rawRole).toLowerCase();
+    const effectiveRole = (metaRole || permissions.assignedRole || rawRole).toLowerCase();
     const redirectPath =
       effectiveRole === "kitchen" || effectiveRole === "chef" || effectiveRole === "cook"
         ? "/kitchen"
