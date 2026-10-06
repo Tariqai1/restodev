@@ -169,6 +169,7 @@ export default function OnlineOrderingPage({
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
   const [customerCancelReason, setCustomerCancelReason] = useState("Placed by mistake");
   const [orderCancelledNotice, setOrderCancelledNotice] = useState<string | null>(null);
+  const [liveDispatch, setLiveDispatch] = useState<{ riderName?: string; riderPhone?: string; stage?: string } | null>(null);
 
   // 1-Tap Repeat Order & Customer Favorites state
   const [lastOrder, setLastOrder] = useState<PlacedOrderSummary | null>(null);
@@ -262,6 +263,32 @@ export default function OnlineOrderingPage({
       document.body.style.touchAction = "";
     };
   }, [isCheckoutOpen, isTrackOrderOpen, selectedPreviewDish]);
+
+  // Live Dispatch & Assigned Captain Tracker for active delivery orders
+  useEffect(() => {
+    const targetOrderId = recentOrder?.orderId || placedOrder?.orderId;
+    if (!targetOrderId) return;
+
+    let isMounted = true;
+    const fetchDispatch = async () => {
+      try {
+        const res = await fetch(`/api/delivery/dispatch?orderId=${targetOrderId}`);
+        const data = await res.json();
+        if (isMounted && res.ok && data.dispatch) {
+          setLiveDispatch(data.dispatch);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchDispatch();
+    const interval = setInterval(fetchDispatch, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [recentOrder?.orderId, placedOrder?.orderId]);
 
   // Load Storefront data
   useEffect(() => {
@@ -1794,7 +1821,13 @@ export default function OnlineOrderingPage({
                 <div className="mb-2">
                   <LiveDeliveryMapTracker
                     orderNumber={recentOrder.orderNumber}
-                    stage="preparing"
+                    stage={
+                      liveDispatch?.stage === "delivered"
+                        ? "delivered"
+                        : liveDispatch?.stage === "dispatched"
+                        ? "on_the_way"
+                        : "preparing"
+                    }
                     customerAddress={recentOrder.deliveryAddress || "Your location"}
                     customerCoords={recentOrder.customerCoords}
                     restoCoords={
@@ -1805,6 +1838,8 @@ export default function OnlineOrderingPage({
                     restoName={restaurant?.name || "Kitchen"}
                     estimatedMinutes={recentOrder.estimatedPrepMinutes || 25}
                     customerPhone={recentOrder.customerPhone}
+                    riderName={liveDispatch?.riderName || null}
+                    riderPhone={liveDispatch?.riderPhone || null}
                   />
                 </div>
               )}

@@ -39,7 +39,8 @@ export default function DeliveryPortalPage() {
   const [completedDeliveries, setCompletedDeliveries] = useState<RiderDelivery[]>([]);
   const [restaurant, setRestaurant] = useState<{ id: string; name: string } | null>(null);
   const [restoUpiId, setRestoUpiId] = useState("orderdesk@icici");
-  const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [deliveryTab, setDeliveryTab] = useState<"assigned" | "unassigned" | "completed" | "all">("assigned");
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingId, setIsUpdatingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -68,6 +69,9 @@ export default function DeliveryPortalPage() {
       if (res.ok && data.ok) {
         setActiveDeliveries(data.activeDeliveries || []);
         setCompletedDeliveries(data.completedDeliveries || []);
+        if (data.currentUser) {
+          setCurrentUser(data.currentUser);
+        }
         if (data.restaurant) {
           setRestaurant(data.restaurant);
           if (data.restaurant.upiId) setRestoUpiId(data.restaurant.upiId);
@@ -99,6 +103,56 @@ export default function DeliveryPortalPage() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [fetchDeliveries]);
+
+  // Derived filtered lists based on assignment
+  const myAssignedDeliveries = useMemo(() => {
+    if (!currentUser?.name) return activeDeliveries;
+    const myName = currentUser.name.toLowerCase().trim();
+    return activeDeliveries.filter(
+      (d) => d.riderName && d.riderName.toLowerCase().trim() === myName
+    );
+  }, [activeDeliveries, currentUser]);
+
+  const unassignedDeliveries = useMemo(() => {
+    return activeDeliveries.filter((d) => !d.riderName);
+  }, [activeDeliveries]);
+
+  const handleClaimOrder = async (orderId: string) => {
+    const riderNameToUse = currentUser?.name || prompt("Enter your Delivery Captain Name:");
+    if (!riderNameToUse) return;
+
+    setIsUpdatingId(orderId);
+    try {
+      const res = await fetch("/api/delivery/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "claim_order",
+          orderId,
+          riderName: riderNameToUse,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to claim order");
+
+      setNotice(`Order claimed! Added to My Deliveries.`);
+      setTimeout(() => setNotice(null), 4000);
+      setDeliveryTab("assigned");
+      fetchDeliveries();
+    } catch (e: any) {
+      alert(e.message || "Failed to claim order");
+    } finally {
+      setIsUpdatingId(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    } finally {
+      window.location.href = "/login";
+    }
+  };
 
   const handleStartDelivery = async (orderId: string) => {
     setIsUpdatingId(orderId);
@@ -290,10 +344,27 @@ export default function DeliveryPortalPage() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {currentUser?.name && (
+            <div className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <i className="fa-solid fa-user-shield text-[10px]" />
+              <span className="max-w-[100px] truncate">{currentUser.name}</span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="h-8 px-2.5 rounded-xl border border-amber-500/40 bg-amber-950/30 hover:bg-amber-900/50 hover:border-amber-400 text-amber-300 text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
+            title="Lock screen or switch captain"
+          >
+            <i className="fa-solid fa-lock text-[10px]" />
+            <span className="hidden sm:inline">Switch</span>
+          </button>
+
           <button
             type="button"
             onClick={() => fetchDeliveries()}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition-colors cursor-pointer border border-slate-700 active:scale-95"
+            className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition-colors cursor-pointer border border-slate-700 active:scale-95"
             title="Refresh Deliveries"
           >
             <i className={`fa-solid fa-arrows-rotate ${isLoading ? "fa-spin" : ""}`} />
@@ -355,43 +426,64 @@ export default function DeliveryPortalPage() {
           </div>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="w-full grid grid-cols-2 gap-1.5 sm:gap-2 bg-slate-900 p-1 sm:p-1.5 rounded-2xl border border-slate-800">
+        {/* Smart Assignment Tab Switcher */}
+        <div className="w-full grid grid-cols-3 gap-1 sm:gap-1.5 bg-slate-900 p-1 sm:p-1.5 rounded-2xl border border-slate-800 text-center">
           <button
             type="button"
-            onClick={() => setActiveTab("active")}
-            className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-w-0 ${
-              activeTab === "active"
-                ? "bg-emerald-500 text-slate-950 shadow-md font-black"
+            onClick={() => setDeliveryTab("assigned")}
+            className={`py-2 px-1 sm:px-2 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1 min-w-0 ${
+              deliveryTab === "assigned"
+                ? "bg-amber-500 text-slate-950 shadow-md font-black"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span className="truncate">Active Deliveries</span>
+            <span className="truncate">My Deliveries</span>
             <span
-              className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
-                activeTab === "active"
-                  ? "bg-slate-950 text-emerald-400 font-bold"
+              className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full shrink-0 ${
+                deliveryTab === "assigned"
+                  ? "bg-slate-950 text-amber-400 font-bold"
                   : "bg-slate-800 text-slate-400"
               }`}
             >
-              {activeDeliveries.length}
+              {myAssignedDeliveries.length}
             </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab("completed")}
-            className={`py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-w-0 ${
-              activeTab === "completed"
-                ? "bg-slate-100 text-slate-950 shadow-md font-black"
+            onClick={() => setDeliveryTab("unassigned")}
+            className={`py-2 px-1 sm:px-2 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1 min-w-0 ${
+              deliveryTab === "unassigned"
+                ? "bg-blue-500 text-slate-950 shadow-md font-black"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span className="truncate">Completed Today</span>
+            <span className="truncate">Available Pool</span>
             <span
-              className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
-                activeTab === "completed"
-                  ? "bg-slate-900 text-white font-bold"
+              className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full shrink-0 ${
+                deliveryTab === "unassigned"
+                  ? "bg-slate-950 text-blue-300 font-bold"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+            >
+              {unassignedDeliveries.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDeliveryTab("completed")}
+            className={`py-2 px-1 sm:px-2 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1 min-w-0 ${
+              deliveryTab === "completed"
+                ? "bg-emerald-500 text-slate-950 shadow-md font-black"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span className="truncate">Completed</span>
+            <span
+              className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full shrink-0 ${
+                deliveryTab === "completed"
+                  ? "bg-slate-950 text-emerald-400 font-bold"
                   : "bg-slate-800 text-slate-400"
               }`}
             >
@@ -401,20 +493,30 @@ export default function DeliveryPortalPage() {
         </div>
 
         {/* Deliveries List */}
-        {activeTab === "active" ? (
-          activeDeliveries.length === 0 ? (
+        {deliveryTab === "assigned" ? (
+          myAssignedDeliveries.length === 0 ? (
             <div className="py-16 sm:py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-6 sm:p-8 space-y-3 bg-slate-900/40 my-auto">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl sm:text-3xl mx-auto shadow-inner">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center text-2xl sm:text-3xl mx-auto shadow-inner">
                 🛵
               </div>
-              <h3 className="text-sm font-black text-white">No Active Deliveries Right Now</h3>
+              <h3 className="text-sm font-black text-white">No Deliveries Assigned to You</h3>
               <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                When an online customer orders for home delivery, the order and live GPS location will appear here automatically.
+                {currentUser?.name ? `Captain ${currentUser.name}, ` : ""}jab manager counter se aapko order assign karega, wo yahan show hoga.
               </p>
+              {unassignedDeliveries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDeliveryTab("unassigned")}
+                  className="mt-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                >
+                  <span>View {unassignedDeliveries.length} Orders in Available Pool</span>
+                  <i className="fa-solid fa-arrow-right text-[10px]" />
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3.5 sm:space-y-4">
-              {activeDeliveries.map((del) => {
+              {myAssignedDeliveries.map((del) => {
                 const elapsedMins = Math.floor(
                   (Date.now() - new Date(del.openedAt).getTime()) / 60000
                 );
@@ -585,6 +687,75 @@ export default function DeliveryPortalPage() {
                         </button>
                       )}
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : deliveryTab === "unassigned" ? (
+          unassignedDeliveries.length === 0 ? (
+            <div className="py-16 sm:py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl p-6 sm:p-8 space-y-3 bg-slate-900/40 my-auto">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center text-2xl sm:text-3xl mx-auto shadow-inner">
+                ✓
+              </div>
+              <h3 className="text-sm font-black text-white">Pool is Clear · All Orders Assigned</h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                Koi bhi unassigned order pending nahi hai. Saare active orders captains ko assign ho chuke hain.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3.5 sm:space-y-4">
+              {unassignedDeliveries.map((del) => {
+                const elapsedMins = Math.floor(
+                  (Date.now() - new Date(del.openedAt).getTime()) / 60000
+                );
+                return (
+                  <div
+                    key={del.id}
+                    className="rounded-2xl sm:rounded-3xl border border-blue-500/40 bg-slate-900/95 p-3.5 sm:p-5 shadow-xl space-y-3.5 transition-all w-full"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs sm:text-sm font-black text-white bg-slate-800 px-2 sm:px-2.5 py-0.5 rounded-lg border border-slate-700">
+                          {del.orderNumber}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {elapsedMins}m ago
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                        ⚡ Available in Pool
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 space-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 font-mono uppercase text-[10px]">Customer:</span>
+                        <strong className="text-white">{del.customerName}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 font-mono uppercase text-[10px]">Address:</span>
+                        <span className="text-slate-300 line-clamp-1">{del.deliveryAddress || "N/A"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 font-mono uppercase text-[10px]">Bill:</span>
+                        <strong className="text-emerald-400 font-mono">₹{del.totalAmount}</strong>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isUpdatingId === del.id}
+                      onClick={() => handleClaimOrder(del.id)}
+                      className="w-full py-3 px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-98 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                    >
+                      {isUpdatingId === del.id ? (
+                        <i className="fa-solid fa-circle-notch fa-spin text-sm" />
+                      ) : (
+                        <i className="fa-solid fa-bolt text-sm text-amber-300" />
+                      )}
+                      <span>⚡ Claim Order (Assign to Me)</span>
+                    </button>
                   </div>
                 );
               })}

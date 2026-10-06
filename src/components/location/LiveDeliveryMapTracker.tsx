@@ -12,6 +12,8 @@ interface LiveDeliveryMapTrackerProps {
   restoName?: string;
   estimatedMinutes?: number;
   customerPhone?: string;
+  riderName?: string | null;
+  riderPhone?: string | null;
   onClose?: () => void;
 }
 
@@ -24,6 +26,8 @@ export default function LiveDeliveryMapTracker({
   restoName = "OrderDesk Kitchen",
   estimatedMinutes = 25,
   customerPhone,
+  riderName,
+  riderPhone,
   onClose,
 }: LiveDeliveryMapTrackerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -270,6 +274,34 @@ export default function LiveDeliveryMapTracker({
             {stageInfo.desc}
           </p>
         </div>
+
+        {/* Assigned Delivery Captain Card */}
+        {riderName && (
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-black text-sm shadow-sm shrink-0">
+                🛵
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase font-bold text-amber-600 block leading-tight">
+                  Assigned Delivery Captain
+                </span>
+                <span className="text-xs font-black text-stone-900 truncate block">
+                  {riderName}
+                </span>
+              </div>
+            </div>
+            {riderPhone && (
+              <a
+                href={`tel:${riderPhone}`}
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
+              >
+                <i className="fa-solid fa-phone text-[10px]" />
+                <span>Call</span>
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Delivery Address Card */}
         <div className="text-xs flex items-start gap-2 text-stone-700 bg-stone-50/50 p-2.5 rounded-xl border border-stone-150">

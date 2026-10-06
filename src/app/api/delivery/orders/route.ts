@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOrderDispatch, setOrderDispatch } from "@/lib/platform/state";
@@ -44,10 +45,21 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId");
 
+    const cookieStore = await cookies();
+    const activeStaffCookie = cookieStore.get("od_active_staff")?.value;
+    let currentUser: { id: string; name: string; role: string; restaurant_id?: string } | null = null;
+    if (activeStaffCookie) {
+      try {
+        currentUser = JSON.parse(activeStaffCookie);
+      } catch {
+        // ignore
+      }
+    }
+
     const admin = createAdminClient();
 
     // Query restaurant info
-    let targetRestoId = restaurantId;
+    let targetRestoId = restaurantId || currentUser?.restaurant_id;
     let restoName = "Our Restaurant";
 
     if (!targetRestoId) {
@@ -204,6 +216,7 @@ export async function GET(req: NextRequest) {
       {
         ok: true,
         restaurant: { id: targetRestoId, name: restoName, upiId: "orderdesk@icici" },
+        currentUser,
         activeDeliveries,
         completedDeliveries,
       },
@@ -221,7 +234,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { action, orderId, paymentMode = "cash", enteredPin, bypassReason, cashAmountCollected } = body;
+    const { action, orderId, paymentMode = "cash", enteredPin, bypassReason, cashAmountCollected, riderName, riderPhone } = body;
 
     if (!orderId) {
       return NextResponse.json({ message: "orderId is required" }, { status: 400 });
@@ -229,6 +242,44 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient();
     const nowIso = new Date().toISOString();
+
+    if (action === "claim_order") {
+      if (!riderName?.trim()) {
+        return NextResponse.json({ message: "riderName is required to claim an order" }, { status: 400 });
+      }
+
+      const dispatch = setOrderDispatch(orderId, {
+        riderName: riderName.trim(),
+        riderPhone: riderPhone?.trim() || "",
+        stage: "dispatched",
+        dispatchedAt: nowIso,
+      });
+
+      // Persist in Supabase notes
+      try {
+        const { data: items } = await admin
+          .from("order_items")
+          .select("id, notes")
+          .eq("order_id", orderId)
+          .limit(1);
+
+        if (items && items.length > 0) {
+          const currentNotes = items[0].notes || "";
+          if (!currentNotes.includes("[DISPATCH:dispatched]")) {
+            await admin
+              .from("order_items")
+              .update({
+                notes: `${currentNotes} [DISPATCH:dispatched]`.trim(),
+              })
+              .eq("id", items[0].id);
+          }
+        }
+      } catch (e) {
+        console.warn("[delivery/orders] Failed to save dispatch stage in notes:", e);
+      }
+
+      return NextResponse.json({ ok: true, message: `Order claimed by ${riderName.trim()}`, dispatch });
+    }
 
     if (action === "start_delivery") {
       setOrderDispatch(orderId, {
