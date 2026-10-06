@@ -97,7 +97,7 @@ const MODULE_DEFS: {
   },
 ];
 
-const ROLES_LIST = ["manager", "captain", "waiter", "kitchen", "cashier"] as const;
+const ROLES_LIST = ["manager", "captain", "waiter", "kitchen", "cashier", "rider"] as const;
 
 interface MenuItem {
   id: string;
@@ -156,7 +156,7 @@ interface OrderRecord {
 interface StaffRecord {
   id: string;
   name: string;
-  role: "waiter" | "kitchen" | "captain" | "manager" | "owner";
+  role: "waiter" | "kitchen" | "captain" | "manager" | "owner" | "rider";
   pin: string;
   phone?: string;
   is_active: boolean;
@@ -232,13 +232,13 @@ export default function AdminPage() {
 
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
-  const [newStaffRole, setNewStaffRole] = useState<"waiter" | "kitchen" | "captain" | "manager">("waiter");
+  const [newStaffRole, setNewStaffRole] = useState<"waiter" | "kitchen" | "captain" | "manager" | "rider">("waiter");
   const [newStaffPin, setNewStaffPin] = useState("");
   const [newStaffPhone, setNewStaffPhone] = useState("");
   const [isEditStaffOpen, setIsEditStaffOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffRecord | null>(null);
   const [editStaffName, setEditStaffName] = useState("");
-  const [editStaffRole, setEditStaffRole] = useState<"waiter" | "kitchen" | "captain" | "manager">("waiter");
+  const [editStaffRole, setEditStaffRole] = useState<"waiter" | "kitchen" | "captain" | "manager" | "rider">("waiter");
   const [editStaffPin, setEditStaffPin] = useState("");
   const [editStaffPhone, setEditStaffPhone] = useState("");
   const [isSavingStaff, setIsSavingStaff] = useState(false);
@@ -2450,11 +2450,41 @@ export default function AdminPage() {
                   {
                     key: "role",
                     header: "Role",
-                    render: (r) => (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-slate-100 text-slate-700 font-mono text-[10px]">
-                        {r.role}
-                      </span>
-                    ),
+                    render: (r) => {
+                      if (r.role === "rider") {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1.5 shadow-2xs">
+                            <i className="fa-solid fa-motorcycle text-[10px]" /> Delivery Captain
+                          </span>
+                        );
+                      }
+                      if (r.role === "captain") {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1.5 shadow-2xs">
+                            <i className="fa-solid fa-user-tie text-[10px]" /> Captain
+                          </span>
+                        );
+                      }
+                      if (r.role === "kitchen") {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1.5 shadow-2xs">
+                            <i className="fa-solid fa-fire-burner text-[10px]" /> Kitchen
+                          </span>
+                        );
+                      }
+                      if (r.role === "manager" || r.role === "owner") {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5 shadow-2xs">
+                            <i className="fa-solid fa-crown text-[10px]" /> {r.role}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200 inline-flex items-center gap-1.5 shadow-2xs">
+                          <i className="fa-solid fa-bell text-[10px]" /> Waiter
+                        </span>
+                      );
+                    },
                   },
                   {
                     key: "pin",
@@ -2574,6 +2604,7 @@ export default function AdminPage() {
                         <th className="p-4 text-center capitalize">Waiter</th>
                         <th className="p-4 text-center capitalize">Kitchen Chef</th>
                         <th className="p-4 text-center capitalize">Cashier</th>
+                        <th className="p-4 text-center capitalize">Rider / Fleet</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -3383,6 +3414,7 @@ export default function AdminPage() {
                 <option value="waiter">Waiter (Floor Service)</option>
                 <option value="kitchen">Kitchen Master (Chef)</option>
                 <option value="captain">Captain (Floor Supervisor)</option>
+                <option value="rider">Delivery Captain (Rider / Fleet)</option>
               </select>
             </div>
 
@@ -3461,6 +3493,7 @@ export default function AdminPage() {
                 <option value="waiter">Waiter (Floor Service)</option>
                 <option value="kitchen">Kitchen Master (Chef)</option>
                 <option value="captain">Captain (Floor Supervisor)</option>
+                <option value="rider">Delivery Captain (Rider / Fleet)</option>
                 <option value="manager">Manager</option>
               </select>
             </div>

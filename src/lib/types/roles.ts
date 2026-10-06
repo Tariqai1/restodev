@@ -65,4 +65,13 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsConfig = {
     canAccessStaff: false,
     canAccessSettings: false,
   },
+  rider: {
+    canAccessFloor: false,
+    canAccessOrders: true,
+    canAccessKitchen: false,
+    canAccessMenu: false,
+    canAccessInvoices: false,
+    canAccessStaff: false,
+    canAccessSettings: false,
+  },
 };

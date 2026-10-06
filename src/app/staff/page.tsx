@@ -15,7 +15,7 @@ type StaffPermissions = {
 type StaffMember = {
   id: string;
   name: string;
-  role: "waiter" | "captain" | "kitchen" | "cashier" | "manager" | "owner" | "admin" | "staff";
+  role: "waiter" | "captain" | "kitchen" | "cashier" | "manager" | "owner" | "admin" | "staff" | "rider" | "delivery";
   is_active: boolean;
   created_at: string;
   phone?: string;
@@ -28,6 +28,8 @@ const roleBadges: Record<string, { label: string; color: string; bg: string; bor
   manager: { label: "Manager", color: "text-zinc-300", bg: "bg-zinc-900/60", border: "border-zinc-700/60" },
   captain: { label: "Captain", color: "text-blue-300", bg: "bg-blue-950/40", border: "border-blue-800/60" },
   cashier: { label: "Cashier", color: "text-emerald-300", bg: "bg-emerald-950/40", border: "border-emerald-800/60" },
+  rider: { label: "Delivery Captain (Rider)", color: "text-purple-300", bg: "bg-purple-950/40", border: "border-purple-800/60" },
+  delivery: { label: "Delivery Captain (Rider)", color: "text-purple-300", bg: "bg-purple-950/40", border: "border-purple-800/60" },
   waiter: { label: "Waiter / Staff", color: "text-sky-300", bg: "bg-sky-950/40", border: "border-sky-800/60" },
   staff: { label: "Waiter / Staff", color: "text-sky-300", bg: "bg-sky-950/40", border: "border-sky-800/60" },
   kitchen: { label: "Kitchen KDS", color: "text-orange-300", bg: "bg-orange-950/40", border: "border-orange-800/60" },
@@ -534,7 +536,7 @@ export default function StaffPage() {
                               href={(() => {
                                 const origin = typeof window !== "undefined" ? window.location.origin : "";
                                 const staffLoginUrl = `${origin}/login?resto=${restaurantId}&role=${member.role}&staff=${member.id}`;
-                                const roleLabel = member.role === "kitchen" ? "Kitchen KDS" : member.role === "owner" ? "Owner / Manager" : "Waiter";
+                                const roleLabel = member.role === "kitchen" ? "Kitchen KDS" : member.role === "owner" ? "Owner / Manager" : member.role === "rider" ? "Delivery Captain (Rider)" : member.role === "captain" ? "Captain" : "Waiter";
                                 const pinText = member.permissions?.assignedPin ? `\nPIN: ${member.permissions.assignedPin}` : "";
                                 const msg = `*${restaurantName} - Shift Access*\n\nHello *${member.name}*!\nYour shift terminal access is ready:\nDirect Login: ${staffLoginUrl}\nStaff Name: ${member.name}\nRole: ${roleLabel}${pinText}\n\nOpen this link on your phone to clock into your shift!`;
                                 const phoneNum = (member.phone || member.permissions?.phone || "").replace(/\D/g, "");
@@ -649,11 +651,13 @@ export default function StaffPage() {
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   >
                     <option value="waiter">Waiter (Floor Orders, Tables &amp; Service)</option>
+                    <option value="captain">Captain (Floor Supervisor)</option>
+                    <option value="rider">Delivery Captain (Rider / Fleet)</option>
                     <option value="kitchen">Kitchen (Cooking &amp; KDS Display Only)</option>
                     <option value="owner">Owner / Manager (Full Access &amp; Billing)</option>
                   </select>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Owner has full control. Waiters take orders on the floor. Kitchen only accesses /kitchen.
+                    Owner has full control. Waiters take orders. Riders manage delivery pool. Kitchen accesses /kitchen.
                   </p>
                 </div>
 
@@ -794,6 +798,8 @@ export default function StaffPage() {
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   >
                     <option value="waiter">Waiter (Floor Orders, Tables &amp; Service)</option>
+                    <option value="captain">Captain (Floor Supervisor)</option>
+                    <option value="rider">Delivery Captain (Rider / Fleet)</option>
                     <option value="kitchen">Kitchen (Cooking &amp; KDS Display Only)</option>
                     <option value="owner">Owner / Manager (Full Access &amp; Billing)</option>
                   </select>

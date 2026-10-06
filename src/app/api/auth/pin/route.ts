@@ -116,10 +116,13 @@ export async function GET(request: NextRequest) {
       ok: true,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name || "Order Desk",
-      staff: (staff || []).map((s) => ({
-        ...s,
-        role: s.role === "staff" ? "waiter" : s.role,
-      })),
+      staff: (staff || []).map((s) => {
+        const perms = getStaffPermissions(s.id, s.role);
+        return {
+          ...s,
+          role: perms.assignedRole || (s.role === "staff" ? "waiter" : s.role),
+        };
+      }),
     });
   } catch (error) {
     console.error("Staff roster fetch error:", error);
@@ -274,8 +277,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Failed to establish terminal session" }, { status: 500 });
     }
 
-    const effectiveRole = (matchedStaff.role === "staff" ? "waiter" : matchedStaff.role || "").toLowerCase();
-    const permissions = getStaffPermissions(matchedStaff.id, effectiveRole);
+    const rawRole = (matchedStaff.role === "staff" ? "waiter" : matchedStaff.role || "").toLowerCase();
+    const permissions = getStaffPermissions(matchedStaff.id, rawRole);
+    const effectiveRole = (permissions.assignedRole || rawRole).toLowerCase();
     const redirectPath =
       effectiveRole === "kitchen" || effectiveRole === "chef" || effectiveRole === "cook"
         ? "/kitchen"
@@ -312,7 +316,7 @@ export async function POST(request: NextRequest) {
       staff: {
         id: matchedStaff.id,
         name: matchedStaff.name,
-        role: matchedStaff.role,
+        role: effectiveRole,
         permissions,
       },
     });

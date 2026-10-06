@@ -48,6 +48,7 @@ export type StaffOrderPermissions = {
   canDeleteOrders: boolean;
   assignedPin?: string;
   phone?: string;
+  assignedRole?: string;
 };
 
 import {
@@ -436,6 +437,7 @@ export function setStaffPermissions(
     canDeleteOrders: permissions.canDeleteOrders !== undefined ? Boolean(permissions.canDeleteOrders) : current.canDeleteOrders,
     assignedPin: permissions.assignedPin !== undefined ? permissions.assignedPin : current.assignedPin,
     phone: permissions.phone !== undefined ? permissions.phone : current.phone,
+    assignedRole: permissions.assignedRole !== undefined ? permissions.assignedRole : current.assignedRole,
   };
   savePlatformState(state);
   return state.staffPermissions[staffId];

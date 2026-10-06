@@ -48,9 +48,10 @@ export async function GET(request: Request) {
 
   const staffWithPerms = (staffRes.data ?? []).map((s) => {
     const perms = getStaffPermissions(s.id, s.role);
+    const displayRole = perms.assignedRole || (s.role === "staff" ? "waiter" : s.role === "admin" ? "owner" : s.role);
     return {
       ...s,
-      role: s.role === "staff" ? "waiter" : s.role === "admin" ? "owner" : s.role,
+      role: displayRole,
       phone: perms.phone,
       permissions: perms,
     };
@@ -100,9 +101,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Staff member name is required" }, { status: 400 });
   }
 
-  const validRoles = ["owner", "waiter", "kitchen", "staff", "admin", "manager", "captain", "cashier"];
+  const validRoles = ["owner", "waiter", "kitchen", "staff", "admin", "manager", "captain", "cashier", "rider", "delivery"];
   if (!validRoles.includes(rawRole)) {
-    return NextResponse.json({ message: "Invalid role. Choose owner, waiter, or kitchen" }, { status: 400 });
+    return NextResponse.json({ message: "Invalid role. Choose owner, waiter, kitchen, captain, or rider" }, { status: 400 });
   }
 
   if (!/^\d{4}$/.test(pin)) {
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
   // Canonical 3-role mapping:
   // Postgres check constraint is (role in ('staff', 'kitchen', 'admin', 'owner'))
   let dbRole: "owner" | "kitchen" | "staff" = "staff";
-  let displayRole: "owner" | "kitchen" | "waiter" = "waiter";
+  let displayRole: string = "waiter";
 
   if (rawRole === "owner" || rawRole === "admin" || rawRole === "manager") {
     dbRole = "owner";
@@ -120,8 +121,14 @@ export async function POST(request: Request) {
   } else if (rawRole === "kitchen") {
     dbRole = "kitchen";
     displayRole = "kitchen";
+  } else if (rawRole === "rider" || rawRole === "delivery") {
+    dbRole = "staff";
+    displayRole = "rider";
+  } else if (rawRole === "captain") {
+    dbRole = "staff";
+    displayRole = "captain";
   } else {
-    // "waiter", "staff", "captain", "cashier"
+    // "waiter", "staff", "cashier"
     dbRole = "staff";
     displayRole = "waiter";
   }
@@ -153,6 +160,7 @@ export async function POST(request: Request) {
       canDeleteOrders: body.canDeleteOrders !== undefined ? Boolean(body.canDeleteOrders) : undefined,
       assignedPin: pin,
       phone: phone || undefined,
+      assignedRole: displayRole,
     },
     displayRole
   );
@@ -192,14 +200,24 @@ export async function PATCH(request: Request) {
   const updates: Record<string, unknown> = {};
   if (isActive !== undefined) updates.is_active = Boolean(isActive);
   if (body.name) updates.name = String(body.name).trim();
+  let newAssignedRole: string | undefined = undefined;
   if (role) {
     const rawR = String(role).trim().toLowerCase();
     if (rawR === "owner" || rawR === "admin" || rawR === "manager") {
       updates.role = "owner";
+      newAssignedRole = "owner";
     } else if (rawR === "kitchen") {
       updates.role = "kitchen";
+      newAssignedRole = "kitchen";
+    } else if (rawR === "rider" || rawR === "delivery") {
+      updates.role = "staff";
+      newAssignedRole = "rider";
+    } else if (rawR === "captain") {
+      updates.role = "staff";
+      newAssignedRole = "captain";
     } else {
       updates.role = "staff";
+      newAssignedRole = "waiter";
     }
   }
   if (newPin) {
@@ -226,8 +244,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 
-  // Update permissions and/or assignedPin / phone if provided
-  if (canEditOrders !== undefined || canDeleteOrders !== undefined || newPin || phone !== undefined) {
+  // Update permissions and/or assignedPin / phone / assignedRole if provided
+  if (canEditOrders !== undefined || canDeleteOrders !== undefined || newPin || phone !== undefined || newAssignedRole !== undefined) {
     setStaffPermissions(
       staffId,
       {
@@ -235,13 +253,14 @@ export async function PATCH(request: Request) {
         canDeleteOrders,
         assignedPin: newPin ? String(newPin).trim() : undefined,
         phone: phone !== undefined ? String(phone).trim() : undefined,
+        assignedRole: newAssignedRole,
       },
       updated.role
     );
   }
 
   const permissions = getStaffPermissions(updated.id, updated.role);
-  const displayRole = updated.role === "staff" ? "waiter" : updated.role === "admin" ? "owner" : updated.role;
+  const displayRole = permissions.assignedRole || (updated.role === "staff" ? "waiter" : updated.role === "admin" ? "owner" : updated.role);
 
   return NextResponse.json({
     ok: true,
