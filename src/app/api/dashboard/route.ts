@@ -139,8 +139,28 @@ function formatOnlineTicket(ord: any) {
   const defaultStage = allServed ? "ready" : anyPreparing ? "preparing" : "received";
   const isNotesDispatched = notes?.includes("[DISPATCH:dispatched]");
   const dispatch = getOrderDispatch(ord.id);
-  const resolvedDispatch = dispatch || (isNotesDispatched ? { orderId: ord.id, stage: "dispatched" as const } : null);
-  const stage = dispatch?.stage === "dispatched" || isNotesDispatched ? "dispatched" : defaultStage;
+  const captainMatch = notes?.match(/\[CAPTAIN:([^\]]+)\]/);
+  const assignedAtMatch = notes?.match(/\[ASSIGNED_AT:([^\]]+)\]/);
+  const notesRiderName = captainMatch?.[1]?.trim() || null;
+  const notesAssignedAt = assignedAtMatch?.[1]?.trim() || null;
+
+  const resolvedDispatch = dispatch
+    ? {
+        ...dispatch,
+        riderName: dispatch.riderName || notesRiderName || null,
+        dispatchedAt: dispatch.dispatchedAt || notesAssignedAt || null,
+      }
+    : (isNotesDispatched || notesRiderName)
+    ? {
+        orderId: ord.id,
+        stage: "dispatched" as const,
+        riderName: notesRiderName,
+        riderPhone: null,
+        dispatchedAt: notesAssignedAt || ord.opened_at,
+      }
+    : null;
+
+  const stage = dispatch?.stage === "dispatched" || isNotesDispatched || notesRiderName ? "dispatched" : defaultStage;
 
   return {
     id: ord.id,
@@ -639,15 +659,36 @@ export async function GET() {
     .eq("restaurant_id", restaurantResult.data?.id || targetRestoId)
     .eq("is_active", true);
 
-  const savedRidersList = (restaurantResult.data?.id || targetRestoId)
-    ? getDeliveryRiders(restaurantResult.data?.id || targetRestoId)
-    : [];
+  let staffMetaRoles: Record<string, any> = {};
+  if (restaurantResult.data?.gstin?.startsWith("{")) {
+    try {
+      const meta = JSON.parse(restaurantResult.data.gstin);
+      if (meta.staffRoles) staffMetaRoles = meta.staffRoles;
+    } catch {}
+  }
+
+  const targetId = restaurantResult.data?.id || targetRestoId || "";
+  const savedRidersList = getDeliveryRiders(targetId);
 
   const activeCaptains = [
-    ...(userProfile ? [{ id: userProfile.id, name: userProfile.name, role: userProfile.role || "captain", phone: "" }] : []),
+    ...(userProfile
+      ? [
+          {
+            id: userProfile.id,
+            name: userProfile.name,
+            role: staffMetaRoles[userProfile.id]?.role || userProfile.role || "captain",
+            phone: staffMetaRoles[userProfile.id]?.phone || "",
+          },
+        ]
+      : []),
     ...(activeStaffQuery.data || [])
       .filter((s) => s.id !== userProfile?.id)
-      .map((s) => ({ id: s.id, name: s.name, role: s.role, phone: "" })),
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        role: staffMetaRoles[s.id]?.role || s.role,
+        phone: staffMetaRoles[s.id]?.phone || "",
+      })),
     ...savedRidersList.map((r: any) => ({ id: r.id, name: r.name, role: "rider", phone: r.phone || "" })),
   ];
 

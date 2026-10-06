@@ -64,14 +64,21 @@ export async function POST(req: NextRequest) {
 
         if (items && items.length > 0) {
           const currentNotes = items[0].notes || "";
-          if (!currentNotes.includes("[DISPATCH:dispatched]")) {
-            await admin
-              .from("order_items")
-              .update({
-                notes: `${currentNotes} [DISPATCH:dispatched]`.trim(),
-              })
-              .eq("id", items[0].id);
+          let updatedNotes = currentNotes;
+          if (!updatedNotes.includes("[DISPATCH:dispatched]")) {
+            updatedNotes += " [DISPATCH:dispatched]";
           }
+          // Remove old [CAPTAIN:...] and [ASSIGNED_AT:...] if reassigning
+          updatedNotes = updatedNotes.replace(/\[CAPTAIN:[^\]]+\]/g, "").trim();
+          updatedNotes = updatedNotes.replace(/\[ASSIGNED_AT:[^\]]+\]/g, "").trim();
+          updatedNotes += ` [CAPTAIN:${riderName.trim()}] [ASSIGNED_AT:${new Date().toISOString()}]`;
+
+          await admin
+            .from("order_items")
+            .update({
+              notes: updatedNotes.trim(),
+            })
+            .eq("id", items[0].id);
         }
       } catch (e) {
         console.warn("[delivery/dispatch] Failed to save dispatch stage in notes:", e);

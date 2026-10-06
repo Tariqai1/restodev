@@ -121,8 +121,27 @@ interface ActiveCaptain {
   phone?: string;
 }
 
+function formatElapsedTime(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const mins = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000));
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return `${hrs}h ${remMins}m ago`;
+}
+
 export default function WaiterPortalPage() {
   const router = useRouter();
+
+  // Live ticker to update elapsed time every 30s
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((c) => c + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   // Primary Data State
   const [restaurantName, setRestaurantName] = useState("Order Desk");
@@ -549,6 +568,19 @@ export default function WaiterPortalPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to settle online order");
+
+      // Also ensure delivery stage is recorded as delivered
+      if (order.type === "delivery") {
+        fetch("/api/delivery/dispatch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_stage",
+            orderId: order.id,
+            stage: "delivered",
+          }),
+        }).catch(() => {});
+      }
 
       await fetchDashboardData(true);
       if (typeof window !== "undefined" && navigator.vibrate) {
@@ -1682,57 +1714,107 @@ export default function WaiterPortalPage() {
                           {ord.type === "delivery" && (
                             <div className="pt-2 border-t border-slate-800/80">
                               {ord.dispatch?.riderName ? (
-                                <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                                  <div className="flex items-center gap-2 min-w-0 text-xs">
-                                    <span className="text-base">👨‍💼</span>
-                                    <div className="min-w-0">
-                                      <span className="text-[10px] text-emerald-400 font-bold uppercase block font-mono">
-                                        Assigned Captain (Portal)
-                                      </span>
-                                      <span className="text-white font-bold truncate block">
-                                        {ord.dispatch.riderName}{" "}
-                                        {ord.dispatch.riderPhone && `(${ord.dispatch.riderPhone})`}
-                                      </span>
+                                <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-emerald-950/20 border border-emerald-500/40 shadow-sm space-y-2">
+                                  {/* Rider Info Header */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-lg shrink-0">
+                                        🛵
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-[10px] text-emerald-400 font-black uppercase font-mono tracking-wider">
+                                            Assigned Rider
+                                          </span>
+                                          {ord.dispatch.dispatchedAt && (
+                                            <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1 bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30">
+                                              <i className="fa-solid fa-clock text-[9px]" />
+                                              <span>Assigned {formatElapsedTime(ord.dispatch.dispatchedAt)}</span>
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="text-white font-extrabold text-sm truncate block mt-0.5">
+                                          {ord.dispatch.riderName}{" "}
+                                          {ord.dispatch.riderPhone && (
+                                            <span className="text-slate-400 font-normal text-xs">
+                                              ({ord.dispatch.riderPhone})
+                                            </span>
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Live Pulse Badge */}
+                                    <div className="shrink-0 flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                      <span>Out for Delivery</span>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setDispatchModalOrder(ord);
-                                        setRiderNameInput(ord.dispatch?.riderName || "");
-                                        setRiderPhoneInput(ord.dispatch?.riderPhone || "");
-                                      }}
-                                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-slate-700"
-                                    >
-                                      <i className="fa-solid fa-arrows-rotate text-xs text-amber-400" />
-                                      <span>Re-assign</span>
-                                    </button>
-                                    {ord.dispatch?.riderPhone && (
+
+                                  {/* Sub-bar: Timestamp & Actions */}
+                                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                                    <div className="flex items-center gap-1.5">
                                       <button
                                         type="button"
-                                        onClick={() => handleAssignToCaptain(ord, ord.dispatch?.riderName || "", ord.dispatch?.riderPhone || "", true)}
-                                        className="p-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-xs cursor-pointer transition-colors"
-                                        title="Share on WhatsApp"
+                                        onClick={() => {
+                                          setDispatchModalOrder(ord);
+                                          setRiderNameInput(ord.dispatch?.riderName || "");
+                                          setRiderPhoneInput(ord.dispatch?.riderPhone || "");
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-slate-700 active:scale-95"
                                       >
-                                        <i className="fa-brands fa-whatsapp text-sm" />
+                                        <i className="fa-solid fa-arrows-rotate text-[10px] text-amber-400" />
+                                        <span>Change</span>
                                       </button>
+
+                                      {ord.dispatch?.riderPhone && (
+                                        <a
+                                          href={`tel:${ord.dispatch.riderPhone}`}
+                                          className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold flex items-center gap-1 border border-slate-700"
+                                        >
+                                          <i className="fa-solid fa-phone text-[10px] text-emerald-400" />
+                                          <span>Call</span>
+                                        </a>
+                                      )}
+
+                                      {ord.dispatch?.riderPhone && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAssignToCaptain(ord, ord.dispatch?.riderName || "", ord.dispatch?.riderPhone || "", true)}
+                                          className="p-1 px-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 text-xs cursor-pointer border border-emerald-500/30"
+                                          title="Share on WhatsApp"
+                                        >
+                                          <i className="fa-brands fa-whatsapp text-sm text-emerald-400" />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {ord.dispatch.dispatchedAt && (
+                                      <span className="text-[10px] text-slate-400 font-mono">
+                                        Since {new Date(ord.dispatch.dispatchedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
+                                      </span>
                                     )}
                                   </div>
                                 </div>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDispatchModalOrder(ord);
-                                    setRiderNameInput(staffUser?.name || "");
-                                    setRiderPhoneInput("");
-                                  }}
-                                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
-                                >
-                                  <i className="fa-solid fa-user-check text-base text-emerald-200" />
-                                  <span>Assign to Active Captain (Portal)</span>
-                                </button>
+                                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 text-xs text-amber-300 min-w-0">
+                                    <i className="fa-solid fa-triangle-exclamation text-amber-400 shrink-0" />
+                                    <span className="font-semibold truncate">Rider not assigned yet</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDispatchModalOrder(ord);
+                                      setRiderNameInput("");
+                                      setRiderPhoneInput("");
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer shrink-0"
+                                  >
+                                    <i className="fa-solid fa-motorcycle text-xs text-emerald-200" />
+                                    <span>Assign Rider</span>
+                                  </button>
+                                </div>
                               )}
                             </div>
                           )}
@@ -1750,7 +1832,9 @@ export default function WaiterPortalPage() {
                               ) : (
                                 <i className="fa-solid fa-money-bill-wave text-xs" />
                               )}
-                              <span>Cash Settled</span>
+                              <span>
+                                {ord.type === "delivery" && ord.dispatch?.riderName ? "Cash · Delivered" : "Cash Settled"}
+                              </span>
                             </button>
 
                             <button
@@ -1764,7 +1848,9 @@ export default function WaiterPortalPage() {
                               ) : (
                                 <i className="fa-solid fa-qrcode text-xs" />
                               )}
-                              <span>UPI Settled</span>
+                              <span>
+                                {ord.type === "delivery" && ord.dispatch?.riderName ? "UPI · Delivered" : "UPI Settled"}
+                              </span>
                             </button>
                           </div>
 
@@ -1821,17 +1907,28 @@ export default function WaiterPortalPage() {
                           {ord.type === "pickup" ? "🛍️" : "🛵"}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-white text-xs sm:text-sm">
                               #{ord.orderNumber} · {ord.customerName}
                             </span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
                               Delivered
                             </span>
+                            {ord.dispatch?.riderName && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                                <span>🛵</span>
+                                <span>Delivered by {ord.dispatch.riderName}</span>
+                              </span>
+                            )}
                           </div>
-                          <p className="text-[11px] text-slate-400">
+                          <p className="text-[11px] text-slate-400 mt-0.5">
                             {ord.items.length} items · Paid via {ord.paymentMode.toUpperCase()}
-                            {ord.closedAt && ` · ${new Date(ord.closedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}`}
+                            {ord.closedAt && ` · Delivered at ${new Date(ord.closedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}`}
+                            {ord.closedAt && ord.dispatch?.dispatchedAt && (
+                              <span className="text-amber-400 font-semibold">
+                                {` · (Took ${Math.max(1, Math.round((new Date(ord.closedAt).getTime() - new Date(ord.dispatch.dispatchedAt).getTime()) / 60000))} mins)`}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -2350,76 +2447,103 @@ export default function WaiterPortalPage() {
               </button>
             </div>
 
-            {/* Active Captains & Staff on Duty */}
+            {/* Active Delivery Riders Only */}
             <div>
               <label className="text-[11px] font-bold text-slate-400 uppercase font-mono block mb-1.5 flex items-center justify-between">
-                <span>Active Captains / Staff on Duty</span>
+                <span>Active Delivery Riders / Fleet</span>
                 <span className="text-[10px] text-emerald-400 font-normal">1-Tap Direct Assign</span>
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Current logged-in user option */}
-                {staffUser && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRiderNameInput(staffUser.name);
-                      handleAssignToCaptain(dispatchModalOrder, staffUser.name, "", false);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                      riderNameInput === staffUser.name
-                        ? "bg-emerald-500/15 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500/40"
-                        : "bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs">⚡</span>
-                        <span className="text-xs font-bold truncate">{staffUser.name}</span>
-                      </div>
-                      <span className="text-[10px] text-emerald-400 block font-mono">
-                        (You · {staffUser.role.toUpperCase()})
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 shrink-0">
-                      Assign
-                    </span>
-                  </button>
-                )}
+              {(() => {
+                // Filter ONLY actual delivery riders
+                const onlyRiders = activeCaptains.filter(
+                  (c) => c.role?.toLowerCase() === "rider" || c.role?.toLowerCase() === "delivery"
+                );
 
-                {/* Other active captains & staff */}
-                {activeCaptains
-                  .filter((c) => c.name !== staffUser?.name)
-                  .map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setRiderNameInput(c.name);
-                        if (c.phone) setRiderPhoneInput(c.phone);
-                        handleAssignToCaptain(dispatchModalOrder, c.name, c.phone || "", false);
-                      }}
-                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                        riderNameInput === c.name
-                          ? "bg-emerald-500/15 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500/40"
-                          : "bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs">{c.role === "rider" ? "🛵" : "👨‍💼"}</span>
-                          <span className="text-xs font-bold truncate">{c.name}</span>
+                const isUserRider =
+                  staffUser &&
+                  (staffUser.role?.toLowerCase() === "rider" || staffUser.role?.toLowerCase() === "delivery");
+
+                if (onlyRiders.length === 0 && !isUserRider) {
+                  return (
+                    <div className="p-3.5 rounded-xl border border-dashed border-slate-800 bg-slate-950/60 text-center space-y-1">
+                      <div className="text-xl">🛵</div>
+                      <p className="text-xs font-semibold text-slate-300">
+                        No Delivery Riders Registered Yet
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        Create a Delivery Captain in Staff settings, or type rider name below.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Current logged-in user if they are a Rider */}
+                    {isUserRider && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRiderNameInput(staffUser.name);
+                          handleAssignToCaptain(dispatchModalOrder, staffUser.name, "", false);
+                        }}
+                        className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                          riderNameInput === staffUser.name
+                            ? "bg-emerald-500/15 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500/40"
+                            : "bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs">⚡</span>
+                            <span className="text-xs font-bold truncate">{staffUser.name}</span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 block font-mono">
+                            (You · Delivery Captain)
+                          </span>
                         </div>
-                        <span className="text-[10px] text-slate-400 block font-mono uppercase">
-                          {c.role}
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 shrink-0">
+                          Assign
                         </span>
-                      </div>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 shrink-0">
-                        Assign
-                      </span>
-                    </button>
-                  ))}
-              </div>
+                      </button>
+                    )}
+
+                    {/* Other active delivery riders */}
+                    {onlyRiders
+                      .filter((c) => c.name !== (isUserRider ? staffUser?.name : ""))
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setRiderNameInput(c.name);
+                            if (c.phone) setRiderPhoneInput(c.phone);
+                            handleAssignToCaptain(dispatchModalOrder, c.name, c.phone || "", false);
+                          }}
+                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                            riderNameInput === c.name
+                              ? "bg-emerald-500/15 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500/40"
+                              : "bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm">🛵</span>
+                              <span className="text-xs font-bold truncate">{c.name}</span>
+                            </div>
+                            <span className="text-[10px] text-purple-400 block font-mono font-bold">
+                              RIDER / FLEET {c.phone && `· ${c.phone}`}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 shrink-0">
+                            Assign
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Manual Entry Form */}
