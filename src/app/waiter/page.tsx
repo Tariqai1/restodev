@@ -1079,24 +1079,24 @@ export default function WaiterPortalPage() {
       {/* ─────────────────────────────────────────────────────────────
           3. SEGMENTED TAB SELECTOR (Floor | Online | Approvals | Calls)
          ───────────────────────────────────────────────────────────── */}
-      <div className="bg-slate-900 border-b border-slate-800 px-2.5 sm:px-5 py-2">
+      <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-800/90 px-2 sm:px-5 py-2">
         <div className="grid grid-cols-4 gap-1.5 sm:gap-2 max-w-2xl mx-auto">
           {/* Tab 1: Floor Tables */}
           <button
             type="button"
             onClick={() => setActiveTab("floor")}
-            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === "floor"
                 ? "bg-amber-500 text-slate-950 shadow-md font-black"
-                : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
+                : "bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-750"
             }`}
           >
             <span>🪑 Floor</span>
             <span
-              className={`text-[9px] sm:text-[10px] font-mono px-1 sm:px-1.5 py-0.2 rounded-full ${
+              className={`text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
                 activeTab === "floor"
-                  ? "bg-slate-950/20 text-slate-950 font-bold"
-                  : "bg-slate-700 text-slate-300"
+                  ? "bg-slate-950/25 text-slate-950 font-bold"
+                  : "bg-slate-700/80 text-slate-300 font-medium"
               }`}
             >
               {occupiedCount}/{physicalTables.length}
@@ -1107,15 +1107,23 @@ export default function WaiterPortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab("online")}
-            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer relative ${
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer relative ${
               activeTab === "online"
                 ? "bg-emerald-500 text-slate-950 shadow-md font-black"
-                : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
+                : onlineOrders.active.length > 0
+                ? "bg-slate-800/80 hover:bg-slate-800 text-slate-200 border border-emerald-500/40"
+                : "bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-750"
             }`}
           >
             <span>🛵 Online</span>
             {onlineOrders.active.length > 0 ? (
-              <span className="bg-emerald-400 text-slate-950 text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+              <span
+                className={`text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                  activeTab === "online"
+                    ? "bg-slate-950/25 text-slate-950"
+                    : "bg-emerald-400 text-slate-950 animate-pulse"
+                }`}
+              >
                 {onlineOrders.active.length}
               </span>
             ) : (
@@ -1129,15 +1137,23 @@ export default function WaiterPortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab("approvals")}
-            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer relative ${
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer relative ${
               activeTab === "approvals"
                 ? "bg-amber-500 text-slate-950 shadow-md font-black"
-                : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
+                : approvalsCount > 0
+                ? "bg-slate-800/80 hover:bg-slate-800 text-slate-200 border border-amber-500/40"
+                : "bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-750"
             }`}
           >
             <span>⚡ Approvals</span>
             {approvalsCount > 0 ? (
-              <span className="bg-amber-400 text-slate-950 text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full animate-bounce">
+              <span
+                className={`text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                  activeTab === "approvals"
+                    ? "bg-slate-950 text-amber-300"
+                    : "bg-amber-400 text-slate-950 animate-bounce"
+                }`}
+              >
                 {approvalsCount}
               </span>
             ) : (
@@ -1149,15 +1165,23 @@ export default function WaiterPortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab("calls")}
-            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer relative ${
+            className={`py-2 px-1 sm:px-2.5 rounded-xl font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer relative ${
               activeTab === "calls"
-                ? "bg-amber-500 text-slate-950 shadow-md font-black"
-                : "bg-slate-800/80 text-slate-300 hover:bg-slate-800"
+                ? "bg-rose-500 text-white shadow-md font-black"
+                : callsCount > 0
+                ? "bg-slate-800/80 hover:bg-slate-800 text-slate-200 border border-rose-500/40"
+                : "bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-750"
             }`}
           >
             <span>🔔 Buzzers</span>
             {callsCount > 0 ? (
-              <span className="bg-rose-500 text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+              <span
+                className={`text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                  activeTab === "calls"
+                    ? "bg-white/20 text-white"
+                    : "bg-rose-500 text-white animate-pulse"
+                }`}
+              >
                 {callsCount}
               </span>
             ) : (
@@ -1192,8 +1216,8 @@ export default function WaiterPortalPage() {
                     onClick={() => setFloorFilter(f.key as any)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                       floorFilter === f.key
-                        ? "bg-slate-100 text-slate-950 font-black"
-                        : "bg-slate-850 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800"
+                        ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                        : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/80"
                     }`}
                   >
                     {f.label}
@@ -1277,15 +1301,15 @@ export default function WaiterPortalPage() {
                         isCalling
                           ? "bg-rose-950/30 border-rose-500/80 shadow-lg shadow-rose-950/50 ring-2 ring-rose-500/50"
                           : isOccupied
-                          ? "bg-slate-900 border-slate-750 hover:border-slate-650 shadow-md"
-                          : "bg-slate-900/40 border-slate-800/80 text-slate-400"
+                          ? "bg-gradient-to-b from-slate-900 to-slate-900/95 border-slate-700/80 hover:border-slate-600 shadow-md"
+                          : "bg-slate-900/50 border-slate-800/80 text-slate-400 hover:border-slate-700/80 transition-colors"
                       }`}
                     >
                       {/* Card Header: Table Number & Status Pill */}
                       <div>
-                        <div className="flex items-start justify-between gap-2 mb-2.5">
+                        <div className="flex items-center justify-between gap-2 mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                            <span className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
                               Table {table.table_number}
                             </span>
                             {isCalling && (
@@ -1294,17 +1318,17 @@ export default function WaiterPortalPage() {
                           </div>
 
                           {isCalling ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] uppercase tracking-wider animate-pulse flex items-center gap-1">
+                            <span className="px-2.5 py-1 rounded-full bg-rose-500 text-white font-extrabold text-[10px] uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-xs">
                               <i className="fa-solid fa-bell text-[9px]" />
                               <span>Calling</span>
                             </span>
                           ) : isOccupied ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                               <span>Occupied</span>
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 font-semibold text-[10px] uppercase tracking-wider">
+                            <span className="px-2.5 py-1 rounded-full bg-slate-800/90 text-slate-400 border border-slate-700/60 font-semibold text-[10px] uppercase tracking-wider">
                               Vacant
                             </span>
                           )}
@@ -1312,24 +1336,24 @@ export default function WaiterPortalPage() {
 
                         {/* Occupied State Details */}
                         {isOccupied && ord ? (
-                          <div className="space-y-2 mb-3.5">
+                          <div className="space-y-2.5 mb-3.5">
                             {/* Seated duration & running total */}
-                            <div className="flex items-center justify-between text-xs bg-slate-950/60 rounded-xl px-3 py-2 border border-slate-800/70">
-                              <div className="flex items-center gap-1.5 text-slate-400">
-                                <i className="fa-regular fa-clock text-[11px]" />
+                            <div className="flex items-center justify-between text-xs bg-slate-950/70 rounded-xl px-3 py-2 border border-slate-800">
+                              <div className="flex items-center gap-1.5 text-slate-400 font-medium">
+                                <i className="fa-regular fa-clock text-[11px] text-slate-500" />
                                 <span>{diningMins}m on table</span>
                               </div>
-                              <div className="font-extrabold text-amber-400 text-sm">
+                              <div className="font-mono font-bold text-amber-400 text-sm">
                                 ₹{totalAmt}
                               </div>
                             </div>
 
                             {/* Dish Items Breakdown (Up to 3 items) */}
-                            <div className="space-y-1">
+                            <div className="space-y-1 bg-slate-950/40 rounded-xl p-2.5 border border-slate-800/60">
                               {items.slice(0, 3).map((it) => (
                                 <div
                                   key={it.id}
-                                  className="text-[11px] flex items-center justify-between text-slate-300"
+                                  className="text-[11px] flex items-center justify-between text-slate-200"
                                 >
                                   <div className="flex items-center gap-1.5 truncate">
                                     <span
@@ -1337,12 +1361,12 @@ export default function WaiterPortalPage() {
                                         it.menu_items?.is_veg ? "bg-emerald-400" : "bg-rose-400"
                                       }`}
                                     />
-                                    <span className="truncate">
-                                      {it.qty}× {it.menu_items?.name || "Dish"}
+                                    <span className="truncate font-medium">
+                                      <span className="text-amber-400/90 font-bold font-mono">{it.qty}×</span> {it.menu_items?.name || "Dish"}
                                     </span>
                                   </div>
                                   <span
-                                    className={`text-[9px] uppercase font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                                    className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded shrink-0 ${
                                       it.item_status === "served"
                                         ? "bg-emerald-500/20 text-emerald-300"
                                         : it.item_status === "preparing"
@@ -1355,21 +1379,24 @@ export default function WaiterPortalPage() {
                                 </div>
                               ))}
                               {items.length > 3 && (
-                                <p className="text-[10px] text-slate-500 font-medium">
+                                <p className="text-[10px] text-slate-400 font-medium pt-0.5 pl-3">
                                   +{items.length - 3} more dishes in order...
                                 </p>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <div className="py-4 text-center text-xs text-slate-500 font-medium">
-                            Table is clean & ready for guests
+                          <div className="py-5 flex flex-col items-center justify-center text-center">
+                            <div className="w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-slate-400 text-xs mb-2">
+                              <i className="fa-solid fa-chair text-slate-400" />
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium">Table is clean & ready for guests</p>
                           </div>
                         )}
                       </div>
 
-                      {/* Card Action Buttons */}
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
+                      {/* Card Action Buttons: Harmonized h-9 */}
+                      <div className="pt-2.5 border-t border-slate-800/80 flex items-center gap-1.5">
                         {isOccupied && ord ? (
                           <>
                             {/* 1-Tap Edit Running Order */}
@@ -1382,7 +1409,7 @@ export default function WaiterPortalPage() {
                                   tableNumber: table.table_number,
                                 });
                               }}
-                              className="flex-1 py-2 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                              className="flex-1 h-9 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
                               <i className="fa-solid fa-pen-to-square text-xs" />
                               <span>Edit</span>
@@ -1399,7 +1426,7 @@ export default function WaiterPortalPage() {
                                   mode: "shift",
                                 });
                               }}
-                              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-amber-400 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
+                              className="h-9 w-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs border border-slate-700/80 transition-colors cursor-pointer flex items-center justify-center shrink-0 active:scale-95"
                               title="Shift Table (Move party to another table)"
                             >
                               <i className="fa-solid fa-arrow-right-arrow-left text-xs" />
@@ -1416,7 +1443,7 @@ export default function WaiterPortalPage() {
                                   mode: "join",
                                 });
                               }}
-                              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-purple-400 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
+                              className="h-9 w-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-400 font-bold text-xs border border-slate-700/80 transition-colors cursor-pointer flex items-center justify-center shrink-0 active:scale-95"
                               title="Join Table (Merge for group dining)"
                             >
                               <i className="fa-solid fa-link text-xs" />
@@ -1426,7 +1453,7 @@ export default function WaiterPortalPage() {
                             <button
                               type="button"
                               onClick={() => setViewingBillOrder(ord)}
-                              className="py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1"
+                              className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                               title="Settle Bill & Free Table"
                             >
                               <i className="fa-solid fa-receipt text-xs" />
@@ -1437,7 +1464,7 @@ export default function WaiterPortalPage() {
                           <button
                             type="button"
                             onClick={() => handlePunchQuickOrder(table)}
-                            className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs border border-slate-700 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            className="w-full h-9 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/50 text-slate-200 hover:text-white font-bold text-xs border border-slate-700/80 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                           >
                             <i className="fa-solid fa-plus text-xs text-amber-400" />
                             <span>Punch Order</span>
@@ -1841,7 +1868,7 @@ export default function WaiterPortalPage() {
                               type="button"
                               disabled={isSettlingThis}
                               onClick={() => handleSettleOnlineOrder(ord, "upi")}
-                              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 disabled:opacity-50 text-cyan-300 font-bold text-xs border border-cyan-500/30 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-cyan-300 font-bold text-xs border border-cyan-500/30 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
                               {isSettlingThis ? (
                                 <i className="fa-solid fa-circle-notch fa-spin text-xs" />
@@ -1980,7 +2007,7 @@ export default function WaiterPortalPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("floor")}
-                  className="mt-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs cursor-pointer"
+                  className="mt-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs cursor-pointer"
                 >
                   Return to Floor Tables
                 </button>
@@ -2002,25 +2029,26 @@ export default function WaiterPortalPage() {
                   return (
                     <div
                       key={batch.id}
-                      className="rounded-2xl border-2 border-amber-500/60 bg-slate-900 p-4 shadow-xl space-y-3"
+                      className="rounded-2xl border border-amber-500/50 bg-gradient-to-b from-slate-900 to-slate-900/95 p-4 sm:p-5 shadow-xl shadow-slate-950/40 space-y-3.5 transition-all"
                     >
                       {/* Batch Header */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-lg shrink-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/25 to-amber-600/10 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-base shrink-0 shadow-inner">
                             {batch.tableNumber}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-base font-black text-white">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-base font-black text-white tracking-tight whitespace-nowrap">
                                 Table {batch.tableNumber}
                               </h3>
-                              <span className="text-[11px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                                {elapsedSec < 60 ? `${elapsedSec}s ago` : `${Math.floor(elapsedSec / 60)}m ago`}
+                              <span className="text-[10px] sm:text-[11px] font-mono font-bold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30 whitespace-nowrap flex items-center gap-1">
+                                <i className="fa-regular fa-clock text-[9px]" />
+                                <span>{elapsedSec < 60 ? `${elapsedSec}s ago` : `${Math.floor(elapsedSec / 60)}m ago`}</span>
                               </span>
                             </div>
-                            <p className="text-xs text-slate-400 font-medium">
-                              {batch.customerName || "Floor Guest"} · {batch.totalItems} Items · ₹{batch.totalAmount}
+                            <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
+                              {batch.customerName || "Floor Guest"} · <span className="text-slate-300 font-semibold">{batch.totalItems} Items</span> · <span className="font-mono font-bold text-white">₹{batch.totalAmount}</span>
                             </p>
                           </div>
                         </div>
@@ -2035,37 +2063,38 @@ export default function WaiterPortalPage() {
                               tableNumber: batch.tableNumber,
                             });
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                          className="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-750 text-slate-200 hover:text-white font-bold text-xs border border-slate-700/80 flex items-center gap-1.5 shrink-0 transition-all active:scale-95 cursor-pointer shadow-xs"
                         >
                           <i className="fa-solid fa-pen-to-square text-xs text-amber-400" />
-                          <span>Edit Dishes</span>
+                          <span className="hidden sm:inline">Edit Dishes</span>
+                          <span className="sm:hidden">Edit</span>
                         </button>
                       </div>
 
                       {/* Items Preview */}
-                      <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800 space-y-1.5">
+                      <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80 divide-y divide-slate-850/60">
                         {pendingItems.length > 0 ? (
                           pendingItems.map((it) => (
                             <div
                               key={it.id}
-                              className="text-xs flex items-center justify-between text-slate-300"
+                              className="text-xs py-1.5 first:pt-0 last:pb-0 flex items-center justify-between text-slate-200"
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <span
-                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                  className={`w-2 h-2 rounded-full shrink-0 shadow-xs ${
                                     it.menu_items?.is_veg ? "bg-emerald-400" : "bg-rose-400"
                                   }`}
                                 />
                                 <span className="font-semibold truncate">
-                                  {it.qty}× {it.menu_items?.name || "Dish"}
+                                  <span className="text-amber-400 font-bold font-mono">{it.qty}×</span> {it.menu_items?.name || "Dish"}
                                 </span>
                                 {it.notes && (
-                                  <span className="text-[10px] text-amber-300/80 italic truncate">
+                                  <span className="text-[10px] text-amber-300/90 italic truncate bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
                                     "{it.notes}"
                                   </span>
                                 )}
                               </div>
-                              <span className="font-mono text-slate-400 shrink-0">
+                              <span className="font-mono font-bold text-slate-300 shrink-0 ml-2">
                                 ₹{(Number(it.unit_price) || 0) * (Number(it.qty) || 1)}
                               </span>
                             </div>
@@ -2083,7 +2112,7 @@ export default function WaiterPortalPage() {
                           type="button"
                           disabled={isProcessing}
                           onClick={() => handleApproveBatch(batch)}
-                          className="flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black text-sm shadow-md active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                          className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-black text-sm shadow-md shadow-emerald-950/40 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
                           {isProcessing ? (
                             <>
@@ -2104,7 +2133,7 @@ export default function WaiterPortalPage() {
                             setRejectingBatch(batch);
                             setRejectReason("");
                           }}
-                          className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-rose-950/40 hover:border-rose-700 hover:text-rose-400 text-slate-400 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
+                          className="py-3 px-4 rounded-xl bg-slate-850 hover:bg-rose-950/40 hover:border-rose-600/60 hover:text-rose-300 text-slate-400 font-bold text-xs border border-slate-750 transition-all active:scale-95 cursor-pointer shrink-0"
                         >
                           Decline
                         </button>
@@ -2207,12 +2236,12 @@ export default function WaiterPortalPage() {
         )}
       </main>
 
-      {/* ─────────────────────────────────────────────────────────────
+       {/* ─────────────────────────────────────────────────────────────
           5. BILL SUMMARY MODAL
          ───────────────────────────────────────────────────────────── */}
       {viewingBillOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-750 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-black text-white">
@@ -2307,7 +2336,7 @@ export default function WaiterPortalPage() {
               type="button"
               disabled={isSettling}
               onClick={() => setViewingBillOrder(null)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-slate-200 font-bold text-xs cursor-pointer mt-1"
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 font-bold text-xs cursor-pointer mt-1"
             >
               Cancel / Close
             </button>
@@ -2320,7 +2349,7 @@ export default function WaiterPortalPage() {
          ───────────────────────────────────────────────────────────── */}
       {rejectingBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-750 rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700/80 rounded-3xl p-5 shadow-2xl space-y-4">
             <h3 className="text-base font-black text-white">
               Decline Table {rejectingBatch.tableNumber} Order?
             </h3>
@@ -2343,7 +2372,7 @@ export default function WaiterPortalPage() {
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold border cursor-pointer ${
                     rejectReason === reason
                       ? "bg-rose-500/20 border-rose-500 text-rose-300"
-                      : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-750"
+                      : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"
                   }`}
                 >
                   {reason}
@@ -2363,7 +2392,7 @@ export default function WaiterPortalPage() {
               <button
                 type="button"
                 onClick={() => setRejectingBatch(null)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-750 cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700 cursor-pointer"
               >
                 Cancel
               </button>
