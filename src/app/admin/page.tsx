@@ -320,6 +320,7 @@ export default function AdminPage() {
   const knownCallIdsRef = React.useRef<Set<string>>(new Set());
   const lastEscalationSoundRef = React.useRef<number>(0);
   const fetchInFlightRef = React.useRef<boolean>(false);
+  const kdsCompletedOrderIdsRef = React.useRef<Set<string>>(new Set());
 
   // Role-Based Access Control State
   const [rolePermissions, setRolePermissions] = useState<RolePermissionsConfig>(DEFAULT_ROLE_PERMISSIONS);
@@ -429,7 +430,26 @@ export default function AdminPage() {
           setOrders(
             data.openOrders.map((o: any) => {
               const rawItems = Array.isArray(o.order_items) ? o.order_items : [];
-              const hasPending = rawItems.some((it: any) => it.item_status === "pending");
+              const hasPending = rawItems.some((it: any) => it.item_status === "pending" || it.item_status === "placed");
+              const hasPreparing = rawItems.some((it: any) => it.item_status === "preparing");
+              const allServed = rawItems.length > 0 && rawItems.every((it: any) => it.item_status === "served");
+              const anyServed = rawItems.some((it: any) => it.item_status === "served");
+
+              let calculatedStatus: "placed" | "preparing" | "served" | "completed" | "cancelled" = "placed";
+              if (o.status === "cancelled") {
+                calculatedStatus = "cancelled";
+              } else if (kdsCompletedOrderIdsRef.current.has(o.id)) {
+                calculatedStatus = "completed";
+              } else if (allServed) {
+                calculatedStatus = "served";
+              } else if (hasPreparing || (anyServed && hasPending)) {
+                calculatedStatus = "preparing";
+              } else if (hasPending) {
+                calculatedStatus = "placed";
+              } else {
+                calculatedStatus = o.status === "open" ? "preparing" : o.status || "placed";
+              }
+
               return {
                 id: o.id,
                 table_number: o.table_number || o.restaurant_tables?.table_number || "T01",
@@ -439,7 +459,7 @@ export default function AdminPage() {
                   (s: number, it: any) => s + (Number(it.unit_price) * Number(it.qty) || 0),
                   0
                 ),
-                status: hasPending ? "placed" : o.status === "open" ? "preparing" : o.status || "placed",
+                status: calculatedStatus,
                 created_at: o.opened_at || new Date().toISOString(),
                 items_summary:
                   rawItems.length > 0
@@ -1232,9 +1252,36 @@ export default function AdminPage() {
     orderId: string,
     newStatus: "preparing" | "served" | "completed"
   ) => {
+    if (newStatus === "completed") {
+      kdsCompletedOrderIdsRef.current.add(orderId);
+    }
     setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      prev.map((o) => {
+        if (o.id !== orderId) return o;
+        return {
+          ...o,
+          status: newStatus,
+          order_items: o.order_items?.map((it) => ({
+            ...it,
+            item_status: newStatus === "completed" ? "served" : newStatus,
+          })),
+        };
+      })
     );
+
+    try {
+      const markStatus = newStatus === "completed" ? "served" : newStatus;
+      await fetch("/api/kitchen", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          markAllStatus: markStatus,
+        }),
+      });
+    } catch (err) {
+      console.error("[KDS] Error updating order status:", err);
+    }
   };
 
   const handleApproveOrder = async (orderId: string) => {
@@ -2089,9 +2136,7 @@ export default function AdminPage() {
                     label: "Mark Served",
                     icon: "fa-utensils",
                     onClick: (r) => {
-                      setOrders((prev) =>
-                        prev.map((o) => (o.id === r.id ? { ...o, status: "served" } : o))
-                      );
+                      handleUpdateOrderStatus(r.id, "served");
                     },
                   },
                   {
@@ -2099,9 +2144,7 @@ export default function AdminPage() {
                     icon: "fa-ban",
                     variant: "danger",
                     onClick: (r) => {
-                      setOrders((prev) =>
-                        prev.map((o) => (o.id === r.id ? { ...o, status: "cancelled" } : o))
-                      );
+                      handleRejectOrder(r.id, "Cancelled by manager");
                     },
                   },
                 ]}

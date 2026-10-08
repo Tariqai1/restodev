@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveStaffContext } from "@/lib/auth/staff-context";
 import { getOrderPrepTime, setOrderPrepTime, getRestaurantFeatures, getPendingApprovalItemIds } from "@/lib/platform/state";
+import { safeSetTableStatus } from "@/lib/tables/table-status";
 
 type KitchenAnalyticsCache = {
   expiresAt: number;
@@ -334,31 +335,30 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ ok: true, itemId, item_status: nextStatus });
     }
 
-    if (orderId && markAllStatus) {
-      if (markAllStatus === "served") {
-        // Only advance kitchen cooking ('preparing') items to 'served'
+    const effectiveMarkStatus = markAllStatus || (orderId && !itemId && nextStatus ? (nextStatus as "preparing" | "served") : undefined);
+
+    if (orderId && effectiveMarkStatus) {
+      if (effectiveMarkStatus === "served") {
+        // Advance all active non-cancelled items of this order to 'served'
         const { error } = await admin
           .from("order_items")
           .update({ item_status: "served" })
           .eq("order_id", orderId)
-          .eq("item_status", "preparing");
+          .neq("item_status", "cancelled");
 
         if (error) throw error;
-      } else if (markAllStatus === "preparing") {
-        // Only advance 'pending' items if verification is not required
-        const features = getRestaurantFeatures(staffContext.restaurantId);
-        if (features.waiterOrderApproval === false) {
-          const { error } = await admin
-            .from("order_items")
-            .update({ item_status: "preparing" })
-            .eq("order_id", orderId)
-            .eq("item_status", "pending");
+      } else if (effectiveMarkStatus === "preparing") {
+        // Advance all pending/placed items of this order to 'preparing'
+        const { error } = await admin
+          .from("order_items")
+          .update({ item_status: "preparing" })
+          .eq("order_id", orderId)
+          .in("item_status", ["pending", "placed"]);
 
-          if (error) throw error;
-        }
+        if (error) throw error;
       }
 
-      // Keep restaurant_tables.status in sync
+      // Keep restaurant_tables.status safely in sync
       const { data: orderRec } = await admin
         .from("orders")
         .select("table_id")
@@ -366,13 +366,15 @@ export async function PATCH(request: NextRequest) {
         .maybeSingle();
 
       if (orderRec?.table_id) {
-        await admin
-          .from("restaurant_tables")
-          .update({ status: markAllStatus })
-          .eq("id", orderRec.table_id);
+        await safeSetTableStatus(
+          admin,
+          orderRec.table_id,
+          effectiveMarkStatus === "served" ? "served" : "preparing",
+          staffContext.restaurantId
+        );
       }
 
-      return NextResponse.json({ ok: true, orderId, item_status: markAllStatus });
+      return NextResponse.json({ ok: true, orderId, item_status: effectiveMarkStatus });
     }
 
     return NextResponse.json({ message: "Invalid payload" }, { status: 400 });
