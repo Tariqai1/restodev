@@ -290,24 +290,24 @@ export default function TerminalLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070605] text-[#EDE8E1] flex flex-col lg:flex-row items-stretch selection:bg-[#D96B27] selection:text-white relative overflow-x-hidden">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row items-stretch selection:bg-amber-500 selection:text-slate-950 relative overflow-x-hidden">
       {/* Background ambient lighting */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-[#D96B27]/15 to-amber-500/5 rounded-full blur-[140px]" />
-        <div className="absolute bottom-10 right-10 w-[450px] h-[450px] bg-amber-600/10 rounded-full blur-[150px]" />
+        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-amber-500/10 to-amber-600/5 rounded-full blur-[140px]" />
+        <div className="absolute bottom-10 right-10 w-[450px] h-[450px] bg-amber-500/5 rounded-full blur-[150px]" />
       </div>
 
       {/* 1-TAP MAGIC AUTO-LOGIN SPLASH OVERLAY */}
       {isAutoLoggingIn && (
-        <div className="fixed inset-0 z-50 bg-[#0B0907]/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center animate-fade-in">
           <div className="relative mb-6">
-            <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-[#D96B27] to-[#F59E0B] flex items-center justify-center text-4xl shadow-[0_0_50px_rgba(217,107,39,0.5)] border border-amber-300/30 animate-pulse">
+            <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-4xl shadow-[0_0_50px_rgba(245,158,11,0.4)] border border-amber-400/40 animate-pulse text-slate-950 font-black">
               {selectedStaff?.role === "owner" ? "👑" : selectedStaff?.role === "kitchen" ? "🍳" : "🛎️"}
             </div>
-            <div className="absolute -inset-2 rounded-3xl border border-[#D96B27]/40 animate-ping opacity-30" />
+            <div className="absolute -inset-2 rounded-3xl border border-amber-500/40 animate-ping opacity-30" />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#1F1711] border border-[#3E2D20] text-xs font-mono text-amber-400 mb-3 shadow-inner">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-mono text-amber-400 mb-3 shadow-inner">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>1-TAP MAGIC CLOCK-IN</span>
           </div>
@@ -315,7 +315,7 @@ export default function TerminalLoginPage() {
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
             Welcome, {selectedStaff?.name || "Team Member"}!
           </h2>
-          <p className="text-xs text-[#A89F91] mt-1 font-mono uppercase tracking-wider">
+          <p className="text-xs text-slate-400 mt-1 font-mono uppercase tracking-wider">
             {selectedStaff?.role === "owner"
               ? "👑 Owner Management Session"
               : selectedStaff?.role === "kitchen"
@@ -324,10 +324,10 @@ export default function TerminalLoginPage() {
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-2.5">
-            <div className="w-52 h-2 bg-[#221A14] rounded-full overflow-hidden border border-[#3A2D22]">
-              <div className="h-full w-full bg-gradient-to-r from-[#D96B27] via-amber-400 to-emerald-400 animate-pulse" />
+            <div className="w-52 h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div className="h-full w-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 animate-pulse" />
             </div>
-            <span className="text-[11px] text-[#8C8275] font-mono">Launching restaurant dashboard...</span>
+            <span className="text-[11px] text-slate-400 font-mono">Launching restaurant dashboard...</span>
           </div>
         </div>
       )}
@@ -335,30 +335,30 @@ export default function TerminalLoginPage() {
       {/* ======================================================== */}
       {/* LEFT SIDE: ORDER DESK SAAS PLATFORM SHOWCASE */}
       {/* ======================================================== */}
-      <section className="relative z-10 flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-14 xl:p-16 border-b lg:border-b-0 lg:border-r border-[#261E17]/80 bg-gradient-to-br from-[#120E0A]/90 via-[#0A0806]/95 to-[#070605]">
+      <section className="relative z-10 flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-14 xl:p-16 border-b lg:border-b-0 lg:border-r border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900/60 to-slate-950">
         {/* Brand Header */}
         <div className="space-y-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#D96B27] to-[#F59E0B] flex items-center justify-center text-white text-xl font-black shadow-lg shadow-[#D96B27]/30 border border-amber-300/30">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-slate-950 text-xl font-black shadow-lg shadow-amber-500/20 border border-amber-400/40">
                 <i className="fa-solid fa-utensils" />
               </div>
               <div>
                 <span className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
                   Order Desk
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-[#D96B27]/20 text-[#F38B47] border border-[#D96B27]/40">
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">
                     SaaS Cloud
                   </span>
                 </span>
-                <span className="text-[11px] text-[#8C8275] block font-mono">
+                <span className="text-[11px] text-slate-400 block font-mono">
                   Enterprise Restaurant Operating System
                 </span>
               </div>
             </div>
 
             {/* Live Status Pill */}
-            <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18120D] border border-[#35261B] text-[11px] font-medium text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-medium text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Cloud Services 100% Live</span>
             </div>
           </div>
@@ -367,11 +367,11 @@ export default function TerminalLoginPage() {
           <div className="space-y-3 pt-4">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black text-white tracking-tight leading-[1.15]">
               Everything your restaurant needs,{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F38B47] via-amber-400 to-[#D96B27]">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500">
                 powered by one unified cloud.
               </span>
             </h1>
-            <p className="text-sm sm:text-base text-[#9E9485] max-w-xl leading-relaxed">
+            <p className="text-sm sm:text-base text-slate-400 max-w-xl leading-relaxed">
               Order Desk is the all-in-one SaaS hospitality platform designed to replace messy multi-software stacks with a seamless QR engine, smart KDS, billing, and direct delivery.
             </p>
           </div>
@@ -381,7 +381,7 @@ export default function TerminalLoginPage() {
             {SAAS_FEATURES.map((feat, idx) => (
               <div
                 key={idx}
-                className="rounded-2xl border border-[#261E17] bg-[#14100C]/70 hover:bg-[#1C1611]/90 transition-all p-4 space-y-2 group shadow-sm"
+                className="rounded-2xl border border-slate-800/80 bg-slate-900/60 hover:bg-slate-900/90 hover:border-slate-700 transition-all p-4 space-y-2 group shadow-sm"
               >
                 <div className="flex items-center gap-2.5">
                   <span
@@ -393,7 +393,7 @@ export default function TerminalLoginPage() {
                     {feat.title}
                   </h3>
                 </div>
-                <p className="text-[11px] text-[#8C8275] leading-relaxed">
+                <p className="text-[11px] text-slate-400 leading-relaxed">
                   {feat.desc}
                 </p>
               </div>
@@ -402,26 +402,26 @@ export default function TerminalLoginPage() {
         </div>
 
         {/* SaaS Footer Metrics & Trust Badge */}
-        <div className="pt-8 mt-6 border-t border-[#261E17]/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="pt-8 mt-6 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-6">
             <div>
               <span className="text-lg font-bold text-white font-mono">99.98%</span>
-              <span className="text-[10px] text-[#786D5F] block uppercase font-mono">Platform Uptime</span>
+              <span className="text-[10px] text-slate-500 block uppercase font-mono">Platform Uptime</span>
             </div>
-            <div className="h-6 w-px bg-[#261E17]" />
+            <div className="h-6 w-px bg-slate-800" />
             <div>
               <span className="text-lg font-bold text-emerald-400 font-mono">0% Fee</span>
-              <span className="text-[10px] text-[#786D5F] block uppercase font-mono">Direct Orders</span>
+              <span className="text-[10px] text-slate-500 block uppercase font-mono">Direct Orders</span>
             </div>
-            <div className="h-6 w-px bg-[#261E17]" />
+            <div className="h-6 w-px bg-slate-800" />
             <div>
               <span className="text-lg font-bold text-amber-400 font-mono">&lt; 50ms</span>
-              <span className="text-[10px] text-[#786D5F] block uppercase font-mono">Sync Latency</span>
+              <span className="text-[10px] text-slate-500 block uppercase font-mono">Sync Latency</span>
             </div>
           </div>
 
-          <div className="text-[11px] text-[#786D5F] font-mono flex items-center gap-1.5">
-            <i className="fa-solid fa-lock text-[#D96B27]" />
+          <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
+            <i className="fa-solid fa-lock text-amber-500" />
             <span>256-Bit TLS Bank-Grade Encryption</span>
           </div>
         </div>
@@ -431,14 +431,14 @@ export default function TerminalLoginPage() {
       {/* RIGHT SIDE: FAST & SMOOTH AUTHENTICATION TERMINAL */}
       {/* ======================================================== */}
       <section className="relative z-10 w-full lg:w-[480px] xl:w-[520px] flex items-center justify-center p-4 sm:p-8 lg:p-10 shrink-0">
-        <div className="w-full max-w-[420px] bg-[#14100C]/95 border border-[#2E231B] rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/80 backdrop-blur-xl space-y-5">
+        <div className="w-full max-w-[420px] bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/80 backdrop-blur-xl space-y-5">
           {/* Terminal Location & Restaurant Title */}
-          <header className="space-y-2 border-b border-[#261E17] pb-4">
+          <header className="space-y-2 border-b border-slate-800 pb-4">
             <div className="flex items-center justify-between">
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${
                   isOnline
-                    ? "bg-[#1F1711] border-[#3A2A1E] text-amber-400"
+                    ? "bg-slate-950 border-slate-800 text-emerald-400"
                     : "bg-amber-950/80 border-amber-500/50 text-amber-300 animate-pulse"
                 }`}
               >
@@ -450,7 +450,7 @@ export default function TerminalLoginPage() {
                 <span>{isOnline ? "Terminal Online" : "Reconnecting..."}</span>
               </span>
 
-              <span className="text-[11px] font-bold font-mono tracking-wider text-[#D96B27] uppercase">
+              <span className="text-[11px] font-bold font-mono tracking-wider text-amber-400 uppercase">
                 Order Desk POS
               </span>
             </div>
@@ -459,14 +459,14 @@ export default function TerminalLoginPage() {
               <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
                 {restaurantName}
               </h2>
-              <p className="text-xs text-[#8C8275] font-medium mt-0.5">
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
                 {showEmailRecovery ? "Owner Master Login & Settings" : "Fast Staff PIN Access & Shift Clock-In"}
               </p>
             </div>
           </header>
 
           {/* Staff PIN / Owner Switcher Tabs */}
-          <div className="grid grid-cols-2 p-1 bg-[#0D0A08] rounded-xl border border-[#261E17]">
+          <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
             <button
               type="button"
               onClick={() => {
@@ -475,8 +475,8 @@ export default function TerminalLoginPage() {
               }}
               className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 !showEmailRecovery
-                  ? "bg-[#D96B27] text-white shadow-md shadow-[#D96B27]/30"
-                  : "text-[#8C8275] hover:text-white"
+                  ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
               <i className="fa-solid fa-calculator text-xs" />
@@ -491,8 +491,8 @@ export default function TerminalLoginPage() {
               }}
               className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 showEmailRecovery
-                  ? "bg-[#D96B27] text-white shadow-md shadow-[#D96B27]/30"
-                  : "text-[#8C8275] hover:text-white"
+                  ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
               <i className="fa-solid fa-crown text-xs" />
@@ -503,7 +503,7 @@ export default function TerminalLoginPage() {
           {!showEmailRecovery ? (
             <div className="space-y-4">
               {/* Role Fast Selector Tabs: Waiter / Kitchen / Rider / Owner */}
-              <div className="grid grid-cols-5 p-0.5 bg-[#0D0A08] rounded-xl border border-[#261E17] text-[10px] sm:text-[11px]">
+              <div className="grid grid-cols-5 p-0.5 bg-slate-950 rounded-xl border border-slate-800 text-[10px] sm:text-[11px]">
                 {[
                   { key: "all", label: "All" },
                   { key: "waiter", label: "🛎️ Waiter" },
@@ -534,8 +534,8 @@ export default function TerminalLoginPage() {
                     }}
                     className={`py-1.5 rounded-lg font-bold transition-all cursor-pointer text-center ${
                       roleFilter === tab.key
-                        ? "bg-[#251C15] text-[#D96B27] border border-[#D96B27]/40 shadow-xs"
-                        : "text-[#8C8275] hover:text-white"
+                        ? "bg-slate-800 text-amber-300 border border-amber-500/40 shadow-xs"
+                        : "text-slate-400 hover:text-white"
                     }`}
                   >
                     {tab.label}
@@ -546,9 +546,9 @@ export default function TerminalLoginPage() {
               {/* Staff Selector Pills */}
               {staffList.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-[#8C8275] uppercase">
+                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 uppercase">
                     <span>Select Profile:</span>
-                    <span className="text-[#D96B27]">
+                    <span className="text-amber-400 font-bold">
                       {staffList.filter((s) => {
                         if (roleFilter === "all") return true;
                         const r = s.role.toLowerCase();
@@ -593,15 +593,15 @@ export default function TerminalLoginPage() {
                             }}
                             className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
                               isSelected
-                                ? "bg-[#251C15] border-[#D96B27] ring-1 ring-[#D96B27]/40 text-white shadow-lg shadow-[#D96B27]/15"
-                                : "bg-[#110D0A] border-[#261E17] text-[#A89F91] hover:bg-[#1A1410] hover:text-white"
+                                ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-white shadow-lg shadow-amber-500/10"
+                                : "bg-slate-950/80 border-slate-800 text-slate-300 hover:bg-slate-800/60 hover:text-white"
                             }`}
                         >
                           <span
                             className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${
                               isSelected
-                                ? "bg-[#D96B27] text-white"
-                                : "bg-[#1C1611] text-[#8C8275] border border-[#2E231B]"
+                                ? "bg-amber-500 text-slate-950 font-black"
+                                : "bg-slate-800 text-slate-400 border border-slate-700/80"
                             }`}
                           >
                             {getInitials(member.name)}
@@ -613,7 +613,7 @@ export default function TerminalLoginPage() {
                             </div>
                             <div
                               className={`text-[10px] font-semibold leading-tight mt-0.5 ${
-                                isSelected ? "text-[#F38B47]" : "text-[#786D5F]"
+                                isSelected ? "text-amber-300" : "text-slate-500"
                               }`}
                             >
                               {roleLabel}
@@ -636,8 +636,8 @@ export default function TerminalLoginPage() {
                         key={index}
                         className={`w-4 h-4 rounded-full transition-all duration-200 border ${
                           filled
-                            ? "bg-gradient-to-tr from-[#D96B27] to-[#F59E0B] border-amber-300 shadow-[0_0_16px_rgba(217,107,39,0.9)] scale-110"
-                            : "bg-[#100C09] border-[#382B20]"
+                            ? "bg-gradient-to-tr from-amber-400 to-amber-500 border-amber-300 shadow-[0_0_16px_rgba(245,158,11,0.8)] scale-110"
+                            : "bg-slate-950 border-slate-800"
                         }`}
                       />
                     );
@@ -650,7 +650,7 @@ export default function TerminalLoginPage() {
                     <span>{errorMessage}</span>
                   </p>
                 ) : (
-                  <p className="text-xs text-[#8C8275]">
+                  <p className="text-xs text-slate-400">
                     Enter 4-digit PIN for{" "}
                     <span className="text-white font-bold">{selectedStaff?.name || "Terminal"}</span>
                   </p>
@@ -665,13 +665,13 @@ export default function TerminalLoginPage() {
                     type="button"
                     onClick={() => handleKeyPress(item.digit)}
                     disabled={isSubmitting}
-                    className="h-14 sm:h-15 rounded-2xl bg-[#1A140F] hover:bg-[#261E16] active:bg-[#D96B27]/30 active:scale-95 border border-[#2B2119] text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none"
+                    className="h-14 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none"
                   >
                     <span className="text-xl sm:text-2xl font-extrabold tracking-tight leading-none">
                       {item.digit}
                     </span>
                     {item.sub && (
-                      <span className="text-[9px] font-mono tracking-widest text-[#7D7162] mt-0.5 uppercase">
+                      <span className="text-[9px] font-mono tracking-widest text-slate-400 mt-0.5 uppercase">
                         {item.sub}
                       </span>
                     )}
@@ -682,7 +682,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={handleClear}
                   disabled={isSubmitting || pin.length === 0}
-                  className="h-14 sm:h-15 rounded-2xl bg-[#110D0A] hover:bg-[#1A1410] active:scale-95 border border-[#2B2119] text-amber-500 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none"
+                  className="h-14 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-amber-400 hover:text-amber-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none"
                 >
                   CLEAR
                 </button>
@@ -691,7 +691,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={() => handleKeyPress("0")}
                   disabled={isSubmitting}
-                  className="h-14 sm:h-15 rounded-2xl bg-[#1A140F] hover:bg-[#261E16] active:bg-[#D96B27]/30 active:scale-95 border border-[#2B2119] text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none"
+                  className="h-14 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none"
                 >
                   <span className="text-xl sm:text-2xl font-extrabold tracking-tight leading-none">0</span>
                 </button>
@@ -700,7 +700,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={handleBackspace}
                   disabled={isSubmitting || pin.length === 0}
-                  className="h-14 sm:h-15 rounded-2xl bg-[#110D0A] hover:bg-[#1A1410] active:scale-95 border border-[#2B2119] text-slate-400 hover:text-white font-bold text-lg transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none"
+                  className="h-14 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-slate-400 hover:text-white font-bold text-lg transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none"
                 >
                   <i className="fa-solid fa-delete-left text-base" />
                 </button>
@@ -710,7 +710,7 @@ export default function TerminalLoginPage() {
             /* Owner Email & Password Form */
             <form onSubmit={handleRecoverySubmit} className="space-y-4 pt-1">
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono uppercase text-[#8C8275]">
+                <label className="block text-xs font-mono uppercase text-slate-400">
                   Owner Email Address
                 </label>
                 <div className="relative">
@@ -721,13 +721,13 @@ export default function TerminalLoginPage() {
                     placeholder="owner@restaurant.com"
                     value={recoveryEmail}
                     onChange={(e) => setRecoveryEmail(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-[#0F0C09] border border-[#2E231B] focus:border-[#D96B27] rounded-xl text-xs text-white placeholder-[#5A4E42] outline-none transition-colors"
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white placeholder-slate-500 outline-none transition-colors"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono uppercase text-[#8C8275]">
+                <label className="block text-xs font-mono uppercase text-slate-400">
                   Master Password
                 </label>
                 <div className="relative">
@@ -738,7 +738,7 @@ export default function TerminalLoginPage() {
                     placeholder="••••••••••••"
                     value={recoveryPassword}
                     onChange={(e) => setRecoveryPassword(e.target.value)}
-                    className="w-full pl-9 pr-10 py-2.5 bg-[#0F0C09] border border-[#2E231B] focus:border-[#D96B27] rounded-xl text-xs text-white placeholder-[#5A4E42] outline-none transition-colors"
+                    className="w-full pl-9 pr-10 py-2.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white placeholder-slate-500 outline-none transition-colors"
                   />
                   <button
                     type="button"
@@ -759,7 +759,7 @@ export default function TerminalLoginPage() {
               <button
                 type="submit"
                 disabled={isRecoverySubmitting}
-                className="w-full py-3 bg-gradient-to-r from-[#D96B27] to-[#B85418] hover:from-[#E3752F] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#D96B27]/25 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/25 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
               >
                 <i className="fa-solid fa-arrow-right-to-bracket text-xs" />
                 <span>{isRecoverySubmitting ? "Authenticating..." : "Sign In to Restaurant Console"}</span>
@@ -768,16 +768,16 @@ export default function TerminalLoginPage() {
           )}
 
           {/* Terminal Footer */}
-          <div className="pt-3 border-t border-[#261E17] flex items-center justify-between text-[11px] font-mono text-[#8C8275]">
+          <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400">
             <Link
               href="/super-admin/login"
-              className="hover:text-[#D96B27] transition-colors flex items-center gap-1.5"
+              className="hover:text-amber-400 transition-colors flex items-center gap-1.5"
             >
               <i className="fa-solid fa-shield-halved text-[10px]" />
               <span>Super Admin Console</span>
             </Link>
 
-            <span className="text-[10px] text-[#63594D]">Order Desk v2.4</span>
+            <span className="text-[10px] text-slate-500">Order Desk v2.4</span>
           </div>
         </div>
       </section>
