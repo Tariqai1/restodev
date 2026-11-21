@@ -23,68 +23,100 @@ async function isAuthorizedSuperAdmin(user: { id: string; email?: string | null 
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const isLoginPage = request.nextUrl.pathname === "/login";
-  const isSuperAdminLoginPage = request.nextUrl.pathname === "/super-admin/login";
-  const isSetupPage = request.nextUrl.pathname === "/setup";
-  const isEnterPage = request.nextUrl.pathname === "/enter";
-  const isCustomerTableRoute = request.nextUrl.pathname.startsWith("/table/");
-  const isCustomerOnlineRoute = request.nextUrl.pathname.startsWith("/r/");
+  const pathname = request.nextUrl.pathname;
+  const isLoginPage = pathname === "/login";
+  const isSuperAdminLoginPage = pathname === "/super-admin/login";
+  const isSetupPage = pathname === "/setup";
+  const isEnterPage = pathname === "/enter";
+  const isCustomerTableRoute = pathname.startsWith("/table/");
+  const isCustomerOnlineRoute = pathname.startsWith("/r/");
   const isPublicApi =
-    request.nextUrl.pathname === "/api/health" ||
-    request.nextUrl.pathname === "/api/setup" ||
-    request.nextUrl.pathname.startsWith("/api/public/") ||
-    request.nextUrl.pathname.startsWith("/api/auth/") ||
-    request.nextUrl.pathname.startsWith("/api/ai/");
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
-
-  const isSuperAdminRoute = request.nextUrl.pathname.startsWith("/super-admin");
+    pathname === "/api/health" ||
+    pathname === "/api/setup" ||
+    pathname.startsWith("/api/public/") ||
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/ai/");
+  const isApiRoute = pathname.startsWith("/api/");
+  const isSuperAdminRoute = pathname.startsWith("/super-admin");
   const isSuperAdminDashboard = isSuperAdminRoute && !isSuperAdminLoginPage;
+
+  // Check if any Supabase authentication cookies exist
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.includes("auth-token") || c.name.startsWith("sb-"));
+
+  // FAST PATH: If route is purely public (guest APIs, table QR, online store, setup), bypass auth call entirely
+  if (isPublicApi || isSetupPage || isEnterPage || isCustomerTableRoute || isCustomerOnlineRoute) {
+    return response;
+  }
+
+  // FAST PATH: If visiting login pages without any session cookie, allow immediately
+  if ((isLoginPage || isSuperAdminLoginPage) && !hasAuthCookie) {
+    return response;
+  }
+
+  // FAST PATH: If route is protected but user has no auth cookie at all, reject/redirect immediately without blocking
+  if (!hasAuthCookie) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { ok: false, authenticated: false, message: "Staff authentication required" },
+        { status: 401 }
+      );
+    }
+    if (isSuperAdminRoute) {
+      return NextResponse.redirect(new URL("/super-admin/login", request.url));
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // User has auth cookie: instantiate Supabase client safely
+  let user: { id: string; email?: string | null } | null = null;
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+            response = NextResponse.next({ request });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
+    );
+
+    const userRes = await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<{ data: { user: null }; error: Error }>((_, reject) =>
+        setTimeout(() => reject(new Error("Auth timeout")), 3500)
+      ),
+    ]);
+    user = userRes.data.user;
+  } catch {
+    user = null;
+  }
 
   const isSuperAdmin = await isAuthorizedSuperAdmin(user);
 
   if (!user) {
-    if (
-      isPublicApi ||
-      isLoginPage ||
-      isSuperAdminLoginPage ||
-      isSetupPage ||
-      isEnterPage ||
-      isCustomerTableRoute ||
-      isCustomerOnlineRoute
-    ) {
+    if (isLoginPage || isSuperAdminLoginPage) {
       return response;
     }
 
     if (isApiRoute) {
       return NextResponse.json(
         { ok: false, authenticated: false, message: "Staff authentication required" },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
-    // Direct unauthenticated super-admin visitors to dedicated super-admin login
     if (isSuperAdminRoute) {
       return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
