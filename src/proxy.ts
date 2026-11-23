@@ -25,6 +25,16 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const pathname = request.nextUrl.pathname;
+
+  // FAST PATH: Never intercept Next.js internal paths (HMR, chunks, telemetry) or WebSocket upgrades
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.includes("/hmr") ||
+    request.headers.get("upgrade")?.toLowerCase() === "websocket"
+  ) {
+    return response;
+  }
+
   const isLoginPage = pathname === "/login";
   const isSuperAdminLoginPage = pathname === "/super-admin/login";
   const isSetupPage = pathname === "/setup";
@@ -179,6 +189,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|css|js)$).*)",
+    "/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|css|js)$).*)",
   ],
 };
