@@ -51,10 +51,21 @@ export async function proxy(request: NextRequest) {
   const isSuperAdminRoute = pathname.startsWith("/super-admin");
   const isSuperAdminDashboard = isSuperAdminRoute && !isSuperAdminLoginPage;
 
-  // Check if any Supabase authentication cookies exist
+  // Check if any authentication cookies exist (Supabase auth or active staff/impersonate PIN session)
   const hasAuthCookie = request.cookies
     .getAll()
-    .some((c) => c.name.includes("auth-token") || c.name.startsWith("sb-"));
+    .some(
+      (c) =>
+        c.name.includes("auth-token") ||
+        c.name.startsWith("sb-") ||
+        c.name === "od_active_staff" ||
+        c.name === "od_impersonate_resto"
+    );
+
+  // FAST PATH: All API routes perform their own fine-grained authentication (requireSuperAdmin, getStaffContext, etc.)
+  if (isApiRoute) {
+    return response;
+  }
 
   // FAST PATH: If route is purely public (guest APIs, table QR, online store, setup), bypass auth call entirely
   if (isPublicApi || isSetupPage || isEnterPage || isCustomerTableRoute || isCustomerOnlineRoute) {
@@ -66,14 +77,8 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // FAST PATH: If route is protected but user has no auth cookie at all, reject/redirect immediately without blocking
+  // FAST PATH: If route is protected page but user has no auth cookie at all, redirect to login
   if (!hasAuthCookie) {
-    if (isApiRoute) {
-      return NextResponse.json(
-        { ok: false, authenticated: false, message: "Staff authentication required" },
-        { status: 401 }
-      );
-    }
     if (isSuperAdminRoute) {
       return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
@@ -120,11 +125,10 @@ export async function proxy(request: NextRequest) {
       return response;
     }
 
-    if (isApiRoute) {
-      return NextResponse.json(
-        { ok: false, authenticated: false, message: "Staff authentication required" },
-        { status: 401 }
-      );
+    const hasStaffCookie = request.cookies.has("od_active_staff") || request.cookies.has("od_impersonate_resto");
+    if (hasStaffCookie && !isSuperAdminRoute) {
+      // Allow active staff PIN sessions (waiter, kitchen, rider, captain)
+      return response;
     }
 
     if (isSuperAdminRoute) {
