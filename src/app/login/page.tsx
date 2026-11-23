@@ -23,33 +23,6 @@ const KEYPAD_BUTTONS = [
   { digit: "9", sub: "WXYZ" },
 ];
 
-const SAAS_FEATURES = [
-  {
-    icon: "fa-qrcode",
-    color: "from-amber-500 to-orange-600",
-    title: "Instant QR Table Ordering & AI Waiter",
-    desc: "Guests scan & order in seconds without downloading apps. Smart AI upselling boosts average ticket size by 24%.",
-  },
-  {
-    icon: "fa-fire-burner",
-    color: "from-rose-500 to-red-600",
-    title: "Kitchen Display System (KDS)",
-    desc: "Paperless cook tickets, station routing, preparation time tracking, and instant food-ready notifications.",
-  },
-  {
-    icon: "fa-motorcycle",
-    color: "from-blue-500 to-indigo-600",
-    title: "0% Commission Direct Online Store",
-    desc: "Sell delivery & takeaway directly to your customers with WhatsApp alerts. Keep 100% of your profits.",
-  },
-  {
-    icon: "fa-file-invoice-dollar",
-    color: "from-emerald-500 to-teal-600",
-    title: "Lightning Cloud POS & GST Invoicing",
-    desc: "Fast 3-second thermal printing, cash register shifts, UPI auto-reconciliation, and multi-user PIN access.",
-  },
-];
-
 export default function TerminalLoginPage() {
   const router = useRouter();
 
@@ -71,6 +44,10 @@ export default function TerminalLoginPage() {
   // Connectivity & Role Filter state
   const [isOnline, setIsOnline] = useState(true);
   const [roleFilter, setRoleFilter] = useState<"all" | "waiter" | "kitchen" | "rider" | "owner">("all");
+
+  // Live POS Terminal Clock
+  const [clock, setClock] = useState({ time: "", date: "" });
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Owner recovery toggle
   const [showEmailRecovery, setShowEmailRecovery] = useState(false);
@@ -96,6 +73,41 @@ export default function TerminalLoginPage() {
   useEffect(() => {
     isSubmittingRef.current = isSubmitting;
   }, [isSubmitting]);
+
+  // Live Clock Updater
+  useEffect(() => {
+    function updateClock() {
+      const now = new Date();
+      setClock({
+        time: now.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        }),
+        date: now.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      });
+    }
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  function toggleFullscreen() {
+    if (typeof document === "undefined") return;
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => undefined);
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => undefined);
+      setIsFullscreen(false);
+    }
+  }
 
   const handlePinSubmit = useCallback(
     async (pinToVerify: string, overrideStaffId?: string, overrideRestoId?: string) => {
@@ -182,7 +194,7 @@ export default function TerminalLoginPage() {
             if (found) targetStaff = found;
           }
 
-          // Universal Quick PIN mode: do not force first staff member
+          // Universal Quick PIN mode: default to null so anyone can type their PIN
           setSelectedStaff(targetStaff);
           selectedStaffRef.current = targetStaff;
           if (targetStaff) {
@@ -294,20 +306,22 @@ export default function TerminalLoginPage() {
   }
 
   function getInitials(name: string): string {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "ST";
+    return (
+      name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "ST"
+    );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col-reverse lg:flex-row items-stretch selection:bg-amber-500 selection:text-slate-950 relative overflow-x-hidden">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950 relative overflow-x-hidden font-sans">
       {/* Background ambient lighting */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-amber-500/10 to-amber-600/5 rounded-full blur-[140px]" />
-        <div className="absolute bottom-10 right-10 w-[450px] h-[450px] bg-amber-500/5 rounded-full blur-[150px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-tr from-amber-500/10 via-amber-600/5 to-transparent rounded-full blur-[140px]" />
+        <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none" />
       </div>
 
       {/* AUTHENTICATION SUCCESS OVERLAY (Toast / Square POS Style) */}
@@ -382,112 +396,23 @@ export default function TerminalLoginPage() {
       )}
 
       {/* ======================================================== */}
-      {/* LEFT SIDE: ORDER DESK SAAS PLATFORM SHOWCASE */}
+      {/* TOP HEADER: REAL HARDWARE POS TERMINAL BAR */}
       {/* ======================================================== */}
-      <section className="relative z-10 flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-14 xl:p-16 border-b lg:border-b-0 lg:border-r border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900/60 to-slate-950">
-        {/* Brand Header */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-slate-950 text-xl font-black shadow-lg shadow-amber-500/20 border border-amber-400/40">
-                <i className="fa-solid fa-utensils" />
-              </div>
-              <div>
-                <span className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                  Order Desk
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                    SaaS Cloud
-                  </span>
-                </span>
-                <span className="text-[11px] text-slate-400 block font-mono">
-                  Enterprise Restaurant Operating System
-                </span>
-              </div>
-            </div>
-
-            {/* Live Status Pill */}
-            <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-medium text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Cloud Services 100% Live</span>
-            </div>
+      <header className="relative z-20 w-full px-4 sm:px-8 py-3.5 sm:py-4 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md flex items-center justify-between">
+        {/* Restaurant Identity */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-slate-950 text-lg font-black shadow-lg shadow-amber-500/20 border border-amber-400/40 shrink-0">
+            <i className="fa-solid fa-utensils" />
           </div>
-
-          {/* Hero Pitch */}
-          <div className="space-y-3 pt-4">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black text-white tracking-tight leading-[1.15]">
-              Everything your restaurant needs,{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500">
-                powered by one unified cloud.
-              </span>
-            </h1>
-            <p className="text-sm sm:text-base text-slate-400 max-w-xl leading-relaxed">
-              Order Desk is the all-in-one SaaS hospitality platform designed to replace messy multi-software stacks with a seamless QR engine, smart KDS, billing, and direct delivery.
-            </p>
-          </div>
-
-          {/* SaaS Core Feature Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-4">
-            {SAAS_FEATURES.map((feat, idx) => (
-              <div
-                key={idx}
-                className="rounded-2xl border border-slate-800/80 bg-slate-900/60 hover:bg-slate-900/90 hover:border-slate-700 transition-all p-4 space-y-2 group shadow-sm"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${feat.color} text-white flex items-center justify-center text-xs shadow-md shrink-0`}
-                  >
-                    <i className={`fa-solid ${feat.icon}`} />
-                  </span>
-                  <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
-                    {feat.title}
-                  </h3>
-                </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  {feat.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* SaaS Footer Metrics & Trust Badge */}
-        <div className="pt-8 mt-6 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <div>
-              <span className="text-lg font-bold text-white font-mono">99.98%</span>
-              <span className="text-[10px] text-slate-500 block uppercase font-mono">Platform Uptime</span>
-            </div>
-            <div className="h-6 w-px bg-slate-800" />
-            <div>
-              <span className="text-lg font-bold text-emerald-400 font-mono">0% Fee</span>
-              <span className="text-[10px] text-slate-500 block uppercase font-mono">Direct Orders</span>
-            </div>
-            <div className="h-6 w-px bg-slate-800" />
-            <div>
-              <span className="text-lg font-bold text-amber-400 font-mono">&lt; 50ms</span>
-              <span className="text-[10px] text-slate-500 block uppercase font-mono">Sync Latency</span>
-            </div>
-          </div>
-
-          <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
-            <i className="fa-solid fa-lock text-amber-500" />
-            <span>256-Bit TLS Bank-Grade Encryption</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================================== */}
-      {/* RIGHT SIDE: FAST & SMOOTH AUTHENTICATION TERMINAL */}
-      {/* ======================================================== */}
-      <section className="relative z-10 w-full lg:w-[480px] xl:w-[520px] flex items-center justify-center p-4 sm:p-8 lg:p-10 shrink-0">
-        <div className="w-full max-w-[420px] bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/80 backdrop-blur-xl space-y-5">
-          {/* Terminal Location & Restaurant Title */}
-          <header className="space-y-2 border-b border-slate-800 pb-4">
-            <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">
+                {restaurantName}
+              </h1>
               <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${
                   isOnline
-                    ? "bg-slate-950 border-slate-800 text-emerald-400"
+                    ? "bg-slate-900 border-slate-800 text-emerald-400"
                     : "bg-amber-950/80 border-amber-500/50 text-amber-300 animate-pulse"
                 }`}
               >
@@ -496,24 +421,42 @@ export default function TerminalLoginPage() {
                     isOnline ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
                   }`}
                 />
-                <span>{isOnline ? "Terminal Online" : "Reconnecting..."}</span>
-              </span>
-
-              <span className="text-[11px] font-bold font-mono tracking-wider text-amber-400 uppercase">
-                Order Desk POS
+                <span>{isOnline ? "Station Online" : "Reconnecting"}</span>
               </span>
             </div>
+            <p className="text-[11px] text-slate-400 font-mono">
+              POS Terminal · Shift Clock-In
+            </p>
+          </div>
+        </div>
 
-            <div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
-                {restaurantName}
-              </h2>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {showEmailRecovery ? "Owner Master Login & Settings" : "Fast Staff PIN Access & Shift Clock-In"}
-              </p>
+        {/* Live Digital Clock & Fullscreen Switcher */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="text-right">
+            <div className="text-sm sm:text-base font-extrabold text-amber-300 font-mono tracking-wider leading-tight">
+              {clock.time || "00:00:00"}
             </div>
-          </header>
+            <div className="text-[10px] sm:text-[11px] text-slate-400 font-mono hidden sm:block">
+              {clock.date}
+            </div>
+          </div>
 
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen POS Mode"}
+            className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer text-xs"
+          >
+            <i className={`fa-solid ${isFullscreen ? "fa-compress" : "fa-expand"}`} />
+          </button>
+        </div>
+      </header>
+
+      {/* ======================================================== */}
+      {/* CENTER: HARDWARE-GRADE TACTILE POS KEYPAD */}
+      {/* ======================================================== */}
+      <section className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
+        <div className="w-full max-w-[420px] bg-slate-900/95 border border-slate-800/90 rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/90 backdrop-blur-2xl space-y-4">
           {/* Staff PIN / Owner Switcher Tabs */}
           <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
             <button
@@ -750,7 +693,7 @@ export default function TerminalLoginPage() {
                     type="button"
                     onClick={() => handleKeyPress(item.digit)}
                     disabled={isSubmitting}
-                    className="h-13 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none touch-manipulation"
+                    className="h-14 sm:h-16 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none touch-manipulation"
                   >
                     <span className="text-xl sm:text-2xl font-extrabold tracking-tight leading-none">
                       {item.digit}
@@ -767,7 +710,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={handleClear}
                   disabled={isSubmitting || pin.length === 0}
-                  className="h-13 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-amber-400 hover:text-amber-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none touch-manipulation"
+                  className="h-14 sm:h-16 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-amber-400 hover:text-amber-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none touch-manipulation"
                 >
                   CLEAR
                 </button>
@@ -776,7 +719,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={() => handleKeyPress("0")}
                   disabled={isSubmitting}
-                  className="h-13 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none touch-manipulation"
+                  className="h-14 sm:h-16 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none touch-manipulation"
                 >
                   <span className="text-xl sm:text-2xl font-extrabold tracking-tight leading-none">0</span>
                 </button>
@@ -785,7 +728,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={handleBackspace}
                   disabled={isSubmitting || pin.length === 0}
-                  className="h-13 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-slate-400 hover:text-white font-bold text-lg transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none touch-manipulation"
+                  className="h-14 sm:h-16 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-slate-400 hover:text-white font-bold text-lg transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none touch-manipulation"
                 >
                   <i className="fa-solid fa-delete-left text-base" />
                 </button>
@@ -866,6 +809,26 @@ export default function TerminalLoginPage() {
           </div>
         </div>
       </section>
+
+      {/* ======================================================== */}
+      {/* BOTTOM TICKER: HARDWARE POS STATUS BAR */}
+      {/* ======================================================== */}
+      <footer className="relative z-10 w-full px-4 sm:px-8 py-3 border-t border-slate-800/80 bg-slate-950/70 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-slate-500">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>Encrypted POS Terminal Session</span>
+          </span>
+          <span className="hidden sm:inline">|</span>
+          <span className="hidden sm:inline text-slate-500">KDS & QR Floor Connected</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span>Station ID: #{restaurantId?.slice(0, 6) || "TERMINAL-01"}</span>
+          <span>·</span>
+          <span>Auto-Lock Enabled</span>
+        </div>
+      </footer>
     </main>
   );
 }
