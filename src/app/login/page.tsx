@@ -58,6 +58,8 @@ export default function TerminalLoginPage() {
   const [restaurantName, setRestaurantName] = useState("Order Desk Restaurant");
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<StaffProfile | null>(null);
+  const [showStaffRoster, setShowStaffRoster] = useState(false);
+  const [authenticatedStaff, setAuthenticatedStaff] = useState<{ id?: string; name: string; role: string } | null>(null);
 
   // PIN state
   const [pin, setPin] = useState("");
@@ -111,7 +113,7 @@ export default function TerminalLoginPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            staffId: staffIdToUse,
+            staffId: staffIdToUse || undefined,
             restaurantId: restoIdToUse,
             pin: pinToVerify,
           }),
@@ -123,8 +125,14 @@ export default function TerminalLoginPage() {
           throw new Error(data.message || "Incorrect PIN");
         }
 
-        router.push(data.redirect || "/");
-        router.refresh();
+        if (data.staff) {
+          setAuthenticatedStaff(data.staff);
+        }
+
+        setTimeout(() => {
+          router.push(data.redirect || "/");
+          router.refresh();
+        }, 500);
       } catch (err) {
         setIsAutoLoggingIn(false);
         setErrorMessage(err instanceof Error ? err.message : "Incorrect PIN");
@@ -165,7 +173,7 @@ export default function TerminalLoginPage() {
         if (data.staff?.length > 0) {
           setStaffList(data.staff);
 
-          let targetStaff = data.staff[0];
+          let targetStaff: StaffProfile | null = null;
           if (staffParam) {
             const found = data.staff.find((s: StaffProfile) => s.id === staffParam);
             if (found) targetStaff = found;
@@ -173,8 +181,13 @@ export default function TerminalLoginPage() {
             const found = data.staff.find((s: StaffProfile) => s.role.toLowerCase() === roleParam.toLowerCase());
             if (found) targetStaff = found;
           }
+
+          // Universal Quick PIN mode: do not force first staff member
           setSelectedStaff(targetStaff);
           selectedStaffRef.current = targetStaff;
+          if (targetStaff) {
+            setShowStaffRoster(true);
+          }
 
           // 1-Tap Magic auto-login if valid 4-digit pin in query
           if (pinParam && pinParam.length === 4) {
@@ -290,12 +303,48 @@ export default function TerminalLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row items-stretch selection:bg-amber-500 selection:text-slate-950 relative overflow-x-hidden">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col-reverse lg:flex-row items-stretch selection:bg-amber-500 selection:text-slate-950 relative overflow-x-hidden">
       {/* Background ambient lighting */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[450px] bg-gradient-to-tr from-amber-500/10 to-amber-600/5 rounded-full blur-[140px]" />
         <div className="absolute bottom-10 right-10 w-[450px] h-[450px] bg-amber-500/5 rounded-full blur-[150px]" />
       </div>
+
+      {/* AUTHENTICATION SUCCESS OVERLAY (Toast / Square POS Style) */}
+      {authenticatedStaff && (
+        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+          <div className="relative mb-5">
+            <div className="w-20 h-20 rounded-3xl bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center text-emerald-400 text-3xl shadow-[0_0_40px_rgba(16,185,129,0.35)] animate-bounce">
+              <i className="fa-solid fa-check" />
+            </div>
+          </div>
+
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-xs font-mono font-bold text-emerald-300 mb-3 shadow-inner">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>AUTHENTICATED · CLOCKED IN</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Welcome, {authenticatedStaff.name}!
+          </h2>
+          <p className="text-xs text-slate-400 mt-1 font-mono uppercase tracking-wider">
+            {authenticatedStaff.role === "owner"
+              ? "👑 Owner Management Session"
+              : authenticatedStaff.role === "kitchen" || authenticatedStaff.role === "chef"
+              ? "🍳 Kitchen Display Rail"
+              : authenticatedStaff.role === "rider" || authenticatedStaff.role === "delivery"
+              ? "🛵 Delivery Rider Terminal"
+              : "🛎️ Floor Waiter Terminal"}
+          </p>
+
+          <div className="mt-7 flex flex-col items-center gap-2.5">
+            <div className="w-48 h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div className="h-full w-full bg-gradient-to-r from-emerald-500 to-amber-400 animate-pulse" />
+            </div>
+            <span className="text-[11px] text-slate-400 font-mono">Launching station...</span>
+          </div>
+        </div>
+      )}
 
       {/* 1-TAP MAGIC AUTO-LOGIN SPLASH OVERLAY */}
       {isAutoLoggingIn && (
@@ -501,133 +550,166 @@ export default function TerminalLoginPage() {
           </div>
 
           {!showEmailRecovery ? (
-            <div className="space-y-4">
-              {/* Role Fast Selector Tabs: Waiter / Kitchen / Rider / Owner */}
-              <div className="grid grid-cols-5 p-0.5 bg-slate-950 rounded-xl border border-slate-800 text-[10px] sm:text-[11px]">
-                {[
-                  { key: "all", label: "All" },
-                  { key: "waiter", label: "🛎️ Waiter" },
-                  { key: "kitchen", label: "🍳 Kitchen" },
-                  { key: "rider", label: "🛵 Rider" },
-                  { key: "owner", label: "👑 Owner" },
-                ].map((tab) => (
+            <div className="space-y-3.5 sm:space-y-4">
+              {/* Universal Quick PIN Mode Status Banner / Selected Profile Chip */}
+              {selectedStaff ? (
+                <div className="flex items-center justify-between px-3 py-2 bg-amber-500/15 border border-amber-500/40 rounded-xl text-xs shadow-inner">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black flex items-center justify-center text-[11px] shrink-0">
+                      {getInitials(selectedStaff.name)}
+                    </span>
+                    <div className="truncate">
+                      <div className="font-bold text-white truncate">{selectedStaff.name}</div>
+                      <div className="text-[10px] text-amber-300 uppercase font-mono">
+                        {selectedStaff.role} Profile Active
+                      </div>
+                    </div>
+                  </div>
                   <button
-                    key={tab.key}
                     type="button"
                     onClick={() => {
-                      if (typeof window !== "undefined" && navigator.vibrate) {
-                        navigator.vibrate(8);
-                      }
-                      setRoleFilter(tab.key as any);
-                      const match =
-                        tab.key === "all"
-                          ? staffList[0]
-                          : staffList.find((s) => {
-                              const r = s.role.toLowerCase();
-                              if (tab.key === "rider") return r === "rider" || r === "delivery";
-                              return r === tab.key;
-                            });
-                      if (match) {
-                        setSelectedStaff(match);
-                        setPin("");
-                      }
+                      setSelectedStaff(null);
+                      setPin("");
+                      setErrorMessage("");
                     }}
-                    className={`py-1.5 rounded-lg font-bold transition-all cursor-pointer text-center ${
-                      roleFilter === tab.key
-                        ? "bg-slate-800 text-amber-300 border border-amber-500/40 shadow-xs"
-                        : "text-slate-400 hover:text-white"
-                    }`}
+                    className="shrink-0 ml-2 text-[11px] text-amber-300 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer font-semibold flex items-center gap-1"
                   >
-                    {tab.label}
+                    <span>✕ Quick PIN</span>
                   </button>
-                ))}
-              </div>
-
-              {/* Staff Selector Pills */}
-              {staffList.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 uppercase">
-                    <span>Select Profile:</span>
-                    <span className="text-amber-400 font-bold">
-                      {staffList.filter((s) => {
-                        if (roleFilter === "all") return true;
-                        const r = s.role.toLowerCase();
-                        if (roleFilter === "rider") return r === "rider" || r === "delivery";
-                        return r === roleFilter;
-                      }).length} available
-                    </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-3.5 py-2 bg-slate-950/80 border border-slate-800/90 rounded-xl text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                    <span className="font-bold text-slate-200">Universal Quick PIN</span>
                   </div>
+                  <span className="text-[11px] text-slate-400 font-mono">Type any staff PIN</span>
+                </div>
+              )}
 
-                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
-                    {staffList
-                      .filter((s) => {
-                        if (roleFilter === "all") return true;
-                        const r = s.role.toLowerCase();
-                        if (roleFilter === "rider") return r === "rider" || r === "delivery";
-                        return r === roleFilter;
-                      })
-                      .map((member) => {
-                        const isSelected = selectedStaff?.id === member.id;
-                        const roleLabel =
-                          member.role === "owner"
-                            ? "👑 Owner"
-                            : member.role === "kitchen"
-                            ? "🍳 Kitchen"
-                            : member.role === "rider" || member.role === "delivery"
-                            ? "🛵 Rider"
-                            : member.role === "captain"
-                            ? "⭐ Captain"
-                            : "🛎️ Waiter";
+              {/* Collapsible Shift Staff Profiles Drawer */}
+              {staffList.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffRoster(!showStaffRoster)}
+                    className="w-full py-2 px-3 rounded-xl bg-slate-950/70 hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-[11px] font-medium flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <i className="fa-solid fa-users text-slate-500 text-[10px]" />
+                      <span>Select Profile by Name (Optional)</span>
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                      <span>{showStaffRoster ? "Hide Profiles" : "View Shift Staff"}</span>
+                      <i className={`fa-solid fa-chevron-${showStaffRoster ? "up" : "down"} text-[8px]`} />
+                    </span>
+                  </button>
 
-                        return (
+                  {/* Collapsible Roster Content */}
+                  {showStaffRoster && (
+                    <div className="mt-2 space-y-2 p-2.5 rounded-2xl bg-slate-950/90 border border-slate-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {/* Role Fast Selector Tabs: Waiter / Kitchen / Rider / Owner */}
+                      <div className="grid grid-cols-5 p-0.5 bg-slate-900 rounded-xl border border-slate-800 text-[10px]">
+                        {[
+                          { key: "all", label: "All" },
+                          { key: "waiter", label: "🛎️ Waiter" },
+                          { key: "kitchen", label: "🍳 Cook" },
+                          { key: "rider", label: "🛵 Rider" },
+                          { key: "owner", label: "👑 Owner" },
+                        ].map((tab) => (
                           <button
-                            key={member.id}
+                            key={tab.key}
                             type="button"
                             onClick={() => {
                               if (typeof window !== "undefined" && navigator.vibrate) {
                                 navigator.vibrate(8);
                               }
-                              setSelectedStaff(member);
-                              setPin("");
-                              setErrorMessage("");
+                              setRoleFilter(tab.key as any);
                             }}
-                            className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
-                              isSelected
-                                ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-white shadow-lg shadow-amber-500/10"
-                                : "bg-slate-950/80 border-slate-800 text-slate-300 hover:bg-slate-800/60 hover:text-white"
-                            }`}
-                        >
-                          <span
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${
-                              isSelected
-                                ? "bg-amber-500 text-slate-950 font-black"
-                                : "bg-slate-800 text-slate-400 border border-slate-700/80"
+                            className={`py-1 rounded-lg font-bold transition-all cursor-pointer text-center ${
+                              roleFilter === tab.key
+                                ? "bg-slate-800 text-amber-300 border border-amber-500/40 shadow-xs"
+                                : "text-slate-400 hover:text-white"
                             }`}
                           >
-                            {getInitials(member.name)}
-                          </span>
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
 
-                          <div className="truncate">
-                            <div className="text-xs font-bold leading-tight truncate text-white">
-                              {member.name}
-                            </div>
-                            <div
-                              className={`text-[10px] font-semibold leading-tight mt-0.5 ${
-                                isSelected ? "text-amber-300" : "text-slate-500"
-                              }`}
-                            >
-                              {roleLabel}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                      {/* Staff Grid */}
+                      <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-0.5">
+                        {staffList
+                          .filter((s) => {
+                            if (roleFilter === "all") return true;
+                            const r = s.role.toLowerCase();
+                            if (roleFilter === "rider") return r === "rider" || r === "delivery";
+                            return r === roleFilter;
+                          })
+                          .map((member) => {
+                            const isSelected = selectedStaff?.id === member.id;
+                            const roleLabel =
+                              member.role === "owner"
+                                ? "👑 Owner"
+                                : member.role === "kitchen"
+                                ? "🍳 Kitchen"
+                                : member.role === "rider" || member.role === "delivery"
+                                ? "🛵 Rider"
+                                : member.role === "captain"
+                                ? "⭐ Captain"
+                                : "🛎️ Waiter";
+
+                            return (
+                              <button
+                                key={member.id}
+                                type="button"
+                                onClick={() => {
+                                  if (typeof window !== "undefined" && navigator.vibrate) {
+                                    navigator.vibrate(8);
+                                  }
+                                  setSelectedStaff(member);
+                                  setPin("");
+                                  setErrorMessage("");
+                                }}
+                                className={`flex items-center gap-2 p-1.5 rounded-xl text-left transition-all cursor-pointer border ${
+                                  isSelected
+                                    ? "bg-amber-500/15 border-amber-500 ring-1 ring-amber-500/40 text-white shadow-xs"
+                                    : "bg-slate-900/80 border-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white"
+                                }`}
+                              >
+                                <span
+                                  className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                                    isSelected
+                                      ? "bg-amber-500 text-slate-950 font-black"
+                                      : "bg-slate-800 text-slate-400 border border-slate-700/80"
+                                  }`}
+                                >
+                                  {getInitials(member.name)}
+                                </span>
+
+                                <div className="truncate">
+                                  <div className="text-[11px] font-bold leading-tight truncate text-white">
+                                    {member.name}
+                                  </div>
+                                  <div
+                                    className={`text-[9px] font-semibold leading-tight mt-0.5 ${
+                                      isSelected ? "text-amber-300" : "text-slate-500"
+                                    }`}
+                                  >
+                                    {roleLabel}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Glowing PIN Dots Indicator */}
-              <div className={`text-center py-1 transition-transform ${isShaking ? "animate-shake" : ""}`}>
+              <div className={`text-center py-0.5 transition-transform ${isShaking ? "animate-shake" : ""}`}>
                 <div className="flex justify-center gap-4 mb-2">
                   {[0, 1, 2, 3].map((index) => {
                     const filled = pin.length > index;
@@ -649,10 +731,13 @@ export default function TerminalLoginPage() {
                     <i className="fa-solid fa-triangle-exclamation" />
                     <span>{errorMessage}</span>
                   </p>
+                ) : selectedStaff ? (
+                  <p className="text-xs text-slate-300">
+                    Enter PIN for <span className="text-white font-bold">{selectedStaff.name}</span>
+                  </p>
                 ) : (
                   <p className="text-xs text-slate-400">
-                    Enter 4-digit PIN for{" "}
-                    <span className="text-white font-bold">{selectedStaff?.name || "Terminal"}</span>
+                    Type your 4-digit staff PIN to sign in
                   </p>
                 )}
               </div>
@@ -665,7 +750,7 @@ export default function TerminalLoginPage() {
                     type="button"
                     onClick={() => handleKeyPress(item.digit)}
                     disabled={isSubmitting}
-                    className="h-14 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none"
+                    className="h-13 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none touch-manipulation"
                   >
                     <span className="text-xl sm:text-2xl font-extrabold tracking-tight leading-none">
                       {item.digit}
@@ -682,7 +767,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={handleClear}
                   disabled={isSubmitting || pin.length === 0}
-                  className="h-14 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-amber-400 hover:text-amber-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none"
+                  className="h-13 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-amber-400 hover:text-amber-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none touch-manipulation"
                 >
                   CLEAR
                 </button>
@@ -691,7 +776,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={() => handleKeyPress("0")}
                   disabled={isSubmitting}
-                  className="h-14 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none"
+                  className="h-13 sm:h-15 rounded-2xl bg-slate-800/90 hover:bg-slate-800 hover:border-amber-500/40 active:bg-amber-500/20 active:scale-95 border border-slate-700/80 text-white shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer disabled:opacity-50 select-none touch-manipulation"
                 >
                   <span className="text-xl sm:text-2xl font-extrabold tracking-tight leading-none">0</span>
                 </button>
@@ -700,7 +785,7 @@ export default function TerminalLoginPage() {
                   type="button"
                   onClick={handleBackspace}
                   disabled={isSubmitting || pin.length === 0}
-                  className="h-14 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-slate-400 hover:text-white font-bold text-lg transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none"
+                  className="h-13 sm:h-15 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-800 text-slate-400 hover:text-white font-bold text-lg transition-all flex items-center justify-center cursor-pointer disabled:opacity-30 select-none touch-manipulation"
                 >
                   <i className="fa-solid fa-delete-left text-base" />
                 </button>
