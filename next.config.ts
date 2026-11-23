@@ -17,13 +17,28 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",
   },
-  {
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains; preload",
-  },
+  ...(process.env.NODE_ENV === "production"
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=63072000; includeSubDomains; preload",
+        },
+      ]
+    : []),
 ];
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [
+    "192.168.0.102",
+    "192.168.0.102:3000",
+    "192.168.*.*",
+    "10.*.*.*",
+    "172.16.*.*",
+    "localhost",
+    "localhost:3000",
+    "127.0.0.1",
+    "127.0.0.1:3000",
+  ],
   images: {
     remotePatterns: [
       {
